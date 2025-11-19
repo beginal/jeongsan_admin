@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { entityId: string } }
+  { params }: { params: Promise<{ entityId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,6 +16,7 @@ export async function PATCH(
     );
   }
 
+  const { entityId } = await params;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   let body: any = {};
 
@@ -54,7 +55,7 @@ export async function PATCH(
     const { error } = await supabase
       .from("business_entities")
       .update(updates)
-      .eq("id", params.entityId);
+      .eq("id", entityId);
 
     if (error) {
       console.error(

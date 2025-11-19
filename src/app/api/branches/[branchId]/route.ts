@@ -15,7 +15,7 @@ interface UpdateBranchBody {
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { branchId: string } }
+  { params }: { params: Promise<{ branchId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -28,6 +28,7 @@ export async function PATCH(
     );
   }
 
+  const { branchId } = await params;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   let body: UpdateBranchBody;
@@ -39,8 +40,6 @@ export async function PATCH(
       { status: 400 }
     );
   }
-
-  const branchId = params.branchId;
 
   const updates: Record<string, any> = {};
   if (body.platform) updates.platform = body.platform;
@@ -159,7 +158,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { branchId: string } }
+  { params }: { params: Promise<{ branchId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -172,7 +171,7 @@ export async function DELETE(
     );
   }
 
-  const branchId = params.branchId;
+  const { branchId } = await params;
 
   try {
     const supabase = createClient(supabaseUrl, serviceRoleKey);

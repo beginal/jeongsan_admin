@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { promotionId: string } }
+  { params }: { params: Promise<{ promotionId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,8 +16,8 @@ export async function PATCH(
     );
   }
 
+  const { promotionId } = await params;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const promotionId = params.promotionId;
 
   let payload: any;
   try {
@@ -79,7 +79,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { promotionId: string } }
+  { params }: { params: Promise<{ promotionId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -92,8 +92,8 @@ export async function DELETE(
     );
   }
 
+  const { promotionId } = await params;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const promotionId = params.promotionId;
 
   let body: any = {};
   try {
@@ -143,4 +143,3 @@ export async function DELETE(
     );
   }
 }
-

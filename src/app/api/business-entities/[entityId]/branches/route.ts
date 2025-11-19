@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { entityId: string } }
+  { params }: { params: Promise<{ entityId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -18,6 +18,7 @@ export async function POST(
     );
   }
 
+  const { entityId } = await params;
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   let body: any = {};
@@ -40,8 +41,6 @@ export async function POST(
       { status: 400 }
     );
   }
-
-  const entityId = params.entityId;
 
   // 대상 사업자 유형 조회
   const { data: entity, error: entityError } = await supabase
@@ -180,4 +179,3 @@ export async function POST(
     );
   }
 }
-

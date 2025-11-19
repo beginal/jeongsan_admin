@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { riderId: string } }
+  { params }: { params: Promise<{ riderId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -16,6 +16,8 @@ export async function GET(
       { status: 500 }
     );
   }
+
+  const { riderId } = await params;
 
   try {
     const cookieStore = await cookies();
@@ -32,8 +34,6 @@ export async function GET(
         },
       },
     });
-
-    const riderId = params.riderId;
 
     const { data: ridersData, error: ridersError } = await supabase.rpc(
       "get_riders_for_admin"
@@ -110,7 +110,7 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { riderId: string } }
+  { params }: { params: Promise<{ riderId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -122,6 +122,8 @@ export async function PATCH(
       { status: 500 }
     );
   }
+
+  const { riderId } = await params;
 
   try {
     const cookieStore = await cookies();
@@ -138,8 +140,6 @@ export async function PATCH(
         },
       },
     });
-
-    const riderId = params.riderId;
 
     const body = await request.json().catch(() => ({}));
 
@@ -314,7 +314,7 @@ export async function PATCH(
 
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { riderId: string } }
+  { params }: { params: Promise<{ riderId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -328,6 +328,8 @@ export async function DELETE(
   }
 
   try {
+    const { riderId } = await params;
+
     const cookieStore = await cookies();
     const token = cookieStore.get("admin_v2_token")?.value;
 
@@ -342,8 +344,6 @@ export async function DELETE(
         },
       },
     });
-
-    const riderId = params.riderId;
 
     // 라이더와 연결된 소속 지사 비활성화
     await supabase
