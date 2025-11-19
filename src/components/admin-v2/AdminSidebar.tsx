@@ -1,6 +1,6 @@
 'use client';
 
-import type { ReactNode, ReactElement } from "react";
+import type { ReactNode, ComponentType } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,7 +18,7 @@ import {
 
 type NavGroupKey = "dashboard" | "settlement" | "branch" | "rider" | "lease";
 
-type IconComponent = (props: { className?: string }) => ReactElement;
+type IconComponent = ComponentType<{ className?: string }>;
 
 type NavItem = {
   label: string;
