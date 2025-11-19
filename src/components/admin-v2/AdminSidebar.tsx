@@ -195,7 +195,8 @@ function SidebarSection({
   isOpen,
   onToggle,
 }: SidebarSectionProps) {
-  const isAnyChildActive = section.items.some((item) =>
+  const items = section.items ?? [];
+  const isAnyChildActive = items.some((item) =>
     currentPath.startsWith(item.href)
   );
 
@@ -230,7 +231,7 @@ function SidebarSection({
         </span>
       </button>
       <div className={cn("space-y-1 pl-3", !isOpen && "hidden")}>
-        {section.items.map((item) => {
+        {items.map((item) => {
           const isActive =
             item.href === "/"
               ? currentPath === "/"

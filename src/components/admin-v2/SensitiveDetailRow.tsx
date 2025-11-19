@@ -55,12 +55,6 @@ export function SensitiveDetailRow({
       return formatMaskedAccountForDisplay(maskedDigits, bankName);
     }
 
-    if (type === "ssn") {
-      // 주민번호: 6자리-7자리 패턴 유지
-      if (maskedDigits.length <= 6) return maskedDigits;
-      return `${maskedDigits.slice(0, 6)}-${maskedDigits.slice(6)}`;
-    }
-
     return maskedDigits;
   };
 
