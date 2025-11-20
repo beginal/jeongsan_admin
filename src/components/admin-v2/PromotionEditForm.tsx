@@ -119,13 +119,17 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
           setDescription("");
         }
 
-        // 기간 설정
-        if (typeof cfg.startDate === "string" && cfg.startDate) {
+        // 기간 설정 (테이블 컬럼 우선, 레거시 config 값은 보조)
+        if (typeof p.start_date === "string" && p.start_date) {
+          setStartDate(p.start_date.slice(0, 10));
+        } else if (typeof cfg.startDate === "string" && cfg.startDate) {
           setStartDate(cfg.startDate.slice(0, 10));
         } else {
           setStartDate("");
         }
-        if (typeof cfg.endDate === "string" && cfg.endDate) {
+        if (typeof p.end_date === "string" && p.end_date) {
+          setEndDate(p.end_date.slice(0, 10));
+        } else if (typeof cfg.endDate === "string" && cfg.endDate) {
           setEndDate(cfg.endDate.slice(0, 10));
         } else {
           setEndDate("");
@@ -301,13 +305,6 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
         baseConfig.description = description.trim();
       }
 
-      if (startDate) {
-        baseConfig.startDate = startDate;
-      }
-      if (endDate) {
-        baseConfig.endDate = endDate;
-      }
-
       const normalizedPeakConds = peakConditions
         .filter((c) => c.slot && c.minCount.trim() !== "")
         .map((c) => ({
@@ -332,6 +329,8 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
             type,
             status,
             config: baseConfig,
+            start_date: startDate || null,
+            end_date: endDate || null,
           }),
         }
       );

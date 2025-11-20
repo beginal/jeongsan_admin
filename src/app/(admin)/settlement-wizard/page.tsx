@@ -20,12 +20,18 @@ type PromotionOption = {
   id: string;
   name: string;
   status: "active" | "scheduled" | "ended";
-  branchActive?: boolean;
+  config?: any;
+  startDate?: string | null;
+  endDate?: string | null;
 };
 
 type PromotionDetail = {
   type?: string;
-  summary?: string;
+  summaryLines?: string[];
+  peakLines?: string[];
+  typeLabel?: string;
+  startDate?: string | null;
+  endDate?: string | null;
   assignments?: Record<
     string,
     { startDate: string | null; endDate: string | null; active?: boolean }
@@ -40,6 +46,39 @@ type UploadEntry = {
   guessed: string | null;
 };
 
+type ParsedFileResult = {
+  summaries: {
+    licenseId: string;
+    riderName: string;
+    totalOrders: number;
+  }[];
+  details: {
+    licenseId: string;
+    riderName: string;
+    riderSuffix?: string;
+    branchName: string;
+    orderNo: string;
+    acceptedAt: string;
+    acceptedAtMs: number;
+    peakTime: string;
+    judgementDate: string;
+  }[];
+  missions: Record<string, any>[];
+};
+
+type AggRider = {
+  licenseId: string;
+  riderName: string;
+  riderSuffix: string;
+  totalOrders: number;
+  branchCounts: Record<string, number>;
+  peakByDate: Record<
+    string,
+    { Breakfast: number; Lunch_Peak: number; Post_Lunch: number; Dinner_Peak: number; Post_Dinner: number; total: number }
+  >;
+  details: ParsedFileResult["details"];
+};
+
 const excelAccept = ".xls,.xlsx,.xlsm";
 
 const statusClass = (s: PromotionOption["status"]) => {
@@ -48,26 +87,98 @@ const statusClass = (s: PromotionOption["status"]) => {
   return "border-slate-200 bg-slate-50 text-slate-600";
 };
 
-const buildPromotionSummary = (type?: string, cfg?: Record<string, any>) => {
-  if (!cfg) return "";
+const buildPromotionSummary = (type?: string, cfgRaw?: Record<string, any>) => {
+  const cfg = cfgRaw?.config ? cfgRaw.config : cfgRaw;
+  const lines: string[] = [];
+  const typeLabel =
+    type === "excess"
+      ? "건수 초과 보상"
+      : type === "milestone"
+        ? "목표 달성 보상"
+        : type === "milestone_per_unit"
+          ? "단위당 보상"
+          : type || "";
+
+  if (!cfg) return { lines, peakLines: [], typeLabel };
+
   if (type === "excess") {
-    const threshold = cfg.threshold ?? cfg.targetCount ?? 0;
-    const amt = cfg.amountPerExcess ?? cfg.amount ?? 0;
-    return `임계 ${threshold.toLocaleString()}건 초과 시 +${amt.toLocaleString()}원/건`;
+    const src = cfg.excess ?? cfg;
+    const threshold =
+      src.threshold ?? src.targetCount ?? src.base_count ?? src.count ?? 0;
+    const amt =
+      src.amountPerExcess ??
+      src.amount ??
+      src.amount_per_excess ??
+      src.excess_amount ??
+      0;
+    lines.push(`임계 ${Number(threshold).toLocaleString()}건 초과 시 +${Number(amt).toLocaleString()}원/건`);
+  } else if (type === "milestone") {
+    const srcTop: any =
+      cfg.milestones ?? cfg.milestone ?? cfg.tiers ?? cfg.levels ?? [];
+    const ms: any[] = Array.isArray(srcTop)
+      ? srcTop
+      : Array.isArray(srcTop?.tiers)
+        ? srcTop.tiers
+        : Array.isArray(srcTop?.levels)
+          ? srcTop.levels
+          : [];
+    ms.forEach((m: any, idx: number) => {
+      const threshold =
+        m.threshold ?? m.targetCount ?? m.target_count ?? m.base_count ?? 0;
+      const amount =
+        m.amount ??
+        m.rewardAmount ??
+        m.reward_amount ??
+        m.value ??
+        0;
+      lines.push(
+        `단계${idx + 1}: ${Number(threshold || 0).toLocaleString()}건 → ${Number(amount || 0).toLocaleString()}원`
+      );
+    });
+  } else if (type === "milestone_per_unit") {
+    const arrTop: any =
+      cfg.milestonePerUnit ?? cfg.milestone_per_unit ?? cfg.tiers ?? cfg.levels;
+    const arr: any[] = Array.isArray(arrTop) ? arrTop : Array.isArray(arrTop?.tiers) ? arrTop.tiers : [];
+    arr.forEach((m: any, idx: number) => {
+      const threshold = m.threshold ?? m.start ?? m.base_count ?? 0;
+      const unitSize = m.unitSize ?? m.size ?? m.per ?? 0;
+      const unitAmount = m.unitAmount ?? m.amount ?? m.unit_amount ?? 0;
+      lines.push(
+        `단계${idx + 1}: 기준 ${threshold ?? "-"}, ${unitSize ?? "-"}건당 ${Number(unitAmount || 0).toLocaleString()}원`
+      );
+    });
   }
-  if (type === "milestone") {
-    const first = Array.isArray(cfg.milestones) ? cfg.milestones[0] : null;
-    if (first) {
-      return `목표 ${Number(first.threshold || 0).toLocaleString()}건 → ${Number(first.amount || 0).toLocaleString()}원`;
-    }
+
+  const peak = cfg.peakPrecondition as any;
+  const peakLines: string[] = [];
+  if (peak && Array.isArray(peak.conditions) && peak.conditions.length > 0) {
+    peakLines.push(`피크타임 (${peak.mode || "AND"})`);
+    peak.conditions.forEach((c: any, idx: number) => {
+      const slot = c.slot || "-";
+      const min = c.minCount ?? "-";
+      peakLines.push(`조건${idx + 1}: ${slot} 최소 ${min}건`);
+    });
   }
-  if (type === "milestone_per_unit") {
-    const first = Array.isArray(cfg.milestonePerUnit) ? cfg.milestonePerUnit[0] : null;
-    if (first) {
-      return `기준 ${first.threshold} / ${first.unitSize}건당 ${Number(first.unitAmount || 0).toLocaleString()}원`;
-    }
+
+  return { lines, peakLines, typeLabel };
+};
+
+const normalizeDate = (v: any): string | null => {
+  if (!v) return null;
+  if (typeof v === "string") return v;
+  if (v instanceof Date) {
+    const yyyy = v.getFullYear();
+    const mm = String(v.getMonth() + 1).padStart(2, "0");
+    const dd = String(v.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
   }
-  return "";
+  return String(v);
+};
+
+const splitRider = (full: string) => {
+  const m = full.match(/^(.*?)(\d{4})$/);
+  if (m) return { name: m[1] || full, suffix: m[2] || "" };
+  return { name: full, suffix: "" };
 };
 
 export default function SettlementWizardStep1() {
@@ -83,8 +194,19 @@ export default function SettlementWizardStep1() {
   const [dragActive, setDragActive] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [globalPassword, setGlobalPassword] = useState("");
+  const loadedRef = useRef(false);
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [parsed, setParsed] = useState<{
+    riders: AggRider[];
+    branches: string[];
+    missions: Record<string, any>[];
+  } | null>(null);
+  const [selectedRider, setSelectedRider] = useState<string | null>(null);
 
   useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
     let cancelled = false;
 
     async function load() {
@@ -124,71 +246,61 @@ export default function SettlementWizardStep1() {
         setBranches(branchList);
 
         const map: Record<string, PromotionOption[]> = {};
-        const promoIds = new Set<string>();
+        const detailMap: Record<string, PromotionDetail> = {};
         const promotionsArr: any[] = Array.isArray(promoData.promotions)
           ? promoData.promotions
           : [];
+
         promotionsArr.forEach((p: any) => {
-          // 지사 단위 진행 중인 프로모션만 표시
+          const promoId = String(p.id);
+          const cfg = p.config || {};
           const isActive = p.status === "active";
-          if (!isActive) return;
-          const promo: PromotionOption = {
-            id: String(p.id),
-            name: p.name || "",
-            status: p.status || "ended",
-          } as PromotionOption;
+          const summary = buildPromotionSummary(p.type as string, cfg);
+
           const assigned = Array.isArray(p.branches) ? p.branches : [];
+          const byBranch: Record<string, { startDate: string | null; endDate: string | null; active?: boolean }> = {};
+
           assigned.forEach((b: any) => {
-            const bid = String(b.branchId || b.branch_id || "");
+            const bid = String(b.branchId || b.branch_id || b.id || "");
             if (!bid) return;
-            if (b.active === false) return; // 지사 배정이 비활성화된 경우 제외
-            promoIds.add(promo.id);
-            (map[bid] = map[bid] || []).push(promo);
+            const assignmentActive = b.active ?? b.is_active ?? b.isActive ?? true;
+            if (!assignmentActive) return;
+
+            const startDate = normalizeDate(
+              b.startDate ?? b.start_date ?? b.start_at ?? b.startAt
+            );
+            const endDate = normalizeDate(
+              b.endDate ?? b.end_date ?? b.end_at ?? b.endAt
+            );
+
+            byBranch[bid] = { startDate, endDate, active: assignmentActive };
+
+            if (isActive) {
+              const promo: PromotionOption = {
+                id: promoId,
+                name: p.name || "",
+                status: p.status || "ended",
+                config: cfg,
+                startDate: normalizeDate(p.start_date ?? p.startDate ?? p.start_at ?? p.startAt),
+                endDate: normalizeDate(p.end_date ?? p.endDate ?? p.end_at ?? p.endAt),
+              };
+              (map[bid] = map[bid] || []).push(promo);
+            }
           });
+
+          detailMap[promoId] = {
+            type: p.type as string,
+            typeLabel: summary.typeLabel,
+            summaryLines: summary.lines,
+            peakLines: summary.peakLines,
+            startDate: normalizeDate(p.start_date ?? p.startDate ?? p.start_at ?? p.startAt),
+            endDate: normalizeDate(p.end_date ?? p.endDate ?? p.end_at ?? p.endAt),
+            assignments: byBranch,
+          };
         });
+
         setPromotionByBranch(map);
-
-        // 프로모션 상세(설정/기간) 로드
-        if (promoIds.size > 0) {
-          const detailEntries = await Promise.all(
-            Array.from(promoIds).map(async (pid) => {
-              try {
-                const res = await fetch(`/api/promotions/${encodeURIComponent(pid)}`);
-                const data = await res.json().catch(() => ({}));
-                if (!res.ok || data?.error) return null;
-                const promo = data.promotion || {};
-                const cfg = promo.config || {};
-                const assignmentsArr: any[] = Array.isArray(data.assignments)
-                  ? data.assignments
-                  : [];
-                const byBranch: Record<string, { startDate: string | null; endDate: string | null; active?: boolean }> = {};
-                assignmentsArr.forEach((a) => {
-                  const bid = String(a.branch_id || a.id || "");
-                  if (!bid) return;
-                  byBranch[bid] = {
-                    startDate: a.start_date ? String(a.start_date) : null,
-                    endDate: a.end_date ? String(a.end_date) : null,
-                    active: a.active ?? a.is_active ?? true,
-                  };
-                });
-
-                const summary = buildPromotionSummary(promo.type as string, cfg);
-
-                return [pid, { type: promo.type as string, summary, assignments: byBranch }] as const;
-              } catch {
-                return null;
-              }
-            })
-          );
-
-          const detailMap: Record<string, PromotionDetail> = {};
-          detailEntries.forEach((entry) => {
-            if (!entry) return;
-            const [pid, detail] = entry;
-            detailMap[pid] = detail;
-          });
-          setPromotionDetail(detailMap);
-        }
+        setPromotionDetail(detailMap);
       } catch (e: any) {
         if (!cancelled) setError(e.message || "데이터를 불러오지 못했습니다.");
       } finally {
@@ -277,6 +389,130 @@ export default function SettlementWizardStep1() {
   const applyPasswordToAll = () => {
     if (!globalPassword.trim()) return;
     setUploads((prev) => prev.map((u) => ({ ...u, password: globalPassword })));
+  };
+
+  const parseUploadsForStep2 = async () => {
+    setParseError(null);
+    setParsed(null);
+    setParsing(true);
+    try {
+      if (uploads.length === 0) {
+        throw new Error("업로드된 파일이 없습니다.");
+      }
+      if (uploads.some((u) => !u.password || !u.branchId)) {
+        throw new Error("모든 파일의 비밀번호와 지사를 입력해주세요.");
+      }
+
+      const results: ParsedFileResult[] = [];
+      for (const u of uploads) {
+        const branchLabel =
+          branches.find((b) => b.id === u.branchId)?.name || u.branchId || "";
+        const form = new FormData();
+        form.append("file", u.file);
+        form.append("password", u.password);
+        form.append("branchName", branchLabel);
+
+        const res = await fetch("/api/settlement/parse", {
+          method: "POST",
+          body: form,
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.error) {
+          throw new Error(data?.error || "파일을 파싱하지 못했습니다.");
+        }
+        results.push(data as ParsedFileResult);
+      }
+
+      // 병합 및 집계
+      const summaryMap = new Map<string, { name: string; suffix: string; total: number }>();
+      results.forEach((r) => {
+        r.summaries.forEach((s) => {
+          const lic = s.licenseId || "-";
+          const sp = splitRider(s.riderName || "-");
+          summaryMap.set(lic, {
+            name: sp.name || "-",
+            suffix: sp.suffix || "",
+            total: s.totalOrders || 0,
+          });
+        });
+      });
+
+      const riderMap = new Map<string, AggRider>();
+      const branchSet = new Set<string>();
+
+      results.forEach((r) => {
+        r.details.forEach((d) => {
+          const lic = d.licenseId || "-";
+          const sp = splitRider(d.riderName || summaryMap.get(lic)?.name || "-");
+          const name = sp.name || "-";
+          const suffix = d.riderSuffix || sp.suffix || summaryMap.get(lic)?.suffix || "";
+          const existing =
+            riderMap.get(lic) ||
+            ({
+              licenseId: lic,
+              riderName: name,
+              riderSuffix: suffix,
+              totalOrders: 0,
+              branchCounts: {},
+              peakByDate: {},
+              details: [],
+            } as AggRider);
+
+          existing.details.push({ ...d, riderName: name, riderSuffix: suffix });
+          existing.branchCounts[d.branchName] =
+            (existing.branchCounts[d.branchName] || 0) + 1;
+          branchSet.add(d.branchName);
+
+          const peakKey = d.judgementDate;
+          existing.peakByDate[peakKey] = existing.peakByDate[peakKey] || {
+            Breakfast: 0,
+            Lunch_Peak: 0,
+            Post_Lunch: 0,
+            Dinner_Peak: 0,
+            Post_Dinner: 0,
+            total: 0,
+          };
+          const shift = d.peakTime as keyof AggRider["peakByDate"][string];
+          if (shift && existing.peakByDate[peakKey][shift] !== undefined) {
+            existing.peakByDate[peakKey][shift]! += 1;
+          }
+          existing.peakByDate[peakKey].total += 1;
+
+          riderMap.set(lic, existing);
+        });
+      });
+
+      // 총 오더수 설정
+      riderMap.forEach((r, lic) => {
+        const summary = summaryMap.get(lic);
+        const counted = Object.values(r.branchCounts).reduce((a, b) => a + b, 0);
+        r.totalOrders = summary?.total ?? counted;
+        if (!r.riderName || r.riderName === "-") {
+          r.riderName = summary?.name || "-";
+        }
+        if (!r.riderSuffix) {
+          r.riderSuffix = summary?.suffix || "";
+        }
+        r.details.sort((a, b) => b.acceptedAtMs - a.acceptedAtMs);
+      });
+
+      const branchesUsed = Array.from(branchSet).sort((a, b) =>
+        a.localeCompare(b, "ko")
+      );
+
+      setParsed({
+        riders: Array.from(riderMap.values()).sort((a, b) =>
+          (a.riderName || "").localeCompare(b.riderName || "", "ko")
+        ),
+        branches: branchesUsed,
+        missions: results.flatMap((r) => r.missions || []),
+      });
+      setSelectedRider(null);
+    } catch (e: any) {
+      setParseError(e.message || "파싱 중 오류가 발생했습니다.");
+    } finally {
+      setParsing(false);
+    }
   };
 
   const isStepComplete = useMemo(() => {
@@ -464,25 +700,48 @@ export default function SettlementWizardStep1() {
                           {branchPromos.map((p) => (
                             <div
                               key={p.id}
-                              className={`flex flex-wrap items-center gap-2 rounded-md border px-2 py-1 text-[11px] font-medium ${statusClass(p.status)}`}
+                              className={`flex flex-col gap-1 rounded-md border px-2 py-2 text-[11px] font-medium ${statusClass(p.status)}`}
                             >
-                              <span className="text-foreground">{p.name}</span>
-                              {promotionDetail[p.id]?.summary && (
-                                <span className="text-muted-foreground">
-                                  · {promotionDetail[p.id]?.summary}
-                                </span>
+                              <div className="flex items-center gap-1 text-foreground">
+                                <span>{p.name}</span>
+                                {promotionDetail[p.id]?.typeLabel && (
+                                  <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    {promotionDetail[p.id]?.typeLabel}
+                                  </span>
+                                )}
+                              </div>
+                              {promotionDetail[p.id]?.typeLabel && (
+                                <div className="text-muted-foreground">유형: {promotionDetail[p.id]?.typeLabel}</div>
                               )}
+                              {promotionDetail[p.id]?.summaryLines?.map((line, idx) => (
+                                <div key={idx} className="text-muted-foreground">
+                                  · {line}
+                                </div>
+                              ))}
                               {(() => {
                                 const assign = promotionDetail[p.id]?.assignments?.[u.branchId || ""];
-                                if (!assign || (!assign.startDate && !assign.endDate)) return null;
-                                const start = assign.startDate ? assign.startDate.slice(0, 10) : "";
-                                const end = assign.endDate ? assign.endDate.slice(0, 10) : "";
+                                const startRaw =
+                                  assign?.startDate ??
+                                  promotionDetail[p.id]?.startDate ??
+                                  "";
+                                const endRaw =
+                                  assign?.endDate ??
+                                  promotionDetail[p.id]?.endDate ??
+                                  "";
+                                if (!assign && !startRaw && !endRaw) return null;
+                                const start = startRaw ? startRaw.slice(0, 10) : "";
+                                const end = endRaw ? endRaw.slice(0, 10) : "";
                                 return (
-                                  <span className="text-muted-foreground">
-                                    · {start || "상시"} ~ {end || "상시"}
-                                  </span>
+                                  <div className="text-muted-foreground">
+                                    기간: {start || "-"} ~ {end || "-"}
+                                  </div>
                                 );
                               })()}
+                              {promotionDetail[p.id]?.peakLines?.map((line, idx) => (
+                                <div key={`peak-${idx}`} className="text-amber-700">
+                                  · {line}
+                                </div>
+                              ))}
                             </div>
                           ))}
                         </div>
@@ -506,6 +765,172 @@ export default function SettlementWizardStep1() {
           </div>
         </div>
       )}
+
+      {/* Step 2 */}
+      <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border pb-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <span className="text-lg font-semibold">S2</span>
+          </div>
+          <div>
+            <div className="text-[11px] text-muted-foreground">정산 마법사 / Step 2</div>
+            <h2 className="text-base font-semibold text-foreground">정산 파일 파싱 및 라이더별 집계</h2>
+            <p className="text-xs text-muted-foreground">
+              업로드한 파일을 해석해 라이더별 총 오더/지사별 오더, 피크타임 집계, 상세 오더 내역을 보여줍니다.
+            </p>
+          </div>
+          <div className="ml-auto flex items-center gap-2 text-[11px]">
+            <button
+              type="button"
+              className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+              onClick={parseUploadsForStep2}
+              disabled={parsing || uploads.length === 0 || uploads.some((u) => !u.password || !u.branchId)}
+            >
+              {parsing ? "파싱 중..." : "파일 파싱"}
+            </button>
+            {!parsing && parseError && (
+              <span className="text-[11px] text-red-600">{parseError}</span>
+            )}
+          </div>
+        </div>
+
+        {!parsed && (
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
+            파일 파싱 결과가 여기에 표시됩니다. 모든 파일에 지사와 비밀번호를 입력한 뒤 “파일 파싱”을 눌러주세요.
+          </div>
+        )}
+
+        {parsed && (
+            <div className="space-y-3">
+            <div className="overflow-x-auto overflow-y-auto rounded-lg border border-border max-h-[460px]">
+              <table className="min-w-full text-xs">
+                <thead className="sticky top-0 z-10 bg-muted/70 text-muted-foreground backdrop-blur">
+                  <tr>
+                    <th className="px-3 py-2 text-center font-semibold">라이선스 ID</th>
+                    <th className="px-3 py-2 text-center font-semibold">라이더명</th>
+                    <th className="px-3 py-2 text-center font-semibold">뒷번호</th>
+                    <th className="px-3 py-2 text-center font-semibold">총 오더</th>
+                    {parsed.branches.map((b) => (
+                      <th key={b} className="px-3 py-2 text-center font-semibold">
+                        {b} 오더
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {parsed.riders.map((r) => {
+                    const isSelected = selectedRider === r.licenseId;
+                    return (
+                      <tr
+                        key={r.licenseId}
+                        className={`border-b border-border cursor-pointer hover:bg-muted/50 ${isSelected ? "bg-muted/70" : ""}`}
+                        onClick={() =>
+                          setSelectedRider((prev) => (prev === r.licenseId ? null : r.licenseId))
+                        }
+                      >
+                        <td className="px-3 py-2 align-top text-center text-foreground">{r.licenseId}</td>
+                        <td className="px-3 py-2 align-top text-center text-foreground">{r.riderName}</td>
+                        <td className="px-3 py-2 align-top text-center text-foreground">{r.riderSuffix || "-"}</td>
+                        <td className="px-3 py-2 align-top text-center font-semibold text-foreground">
+                          {r.totalOrders.toLocaleString()}
+                        </td>
+                        {parsed.branches.map((b) => (
+                          <td key={b} className="px-3 py-2 align-top text-center text-foreground">
+                            {(r.branchCounts[b] || 0).toLocaleString()}
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {parsed.riders.map((r) => {
+              if (selectedRider !== r.licenseId) return null;
+
+              const peakEntries = Object.entries(r.peakByDate).sort((a, b) =>
+                a[0].localeCompare(b[0])
+              );
+
+              return (
+                <div key={`${r.licenseId}-details`} className="space-y-2 rounded-lg border border-border bg-muted/20 p-3 text-xs">
+                  <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                    <span>
+                      {r.riderName} ({r.licenseId}) 상세
+                    </span>
+                    <span>건수 {r.totalOrders.toLocaleString()}</span>
+                  </div>
+
+                  <div className="text-[11px] font-semibold text-foreground">판정일자 피크타임 집계</div>
+
+                  <div className="overflow-x-auto rounded-md border border-border bg-background">
+                    <table className="min-w-full text-[11px]">
+                      <thead className="sticky top-0 z-10 bg-muted/70 text-muted-foreground backdrop-blur">
+                        <tr>
+                          <th className="px-2 py-1 text-center font-semibold">판정일자</th>
+                          <th className="px-2 py-1 text-center font-semibold">Breakfast</th>
+                          <th className="px-2 py-1 text-center font-semibold">Lunch_Peak</th>
+                          <th className="px-2 py-1 text-center font-semibold">Post_Lunch</th>
+                          <th className="px-2 py-1 text-center font-semibold">Dinner_Peak</th>
+                          <th className="px-2 py-1 text-center font-semibold">Post_Dinner</th>
+                          <th className="px-2 py-1 text-center font-semibold">합계</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {peakEntries.map(([date, v]) => (
+                          <tr key={date} className="border-t border-border">
+                            <td className="px-2 py-1 text-center text-foreground">{date}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{v.Breakfast}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{v.Lunch_Peak}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{v.Post_Lunch}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{v.Dinner_Peak}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{v.Post_Dinner}</td>
+                            <td className="px-2 py-1 text-center font-semibold text-foreground">{v.total}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="text-[11px] font-semibold text-foreground">오더 상세 내역</div>
+
+                  <div className="overflow-x-auto rounded-md border border-border bg-background max-h-[360px]">
+                    <table className="min-w-full text-[11px]">
+                      <thead className="sticky top-0 z-10 bg-muted/70 text-muted-foreground backdrop-blur">
+                        <tr>
+                          <th className="px-2 py-1 text-center font-semibold">No</th>
+                          <th className="px-2 py-1 text-center font-semibold">라이더명</th>
+                          <th className="px-2 py-1 text-center font-semibold">뒷번호</th>
+                          <th className="px-2 py-1 text-center font-semibold">지사</th>
+                          <th className="px-2 py-1 text-center font-semibold">주문번호</th>
+                          <th className="px-2 py-1 text-center font-semibold">수락시간</th>
+                          <th className="px-2 py-1 text-center font-semibold">피크타임</th>
+                          <th className="px-2 py-1 text-center font-semibold">판정일자</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {r.details.map((d, idx) => (
+                          <tr key={`${d.orderNo}-${idx}`} className="border-t border-border">
+                            <td className="px-2 py-1 text-center text-foreground">{idx + 1}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{d.riderName}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{d.riderSuffix || "-"}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{d.branchName}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{d.orderNo}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{d.acceptedAt}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{d.peakTime}</td>
+                            <td className="px-2 py-1 text-center text-foreground">{d.judgementDate}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center justify-end gap-2 text-xs">
         <div className="flex-1 text-muted-foreground">

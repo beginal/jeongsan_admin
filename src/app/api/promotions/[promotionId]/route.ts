@@ -267,6 +267,8 @@ export async function GET(
           branch_id: String(a.branch_id),
           name,
           active: !!a.is_active,
+          start_date: a.start_date ? String(a.start_date) : null,
+          end_date: a.end_date ? String(a.end_date) : null,
         };
       }) ?? [];
 
@@ -407,6 +409,8 @@ export async function PATCH(
   if (body.type !== undefined) updates.type = body.type;
   if (body.status !== undefined) updates.status = body.status;
   if (body.config !== undefined) updates.config = body.config;
+  if (body.start_date !== undefined) updates.start_date = body.start_date || null;
+  if (body.end_date !== undefined) updates.end_date = body.end_date || null;
 
   if (updates.name) {
     const { data: exists } = await supabase
