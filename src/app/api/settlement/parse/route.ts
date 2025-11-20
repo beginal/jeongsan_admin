@@ -279,6 +279,9 @@ const parseMissionSheet = (wb: XLSX.WorkBook): MissionRow[] => {
     const nameRaw = ws[XLSX.utils.encode_cell({ r, c: colMap["이름"] })]?.v;
     if (!nameRaw) continue;
     const missionName = ws[XLSX.utils.encode_cell({ r, c: colMap["미션 명"] })]?.v || "";
+    if (typeof missionName !== "string" || !missionName.startsWith("기본미션_")) {
+      return;
+    }
 
     const startRaw = ws[XLSX.utils.encode_cell({ r, c: colMap["미션 시작"] })]?.v;
     const endRaw = ws[XLSX.utils.encode_cell({ r, c: colMap["미션 종료"] })]?.v;

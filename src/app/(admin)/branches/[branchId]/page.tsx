@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { BranchDeleteButton } from "@/components/admin-v2/BranchDeleteButton";
 import { BranchPromotionActions } from "@/components/admin-v2/BranchPromotionActions";
-import { BranchRiderActions } from "@/components/admin-v2/BranchRiderActions";
 
 interface BranchDetailPageProps {
   params: Promise<{ branchId: string }>;
@@ -570,14 +569,13 @@ export default async function BranchDetailPage({
                   <th className="px-3 py-2">라이더명</th>
                   <th className="px-3 py-2">연락처</th>
                   <th className="px-3 py-2">상태</th>
-                  <th className="px-3 py-2 text-right">작업</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-card">
                 {branchRiders.length === 0 && (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={3}
                       className="px-3 py-4 text-center text-[11px] text-muted-foreground"
                     >
                       소속 라이더가 없습니다.
@@ -585,8 +583,11 @@ export default async function BranchDetailPage({
                   </tr>
                 )}
                 {branchRiders.map((r) => (
-                  <tr key={r.id}>
-                    <td className="px-3 py-2 align-middle text-xs text-foreground">
+                  <tr
+                    key={r.id}
+                    className="relative cursor-pointer hover:bg-muted/70"
+                  >
+                    <td className="px-3 py-2 align-middle text-xs font-semibold text-primary">
                       {r.name || "-"}
                     </td>
                     <td className="px-3 py-2 align-middle text-xs text-muted-foreground">
@@ -601,9 +602,13 @@ export default async function BranchDetailPage({
                         {riderStatusLabel(r.verificationStatus)}
                       </span>
                     </td>
-                    <td className="px-3 py-2 align-middle text-right text-[11px]">
-                      <BranchRiderActions riderId={r.id} />
-                    </td>
+                    <a
+                      href={`/riders/${encodeURIComponent(r.id)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="absolute inset-0"
+                      aria-label={`${r.name} 상세 보기`}
+                    />
                   </tr>
                 ))}
               </tbody>

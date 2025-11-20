@@ -25,6 +25,8 @@ type BranchRider = {
   phoneSuffix: string;
 };
 
+type RentalFeeMap = Record<string, number>;
+
 type PromotionOption = {
   id: string;
   name: string;
@@ -136,6 +138,7 @@ type Step3Row = {
   withholding: number;
   matchedRiderId?: string;
   matchedRiderName?: string;
+  rentCostValue?: number;
 };
 
 const excelAccept = ".xls,.xlsx,.xlsm";
@@ -247,6 +250,8 @@ const splitRider = (full: string) => {
   return { name: full, suffix: "" };
 };
 
+const normalizeLic = (id: string | null | undefined) => (id ? String(id).trim() : "-");
+
 const formatCurrency = (v: number | string) => {
   const num = typeof v === "number" ? v : Number(v || 0);
   return num.toLocaleString();
@@ -269,6 +274,7 @@ export default function SettlementWizardStep1() {
   const [promotionByBranch, setPromotionByBranch] = useState<Record<string, PromotionOption[]>>({});
   const [promotionDetail, setPromotionDetail] = useState<Record<string, PromotionDetail>>({});
   const [branchRiders, setBranchRiders] = useState<Record<string, BranchRider[]>>({});
+  const [rentalFeeByRider, setRentalFeeByRider] = useState<RentalFeeMap>({});
   const [uploads, setUploads] = useState<UploadEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -281,9 +287,9 @@ export default function SettlementWizardStep1() {
   const [parsed, setParsed] = useState<{
     riders: AggRider[];
     branches: string[];
-  missions: Record<string, any>[];
-  summaries: Map<
-    string,
+    missions: Record<string, any>[];
+    summaries: Map<
+      string,
       {
         name: string;
         rawName: string;
@@ -307,16 +313,18 @@ export default function SettlementWizardStep1() {
       setLoading(true);
       setError(null);
       try {
-        const [branchRes, promoRes, ridersRes] = await Promise.all([
+        const [branchRes, promoRes, ridersRes, rentalsRes] = await Promise.all([
           fetch("/api/branches"),
           fetch("/api/promotions"),
           fetch("/api/branch-riders").catch(() => null),
+          fetch("/api/lease-rentals").catch(() => null),
         ]);
 
-        const [branchData, promoData, ridersData] = await Promise.all([
+        const [branchData, promoData, ridersData, rentalsData] = await Promise.all([
           branchRes.json().catch(() => ({})),
           promoRes.json().catch(() => ({})),
           ridersRes ? ridersRes.json().catch(() => ({})) : {},
+          rentalsRes ? rentalsRes.json().catch(() => ({})) : {},
         ]);
 
         if (!branchRes.ok || branchData?.error) {
@@ -412,6 +420,15 @@ export default function SettlementWizardStep1() {
             }
           );
           setBranchRiders(riderMap);
+        }
+        if (rentalsRes && rentalsRes.ok && Array.isArray(rentalsData?.rentals)) {
+          const feeMap: RentalFeeMap = {};
+          rentalsData.rentals.forEach((r: any) => {
+            if (r.riderId && r.dailyFee) {
+              feeMap[String(r.riderId)] = Number(r.dailyFee) || 0;
+            }
+          });
+          setRentalFeeByRider(feeMap);
         }
       } catch (e: any) {
         if (!cancelled) setError(e.message || "데이터를 불러오지 못했습니다.");
@@ -541,6 +558,7 @@ export default function SettlementWizardStep1() {
         string,
         {
           name: string;
+          rawName: string;
           suffix: string;
           total: number;
           branchName: string;
@@ -549,25 +567,26 @@ export default function SettlementWizardStep1() {
       >();
       results.forEach((r) => {
         r.summaries.forEach((s) => {
-          const lic = s.licenseId || "-";
+          const lic = normalizeLic(s.licenseId);
           const sp = splitRider(s.riderName || "-");
+          const prev = summaryMap.get(lic);
           summaryMap.set(lic, {
-            name: sp.name || "-",
-            rawName: s.riderNameRaw || s.riderName || "-",
-            suffix: sp.suffix || "",
-            total: s.totalOrders || 0,
-            branchName: s.branchName || "-",
+            name: prev?.name || sp.name || "-",
+            rawName: prev?.rawName || s.riderNameRaw || s.riderName || "-",
+            suffix: prev?.suffix || sp.suffix || "",
+            total: (prev?.total || 0) + (s.totalOrders || 0),
+            branchName: prev?.branchName || s.branchName || "-",
             fin: {
-              branchName: s.branchName || "-",
-              settlementAmount: s.settlementAmount || 0,
-              supportTotal: s.supportTotal || 0,
-              deduction: s.deduction || 0,
-              totalSettlement: s.totalSettlement || 0,
-              fee: s.fee || 0,
-              employment: s.employment || 0,
-              accident: s.accident || 0,
-              timeInsurance: s.timeInsurance || 0,
-              retro: s.retro || 0,
+              branchName: prev?.fin.branchName || s.branchName || "-",
+              settlementAmount: (prev?.fin.settlementAmount || 0) + (s.settlementAmount || 0),
+              supportTotal: (prev?.fin.supportTotal || 0) + (s.supportTotal || 0),
+              deduction: (prev?.fin.deduction || 0) + (s.deduction || 0),
+              totalSettlement: (prev?.fin.totalSettlement || 0) + (s.totalSettlement || 0),
+              fee: (prev?.fin.fee || 0) + (s.fee || 0),
+              employment: (prev?.fin.employment || 0) + (s.employment || 0),
+              accident: (prev?.fin.accident || 0) + (s.accident || 0),
+              timeInsurance: (prev?.fin.timeInsurance || 0) + (s.timeInsurance || 0),
+              retro: (prev?.fin.retro || 0) + (s.retro || 0),
             },
           });
         });
@@ -578,7 +597,7 @@ export default function SettlementWizardStep1() {
 
       results.forEach((r) => {
         r.details.forEach((d) => {
-          const lic = d.licenseId || "-";
+          const lic = normalizeLic(d.licenseId);
           const sp = splitRider(d.riderName || summaryMap.get(lic)?.name || "-");
           const name = sp.name || "-";
           const suffix = d.riderSuffix || sp.suffix || summaryMap.get(lic)?.suffix || "";
@@ -594,6 +613,8 @@ export default function SettlementWizardStep1() {
               details: [],
             } as AggRider);
 
+          existing.riderName = existing.riderName || name;
+          existing.riderSuffix = existing.riderSuffix || suffix;
           existing.details.push({ ...d, riderName: name, riderSuffix: suffix });
           existing.branchCounts[d.branchName] =
             (existing.branchCounts[d.branchName] || 0) + 1;
@@ -634,7 +655,8 @@ export default function SettlementWizardStep1() {
       });
 
       // 총 오더수 설정
-      riderMap.forEach((r, lic) => {
+      riderMap.forEach((r, licRaw) => {
+        const lic = normalizeLic(licRaw);
         const summary = summaryMap.get(lic);
         const counted = Object.values(r.branchCounts).reduce((a, b) => a + b, 0);
         r.totalOrders = summary?.total ?? counted;
@@ -644,6 +666,7 @@ export default function SettlementWizardStep1() {
         if (!r.riderSuffix) {
           r.riderSuffix = summary?.suffix || "";
         }
+        r.licenseId = lic;
         r.details.sort((a, b) => b.acceptedAtMs - a.acceptedAtMs);
       });
 
@@ -793,6 +816,10 @@ export default function SettlementWizardStep1() {
     [missionTotals]
   );
 
+  const getSummaryFor = (r: { riderName?: string; riderSuffix?: string; licenseId?: string }) => {
+    return r.licenseId ? parsed?.summaries.get(r.licenseId) : undefined;
+  };
+
   const step3Rows: Step3Row[] = useMemo(() => {
     if (!parsed) return [];
     return [...parsed.riders]
@@ -851,6 +878,11 @@ export default function SettlementWizardStep1() {
           return acc + amt;
         }, 0);
 
+        const rentCostWeekly =
+          matched?.id && rentalFeeByRider[matched.id]
+            ? rentalFeeByRider[matched.id] * 7
+            : 0;
+
         const overallTotal = totalSettlement + promoTotal + missionSum;
         const withholding = Math.floor((overallTotal * 0.033) / 10) * 10;
 
@@ -860,7 +892,7 @@ export default function SettlementWizardStep1() {
           riderSuffix: riderSuffixResolved || "-",
           branchName: primaryBranch,
           orderCount,
-          rentCost: "미연동",
+          rentCost: rentCostWeekly ? `${formatCurrency(rentCostWeekly)}원` : "-",
           payout: "미연동",
           fee,
           peakScore: "-",
@@ -878,9 +910,10 @@ export default function SettlementWizardStep1() {
           withholding,
           matchedRiderId: matched?.id,
           matchedRiderName: matched?.name,
+          rentCostValue: rentCostWeekly,
         };
       });
-  }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches, missionDates, missionTotals, findMatchedRider]);
+  }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider]);
 
   return (
     <div className="space-y-6">
@@ -1190,41 +1223,41 @@ export default function SettlementWizardStep1() {
                           setSelectedRider((prev) => (prev === r.licenseId ? null : r.licenseId))
                         }
                       >
-                        <td className="px-3 py-2 align-top text-center text-foreground">{r.licenseId}</td>
-                        <td className="px-3 py-2 align-top text-center text-foreground">
-                          {(() => {
-                            const summary = parsed.summaries.get(r.licenseId);
-                            const primaryBranch =
-                              summary?.branchName ||
-                              Object.entries(r.branchCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-                              "-";
-                            const match = findMatchedRider(
-                              primaryBranch,
-                              r.riderSuffix ||
-                                summary?.suffix ||
-                                splitRider(summary?.rawName || "").suffix ||
-                                ""
-                            );
-                            if (match) {
-                              return (
-                                <a
-                                  href={`/riders/${match.id}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="text-primary underline underline-offset-2"
-                                >
-                                  {r.riderName}
-                                </a>
-                              );
-                            }
-                            return r.riderName;
-                          })()}
-                        </td>
+                    <td className="px-3 py-2 align-top text-center text-foreground">{r.licenseId}</td>
+                    <td className="px-3 py-2 align-top text-center text-foreground">
+                      {(() => {
+                        const summary = getSummaryFor(r);
+                        const primaryBranch =
+                          summary?.branchName ||
+                          Object.entries(r.branchCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+                          "-";
+                        const match = findMatchedRider(
+                          primaryBranch,
+                          r.riderSuffix ||
+                            summary?.suffix ||
+                            splitRider(summary?.rawName || "").suffix ||
+                            ""
+                        );
+                        if (match) {
+                          return (
+                            <a
+                              href={`/riders/${match.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="text-primary underline underline-offset-2"
+                            >
+                              {r.riderName}
+                            </a>
+                          );
+                        }
+                        return r.riderName;
+                      })()}
+                    </td>
                         <td className="px-3 py-2 align-top text-center text-foreground">
                           {r.riderSuffix ||
-                            parsed.summaries.get(r.licenseId)?.suffix ||
-                            splitRider(parsed.summaries.get(r.licenseId)?.rawName || "").suffix ||
+                            getSummaryFor(r)?.suffix ||
+                            splitRider(getSummaryFor(r)?.rawName || "").suffix ||
                             "-"}
                         </td>
                         <td className="px-3 py-2 align-top text-center font-semibold text-foreground">

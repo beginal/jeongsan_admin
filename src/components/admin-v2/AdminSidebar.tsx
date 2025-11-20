@@ -73,8 +73,8 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     key: "lease",
-    label: "리스렌탈 목록 - 미구현",
-    href: "/lease-rental",
+    label: "리스렌탈 목록",
+    href: "/lease-rentals",
     icon: CarFront,
   },
 ];
