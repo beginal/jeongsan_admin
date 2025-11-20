@@ -95,6 +95,7 @@ export async function GET(request: NextRequest) {
       { corporate_entity_id?: string | null; personal_entity_id?: string | null }
     > = {};
     let entityNameById: Record<string, string> = {};
+    let policyByBranch: Record<string, { fee_type: string | null; fee_value: number | null }> = {};
 
     if (branchIds.length > 0) {
       const { data: affs } = await supabase
@@ -136,6 +137,24 @@ export async function GET(request: NextRequest) {
           },
         ])
       );
+
+      const { data: policies } = await supabase
+        .from("branch_settlement_policies")
+        .select("branch_id, fee_type, fee_value, created_at")
+        .in("branch_id", branchIds)
+        .order("created_at", { ascending: false });
+
+      if (policies) {
+        policies.forEach((p: any) => {
+          const bid = String(p.branch_id);
+          if (!policyByBranch[bid]) {
+            policyByBranch[bid] = {
+              fee_type: p.fee_type ?? null,
+              fee_value: p.fee_value ?? null,
+            };
+          }
+        });
+      }
     }
 
     const result = base.map((b: any) => {
@@ -156,6 +175,8 @@ export async function GET(request: NextRequest) {
         personal_entity_name: personalId
           ? entityNameById[personalId] || null
           : null,
+        fee_type: policyByBranch[String(b.id)]?.fee_type ?? null,
+        fee_value: policyByBranch[String(b.id)]?.fee_value ?? null,
       };
     });
 

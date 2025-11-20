@@ -14,6 +14,8 @@ type BranchOption = {
   platform?: string;
   corporateName?: string | null;
   personalName?: string | null;
+  feeType?: "per_case" | "percentage" | null;
+  feeValue?: number | null;
 };
 
 type PromotionOption = {
@@ -240,6 +242,15 @@ const formatCurrency = (v: number | string) => {
   return num.toLocaleString();
 };
 
+const formatMissionLabel = (dateStr: string) => {
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const weekday = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
+  return `${mm}/${dd}(${weekday})`;
+};
+
 export default function SettlementWizardStep1() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -259,11 +270,11 @@ export default function SettlementWizardStep1() {
   const [parsed, setParsed] = useState<{
     riders: AggRider[];
     branches: string[];
-    missions: Record<string, any>[];
-    summaries: Map<
-      string,
-      {
-        name: string;
+  missions: Record<string, any>[];
+  summaries: Map<
+    string,
+    {
+      name: string;
         suffix: string;
         total: number;
         branchName: string;
@@ -313,6 +324,8 @@ export default function SettlementWizardStep1() {
           platform: b.platform || "",
           corporateName: b.corporate_entity_name || null,
           personalName: b.personal_entity_name || null,
+          feeType: b.fee_type || null,
+          feeValue: b.fee_value != null ? Number(b.fee_value) : null,
         }));
         setBranches(branchList);
 
@@ -576,6 +589,21 @@ export default function SettlementWizardStep1() {
         });
       });
 
+      summaryMap.forEach((s, lic) => {
+        if (s.branchName) branchSet.add(s.branchName);
+        if (!riderMap.has(lic)) {
+          riderMap.set(lic, {
+            licenseId: lic,
+            riderName: s.name || "-",
+            riderSuffix: s.suffix || "",
+            totalOrders: s.total || 0,
+            branchCounts: {},
+            peakByDate: {},
+            details: [],
+          });
+        }
+      });
+
       // 총 오더수 설정
       riderMap.forEach((r, lic) => {
         const summary = summaryMap.get(lic);
@@ -590,16 +618,19 @@ export default function SettlementWizardStep1() {
         r.details.sort((a, b) => b.acceptedAtMs - a.acceptedAtMs);
       });
 
-      const branchesUsed = Array.from(branchSet).sort((a, b) => a.localeCompare(b, "ko"));
-
       const ridersArr = Array.from(riderMap.values()).map((r) => {
         const sum = summaryMap.get(r.licenseId);
         if (sum) {
+          if (!r.riderName || r.riderName === "-") {
+            r.riderName = sum.name || r.riderName;
+          }
           r.totalOrders = sum.total || r.totalOrders;
-          if (!r.riderSuffix) r.riderSuffix = sum.suffix || r.riderSuffix;
+          r.riderSuffix = sum.suffix || r.riderSuffix;
         }
         return r;
       });
+
+      const branchesUsed = Array.from(branchSet).sort((a, b) => a.localeCompare(b, "ko"));
 
       setParsed({
         riders: ridersArr.sort((a, b) => (a.riderName || "").localeCompare(b.riderName || "", "ko")),
@@ -681,6 +712,35 @@ export default function SettlementWizardStep1() {
     return { amount, typeLabel };
   };
 
+  const missionTotals = useMemo(() => {
+    if (!parsed) return {} as Record<string, Record<string, number>>;
+    const nameToLic: Record<string, string> = {};
+    parsed.summaries?.forEach((v, lic) => {
+      if (v.name) nameToLic[v.name] = lic;
+    });
+    const totals: Record<string, Record<string, number>> = {};
+    parsed.missions.forEach((m: any) => {
+      const date = m.startDate || m["startDate"];
+      if (!date) return;
+      const rawName = m.name || m["이름"] || "";
+      const { name } = splitRider(String(rawName));
+      const lic = m.licenseId || nameToLic[name];
+      if (!lic) return;
+      const amount = Number(m.amount ?? m["amount"] ?? 0) || 0;
+      if (!totals[date]) totals[date] = {};
+      totals[date][lic] = (totals[date][lic] || 0) + amount;
+    });
+    return totals;
+  }, [parsed]);
+
+  const missionDates = useMemo(
+    () =>
+      Object.keys(missionTotals).sort(
+        (a, b) => new Date(a).getTime() - new Date(b).getTime()
+      ),
+    [missionTotals]
+  );
+
   const step3Rows: Step3Row[] = useMemo(() => {
     if (!parsed) return [];
     return [...parsed.riders]
@@ -693,6 +753,9 @@ export default function SettlementWizardStep1() {
           Object.entries(r.branchCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
           "-";
         const branchId = branchIdByLabel[primaryBranch] || "";
+        const branchObj =
+          (branchId && branches.find((b) => b.id === branchId)) ||
+          branches.find((b) => b.name === primaryBranch || b.displayName === primaryBranch || b.branchName === primaryBranch);
         const promos = branchId ? promotionByBranch[branchId] || [] : [];
 
         const promoLines: string[] = [];
@@ -710,26 +773,39 @@ export default function SettlementWizardStep1() {
         const supportTotal = fin?.supportTotal || 0;
         const deduction = fin?.deduction || 0;
         const totalSettlement = fin?.totalSettlement || 0;
-        const fee = fin?.fee || 0;
+        let fee = fin?.fee || 0;
+        if (branchObj?.feeType && branchObj?.feeValue != null) {
+          if (branchObj.feeType === "per_case") {
+            fee = Math.round((branchObj.feeValue || 0) * orderCount);
+          } else if (branchObj.feeType === "percentage") {
+            const base = settlementAmount || totalSettlement;
+            fee = Math.round(base * ((branchObj.feeValue || 0) / 100));
+          }
+        }
         const employment = fin?.employment || 0;
         const accident = fin?.accident || 0;
         const timeInsurance = fin?.timeInsurance || 0;
         const retro = fin?.retro || 0;
 
-        const overallTotal = totalSettlement + promoTotal;
+        const missionSum = missionDates.reduce((acc, d) => {
+          const amt = missionTotals[d]?.[r.licenseId] || 0;
+          return acc + amt;
+        }, 0);
+
+        const overallTotal = totalSettlement + promoTotal + missionSum;
         const withholding = Math.floor((overallTotal * 0.033) / 10) * 10;
 
         return {
           licenseId: r.licenseId || "-",
-          riderName: r.riderName || "-",
-          riderSuffix: r.riderSuffix || "-",
+          riderName: r.riderName || summary?.name || "-",
+          riderSuffix: r.riderSuffix || summary?.suffix || "-",
           branchName: primaryBranch,
           orderCount,
           rentCost: "미연동",
           payout: "미연동",
           fee,
           peakScore: "-",
-          promoBasis: promoLines.join(" "),
+          promoBasis: promoLines.join("\n"),
           promoAmount: promoTotal,
           settlementAmount,
           supportTotal,
@@ -743,7 +819,7 @@ export default function SettlementWizardStep1() {
           withholding,
         };
       });
-  }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches]);
+  }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches, missionDates, missionTotals]);
 
   return (
     <div className="space-y-6">
@@ -1055,7 +1131,9 @@ export default function SettlementWizardStep1() {
                       >
                         <td className="px-3 py-2 align-top text-center text-foreground">{r.licenseId}</td>
                         <td className="px-3 py-2 align-top text-center text-foreground">{r.riderName}</td>
-                        <td className="px-3 py-2 align-top text-center text-foreground">{r.riderSuffix || "-"}</td>
+                        <td className="px-3 py-2 align-top text-center text-foreground">
+                          {r.riderSuffix || parsed.summaries.get(r.licenseId)?.suffix || "-"}
+                        </td>
                         <td className="px-3 py-2 align-top text-center font-semibold text-foreground">
                           {r.totalOrders.toLocaleString()}
                         </td>
@@ -1186,16 +1264,16 @@ export default function SettlementWizardStep1() {
                 <thead className="sticky top-0 z-30 bg-muted/90 text-muted-foreground backdrop-blur">
                   <tr>
                     <th
-                      className="sticky left-0 top-0 z-40 border border-border px-3 py-3 text-center font-semibold whitespace-nowrap bg-card"
+                      className="sticky top-0 z-40 border border-border px-3 py-3 text-center font-semibold whitespace-nowrap bg-card"
+                      style={{ left: 0, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
+                    >
+                      라이더명
+                    </th>
+                    <th
+                      className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap"
                       style={{ width: `${licenseColWidth}px`, minWidth: `${licenseColWidth}px`, maxWidth: `${licenseColWidth}px` }}
                     >
                       라이선스 ID
-                    </th>
-                    <th
-                      className="sticky top-0 z-40 border border-border px-3 py-3 text-center font-semibold whitespace-nowrap bg-card"
-                      style={{ left: `${licenseColWidth}px`, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
-                    >
-                      라이더명
                     </th>
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">오더수</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>렌트비용</th>
@@ -1205,6 +1283,14 @@ export default function SettlementWizardStep1() {
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${purpleCellClass}`}>피크 점수</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${purpleCellClass}`}>프모 기준</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${purpleCellClass}`}>프로모션</th>
+                    {missionDates.map((d) => (
+                      <th
+                        key={`mission-head-${d}`}
+                        className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${purpleCellClass}`}
+                      >
+                        {formatMissionLabel(d)}
+                      </th>
+                    ))}
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${blueCellClass}`}>정산금액</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${blueCellClass}`}>총 지원금</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>차감내역</th>
@@ -1222,17 +1308,17 @@ export default function SettlementWizardStep1() {
                   {step3Rows.map((row, idx) => (
                     <tr key={`${row.licenseId}-${idx}`} className="bg-background">
                       <td
-                        className="sticky left-0 z-20 border border-border px-3 py-3 text-center font-semibold text-foreground whitespace-nowrap bg-card"
-                        style={{ width: `${licenseColWidth}px`, minWidth: `${licenseColWidth}px`, maxWidth: `${licenseColWidth}px` }}
-                      >
-                        {row.licenseId}
-                      </td>
-                      <td
                         className="sticky z-20 border border-border px-3 py-3 text-center text-foreground whitespace-nowrap bg-card"
-                        style={{ left: `${licenseColWidth}px`, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
+                        style={{ left: 0, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
                       >
                         <div className="font-semibold">{row.riderName}</div>
                         <div className="text-[11px] text-muted-foreground">뒷번호 {row.riderSuffix}</div>
+                      </td>
+                      <td
+                        className="border border-border px-3 py-3 text-center font-semibold text-foreground whitespace-nowrap"
+                        style={{ width: `${licenseColWidth}px`, minWidth: `${licenseColWidth}px`, maxWidth: `${licenseColWidth}px` }}
+                      >
+                        {row.licenseId}
                       </td>
                       <td className="border border-border px-3 py-3 text-center font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap">
                         {row.orderCount.toLocaleString()}
@@ -1254,12 +1340,23 @@ export default function SettlementWizardStep1() {
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
                         {row.peakScore}
                       </td>
-                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-pre-line text-[12px] ${purpleCellClass}`}>
                         {row.promoBasis || "-"}
                       </td>
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
                         {row.promoAmount ? `${formatCurrency(row.promoAmount)}원` : "-"}
                       </td>
+                      {missionDates.map((d) => {
+                        const amt = missionTotals[d]?.[row.licenseId] || 0;
+                        return (
+                          <td
+                            key={`mission-${row.licenseId}-${d}`}
+                            className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}
+                          >
+                            {amt ? `${formatCurrency(amt)}원` : "-"}
+                          </td>
+                        );
+                      })}
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${blueCellClass}`}>
                         {row.settlementAmount ? `${formatCurrency(row.settlementAmount)}원` : "-"}
                       </td>

@@ -32,7 +32,13 @@ type OrderDetail = {
   judgementDate: string;
 };
 
-type MissionRow = Record<string, any>;
+type MissionRow = {
+  name: string;
+  startDate: string | null;
+  endDate: string | null;
+  amount: number;
+  licenseId?: string;
+};
 
 const pad = (n: number) => String(n).padStart(2, "0");
 
@@ -244,11 +250,57 @@ const parseOrderDetails = (
 const parseMissionSheet = (wb: XLSX.WorkBook): MissionRow[] => {
   const ws = wb.Sheets["협력사 자체 미션"];
   if (!ws) return [];
-  try {
-    return XLSX.utils.sheet_to_json(ws, { defval: "" }) as MissionRow[];
-  } catch {
-    return [];
+  const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
+
+  // 헤더 행 찾기
+  let headerRow = -1;
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const firstCell = ws[XLSX.utils.encode_cell({ r, c: range.s.c })];
+    if (firstCell && firstCell.v === "미션 명") {
+      headerRow = r;
+      break;
+    }
   }
+  if (headerRow < 0) return [];
+
+  const colMap: Record<string, number> = {};
+  for (let c = range.s.c; c <= range.e.c; c++) {
+    const v = ws[XLSX.utils.encode_cell({ r: headerRow, c })]?.v;
+    if (v) colMap[String(v)] = c;
+  }
+
+  const result: MissionRow[] = [];
+  for (let r = headerRow + 1; r <= range.e.r; r++) {
+    const status = ws[XLSX.utils.encode_cell({ r, c: colMap["달성 유무"] })]?.v;
+    if (status !== "달성") continue;
+    const nameRaw = ws[XLSX.utils.encode_cell({ r, c: colMap["이름"] })]?.v;
+    if (!nameRaw) continue;
+    const missionName = ws[XLSX.utils.encode_cell({ r, c: colMap["미션 명"] })]?.v || "";
+
+    const startRaw = ws[XLSX.utils.encode_cell({ r, c: colMap["미션 시작"] })]?.v;
+    const endRaw = ws[XLSX.utils.encode_cell({ r, c: colMap["미션 종료"] })]?.v;
+    const amountRaw =
+      ws[XLSX.utils.encode_cell({ r, c: colMap["협력사 자체미션 금액"] })]?.v ??
+      ws[XLSX.utils.encode_cell({ r, c: colMap["금액"] })]?.v ??
+      0;
+
+    const startParsed = parseExcelDate(startRaw);
+    const endParsed = parseExcelDate(endRaw);
+
+    result.push({
+      name: String(nameRaw),
+      startDate: startParsed ? startParsed.text.slice(0, 10) : startRaw || null,
+      endDate: endParsed ? endParsed.text.slice(0, 10) : endRaw || null,
+      amount:
+        typeof amountRaw === "number"
+          ? amountRaw
+          : Number.isFinite(Number(amountRaw))
+            ? Number(amountRaw)
+            : 0,
+    });
+  }
+
+  return result;
 };
 
 export async function POST(req: Request) {
