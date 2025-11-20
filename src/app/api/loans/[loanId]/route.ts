@@ -1,0 +1,188 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+
+function getSupabase() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return { error: "Supabase 환경 변수가 설정되지 않았습니다." };
+  }
+
+  return { supabase: createClient(supabaseUrl, serviceRoleKey) };
+}
+
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ loanId: string }> }
+) {
+  const { supabase, error } = getSupabase();
+  if (error || !supabase) {
+    return NextResponse.json({ error }, { status: 500 });
+  }
+
+  const { loanId } = await params;
+
+  try {
+    const { data: loan, error: loanError } = await supabase
+      .from("rider_loans")
+      .select(
+        `
+        id,
+        rider_id,
+        branch_id,
+        principal_amount,
+        loan_date,
+        next_payment_date,
+      payment_weekday,
+      payment_amount,
+      due_date,
+        last_payment_date,
+        notes,
+        rider:rider_id(name),
+        branch:branch_id(display_name, branch_name, province, district)
+      `
+      )
+      .eq("id", loanId)
+      .maybeSingle();
+
+    if (loanError || !loan) {
+      return NextResponse.json(
+        { error: "대여금 정보를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const { data: payments } = await supabase
+      .from("rider_loan_payments")
+      .select("id, amount, paid_at, note")
+      .eq("loan_id", loanId)
+      .order("paid_at", { ascending: false });
+
+    const paidAmount = (payments || []).reduce(
+      (sum, p) => sum + Number(p.amount || 0),
+      0
+    );
+
+    const detail = {
+      id: loan.id as string,
+      riderId: loan.rider_id as string,
+      branchId: loan.branch_id as string | null,
+      riderName: loan.rider?.name || "",
+      branchName:
+        loan.branch?.display_name ||
+        loan.branch?.branch_name ||
+        [loan.branch?.province, loan.branch?.district].filter(Boolean).join(" ") ||
+        "-",
+      principalAmount: Number(loan.principal_amount || 0),
+      loanDate: (loan.loan_date as string) || "",
+      nextPaymentDate: (loan.next_payment_date as string | null) || null,
+      lastPaymentDate: (loan.last_payment_date as string | null) || null,
+      notes: (loan.notes as string | null) || "",
+      paymentDayOfWeek: loan.payment_weekday as number | null,
+      paymentAmount: loan.payment_amount != null ? Number(loan.payment_amount) : null,
+      dueDate: (loan.due_date as string | null) || null,
+      paidAmount,
+      remainingAmount: Math.max(
+        Number(loan.principal_amount || 0) - paidAmount,
+        0
+      ),
+      payments: (payments || []).map((p) => ({
+        id: p.id as string,
+        amount: Number(p.amount || 0),
+        paidAt: (p.paid_at as string) || "",
+        note: (p.note as string | null) || "",
+      })),
+    };
+
+    return NextResponse.json({ loan: detail });
+  } catch (e) {
+    return NextResponse.json(
+      { error: "대여금 정보를 불러오는 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ loanId: string }> }
+) {
+  const { supabase, error } = getSupabase();
+  if (error || !supabase) {
+    return NextResponse.json({ error }, { status: 500 });
+  }
+
+  const { loanId } = await params;
+  const payload = await request.json().catch(() => ({}));
+
+  const principalAmountRaw = payload.principalAmount;
+  const loanDate = payload.loanDate;
+  const nextPaymentDate = payload.nextPaymentDate || null;
+  const paymentDayOfWeek = payload.paymentDayOfWeek ?? null;
+  const paymentAmountRaw = payload.paymentAmount;
+  const dueDate = payload.dueDate || null;
+  const lastPaymentDate = payload.lastPaymentDate || null;
+  const notes = payload.notes ?? "";
+
+  const principalAmount = Number(principalAmountRaw);
+  if (!Number.isFinite(principalAmount) || principalAmount < 0) {
+    return NextResponse.json(
+      { error: "총 대여금은 0 이상 숫자여야 합니다." },
+      { status: 400 }
+    );
+  }
+  if (paymentDayOfWeek != null && !(paymentDayOfWeek >= 0 && paymentDayOfWeek <= 7)) {
+    return NextResponse.json(
+      { error: "납부 요일을 확인하세요." },
+      { status: 400 }
+    );
+  }
+  const paymentAmount =
+    paymentAmountRaw == null || paymentAmountRaw === ""
+      ? null
+      : Number(paymentAmountRaw);
+  if (paymentAmount != null && (!Number.isFinite(paymentAmount) || paymentAmount < 0)) {
+    return NextResponse.json(
+      { error: "납부 금액은 0 이상 숫자여야 합니다." },
+      { status: 400 }
+    );
+  }
+  if (!loanDate) {
+    return NextResponse.json(
+      { error: "대여 일자를 입력하세요." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const { error: updateError } = await supabase
+      .from("rider_loans")
+      .update({
+        principal_amount: principalAmount,
+        loan_date: loanDate,
+        next_payment_date: nextPaymentDate,
+        payment_weekday: paymentDayOfWeek,
+        payment_amount: paymentAmount,
+        due_date: dueDate,
+        last_payment_date: lastPaymentDate,
+        notes: notes || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", loanId);
+
+    if (updateError) {
+      return NextResponse.json(
+        { error: "대여금 정보를 수정하지 못했습니다." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    return NextResponse.json(
+      { error: "대여금 정보를 수정하는 중 오류가 발생했습니다." },
+      { status: 500 }
+    );
+  }
+}

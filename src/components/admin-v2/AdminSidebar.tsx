@@ -11,12 +11,11 @@ import {
   CarFront,
   LayoutDashboard,
   Percent,
-  Store,
-  Users,
+  Wallet,
   Wand2,
 } from "lucide-react";
 
-type NavGroupKey = "dashboard" | "settlement" | "branch" | "rider" | "lease";
+type NavGroupKey = "dashboard" | "settlement" | "branch" | "rider" | "lease" | "loan";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -44,8 +43,11 @@ const NAV_SECTIONS: NavSection[] = [
   {
     key: "settlement",
     label: "정산마법사",
-    href: "/settlement-wizard",
     icon: Wand2,
+    items: [
+      { label: "일 정산", href: "/settlement-wizard/daily" },
+      { label: "주 정산", href: "/settlement-wizard/weekly" },
+    ],
   },
   {
     key: "branch",
@@ -76,6 +78,12 @@ const NAV_SECTIONS: NavSection[] = [
     label: "리스렌탈 목록",
     href: "/lease-rentals",
     icon: CarFront,
+  },
+  {
+    key: "loan",
+    label: "대여금 관리",
+    href: "/loan-management",
+    icon: Wallet,
   },
 ];
 
