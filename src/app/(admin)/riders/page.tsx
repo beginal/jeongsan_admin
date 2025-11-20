@@ -3,6 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const formatPhone = (raw?: string | null) => {
+  const digits = (raw || "").replace(/\D/g, "").slice(0, 11);
+  if (!digits) return "";
+  if (digits.startsWith("02")) {
+    if (digits.length <= 2) return digits;
+    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+    if (digits.length <= 9) {
+      return `${digits.slice(0, 2)}-${digits.slice(2, digits.length - 2)}-${digits.slice(-2)}`;
+    }
+    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+  }
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, digits.length - 4)}-${digits.slice(-4)}`;
+};
+
 type RiderStatus = "approved" | "pending" | "rejected";
 
 type RiderRow = {
@@ -20,9 +36,26 @@ export default function RidersPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | RiderStatus>("all");
+  const [adminId, setAdminId] = useState<string>("");
+  const [copyMsg, setCopyMsg] = useState("");
+  const [registerLink, setRegisterLink] = useState("");
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+
+    async function loadAdmin() {
+      try {
+        const res = await fetch("/api/admin/me");
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.error) return;
+        if (!cancelled) setAdminId(String(data.id || ""));
+      } catch {
+        // ignore
+      }
+    }
+
+    loadAdmin();
 
     async function loadRiders() {
       try {
@@ -45,20 +78,20 @@ export default function RidersPage() {
         if (cancelled) return;
 
         const list = Array.isArray(data.riders) ? data.riders : [];
-        setRiders(
-          list.map((r: any) => ({
-            id: String(r.id),
-            name: r.name || "-",
-            primaryBranchName:
+          setRiders(
+            list.map((r: any) => ({
+              id: String(r.id),
+              name: r.name || "-",
+              primaryBranchName:
               (Array.isArray(r.branches) &&
                 r.branches.find((b: any) => b.isPrimary)?.branchName) ||
-              (Array.isArray(r.branches) && r.branches[0]?.branchName) ||
-              "-",
-            phone: r.phone || "",
-            status:
-              r.verificationStatus === "approved" ||
-              r.verificationStatus === "pending" ||
-              r.verificationStatus === "rejected"
+                (Array.isArray(r.branches) && r.branches[0]?.branchName) ||
+                "-",
+              phone: formatPhone(r.phone),
+              status:
+                r.verificationStatus === "approved" ||
+                r.verificationStatus === "pending" ||
+                r.verificationStatus === "rejected"
                 ? (r.verificationStatus as RiderStatus)
                 : ("pending" as RiderStatus),
           }))
@@ -80,6 +113,12 @@ export default function RidersPage() {
       cancelled = true;
     };
   }, [search, statusFilter]);
+
+  useEffect(() => {
+    if (!adminId) return;
+    if (typeof window === "undefined") return;
+    setRegisterLink(`${window.location.origin}/register/riders/${adminId}`);
+  }, [adminId]);
 
   const filteredRiders = useMemo(() => {
     return riders;
@@ -125,6 +164,57 @@ export default function RidersPage() {
     return "bg-red-100 text-red-700 border-red-200";
   };
 
+  const handleStatusChange = async (
+    riderId: string,
+    nextStatus: RiderStatus,
+    rejectionReason?: string | null
+  ) => {
+    setActionLoadingId(riderId);
+    try {
+      const res = await fetch(`/api/riders/${encodeURIComponent(riderId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          verificationStatus: nextStatus,
+          rejectionReason: rejectionReason ?? null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.error) {
+        throw new Error(data?.error || "상태를 변경하지 못했습니다.");
+      }
+
+      setRiders((prev) =>
+        prev.map((r) =>
+          r.id === riderId ? { ...r, status: nextStatus } : r
+        )
+      );
+    } catch (e: any) {
+      alert(e.message || "상태를 변경하지 못했습니다.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleDelete = async (riderId: string) => {
+    if (!confirm("선택한 라이더를 삭제할까요?")) return;
+    setActionLoadingId(riderId);
+    try {
+      const res = await fetch(`/api/riders/${encodeURIComponent(riderId)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.error) {
+        throw new Error(data?.error || "라이더를 삭제하지 못했습니다.");
+      }
+      setRiders((prev) => prev.filter((r) => r.id !== riderId));
+    } catch (e: any) {
+      alert(e.message || "라이더를 삭제하지 못했습니다.");
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-4 border-b border-border pb-4">
@@ -142,6 +232,40 @@ export default function RidersPage() {
           </div>
         </div>
       </div>
+
+      {adminId && registerLink && (
+        <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm shadow-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                라이더 가입 링크
+              </div>
+              <div className="truncate text-sm font-medium text-foreground">
+                {registerLink}
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                라이더에게 공유하면 이 링크로 직접 신청하며 상태는 "대기"로 표시됩니다.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+              onClick={() => {
+                navigator.clipboard
+                  .writeText(registerLink)
+                  .then(() => setCopyMsg("복사됨"))
+                  .catch(() => setCopyMsg("복사 실패"));
+                setTimeout(() => setCopyMsg(""), 1500);
+              }}
+            >
+              링크 복사
+            </button>
+            {copyMsg && (
+              <span className="text-xs text-muted-foreground">{copyMsg}</span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl border border-border bg-muted/40 px-4 py-4 text-sm text-muted-foreground">
         <div className="space-y-3">
@@ -226,6 +350,7 @@ export default function RidersPage() {
                 <th className="px-4 py-2">소속 지사</th>
                 <th className="px-4 py-2">연락처</th>
                 <th className="px-4 py-2">상태</th>
+                <th className="px-4 py-2 text-right w-[180px]">작업</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-card">
@@ -307,6 +432,33 @@ export default function RidersPage() {
                       >
                         {statusLabel(rider.status)}
                       </span>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-right text-[11px]">
+                      <div
+                        className="inline-flex items-center gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {rider.status !== "approved" && (
+                          <button
+                            type="button"
+                            className="h-7 rounded-md border border-emerald-200 bg-emerald-50 px-2 font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                            onClick={() => handleStatusChange(rider.id, "approved")}
+                            disabled={actionLoadingId === rider.id}
+                          >
+                            승인
+                          </button>
+                        )}
+                        {rider.status !== "approved" && (
+                          <button
+                            type="button"
+                            className="h-7 rounded-md border border-border bg-background px-2 font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+                            onClick={() => handleDelete(rider.id)}
+                            disabled={actionLoadingId === rider.id}
+                          >
+                            삭제
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

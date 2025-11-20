@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RiderStatusActions } from "@/components/admin-v2/RiderStatusActions";
 import { useRouter } from "next/navigation";
 import {
   formatAccountForDisplay,
@@ -18,6 +19,22 @@ type BranchOption = {
   district: string;
   platform: string;
 };
+
+const bankOptions = [
+  "국민은행",
+  "신한은행",
+  "우리은행",
+  "하나은행",
+  "농협은행",
+  "기업은행",
+  "카카오뱅크",
+  "토스뱅크",
+  "SC제일은행",
+  "부산은행",
+  "대구은행",
+  "수협은행",
+  "새마을금고",
+];
 
 function formatSsnForInput(raw?: string | null) {
   const s = (raw || "").replace(/\D/g, "").slice(0, 13);
@@ -82,6 +99,9 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [primaryBranchId, setPrimaryBranchId] = useState<string | null>(null);
   const [branchSearch, setBranchSearch] = useState("");
+  const [verificationStatus, setVerificationStatus] = useState<
+    "approved" | "pending" | "rejected"
+  >("pending");
 
   useEffect(() => {
     let cancelled = false;
@@ -111,6 +131,10 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
         setTaxName(r.tax_name || "");
         const rawTax = (r.tax_resident_number as string | null) || "";
         setTaxResidentNumber(formatSsnForInput(rawTax));
+        const vs = r.verification_status as string;
+        setVerificationStatus(
+          vs === "approved" || vs === "rejected" ? (vs as any) : "pending"
+        );
 
         const assigned: any[] = Array.isArray(data.assignedBranches)
           ? data.assignedBranches
@@ -168,6 +192,7 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
         taxResidentNumber: taxResidentNumber.trim() || null,
         branchIds: selectedBranchIds,
         primaryBranchId: primaryBranchId,
+        verificationStatus,
       };
 
       const res = await fetch(`/api/riders/${encodeURIComponent(riderId)}`, {
@@ -295,6 +320,16 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
                 placeholder="예: baemin01"
               />
             </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-muted-foreground">
+                승인 상태
+              </label>
+              <RiderStatusActions
+                riderId={riderId}
+                currentStatus={verificationStatus}
+              />
+            </div>
           </div>
         </div>
 
@@ -307,12 +342,24 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               <label className="text-xs font-medium text-muted-foreground">
                 은행명
               </label>
-              <input
+              <select
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                 value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="예: 국민은행"
-              />
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setBankName(next);
+                  setAccountNumber((prev) =>
+                    formatAccountForDisplay(prev.replace(/\D/g, ""), next)
+                  );
+                }}
+              >
+                <option value="">은행 선택</option>
+                {bankOptions.map((b) => (
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-medium text-muted-foreground">

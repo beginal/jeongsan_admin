@@ -178,7 +178,7 @@ export default async function BranchDetailPage({
     const { data: assigns, error: assignsError } = await supabase
       .from("promotion_branch_assignments")
       .select(
-        "promotion_id, is_active, start_date, end_date, promotions(id, name, type, status)"
+        "promotion_id, is_active, start_date, end_date, promotions(id, name, type, status, config)"
       )
       .eq("branch_id", branchId);
 
@@ -210,8 +210,20 @@ export default async function BranchDetailPage({
         const pid = String(p.id || raw.promotion_id);
         if (!pid) continue;
 
-        const startDate = raw.start_date ? String(raw.start_date) : null;
-        const endDate = raw.end_date ? String(raw.end_date) : null;
+        const cfg = (p.config || {}) as Record<string, any>;
+        const fallbackStart =
+          (typeof cfg.startDate === "string" && cfg.startDate) ||
+          (typeof cfg.start_date === "string" && cfg.start_date) ||
+          null;
+        const fallbackEnd =
+          (typeof cfg.endDate === "string" && cfg.endDate) ||
+          (typeof cfg.end_date === "string" && cfg.end_date) ||
+          null;
+
+        const startDate = raw.start_date
+          ? String(raw.start_date)
+          : fallbackStart;
+        const endDate = raw.end_date ? String(raw.end_date) : fallbackEnd;
 
         let active =
           !!raw.is_active &&

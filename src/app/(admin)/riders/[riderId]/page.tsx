@@ -3,6 +3,14 @@ import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
 import { SensitiveDetailRow } from "@/components/admin-v2/SensitiveDetailRow";
 import { RiderDeleteButton } from "@/components/admin-v2/RiderDeleteButton";
+import { RiderStatusActions } from "@/components/admin-v2/RiderStatusActions";
+
+const formatDateOnly = (value?: string | null) => {
+  if (!value) return "-";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toISOString().slice(0, 10);
+};
 
 interface RiderDetailPageProps {
   params: Promise<{ riderId: string }>;
@@ -182,8 +190,20 @@ export default async function RiderDetailPage({
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
             가입 완료:{" "}
-            {rider.registration_completed_at || "-"}
+            {formatDateOnly(rider.registration_completed_at)}
           </p>
+          <div className="mt-3">
+            <RiderStatusActions
+              riderId={String(rider.id)}
+              currentStatus={
+                rider.verification_status === "approved"
+                  ? "approved"
+                  : rider.verification_status === "rejected"
+                    ? "rejected"
+                    : "pending"
+              }
+            />
+          </div>
         </div>
       </div>
 

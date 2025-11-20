@@ -991,9 +991,13 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                           key={s.id}
                           className="flex items-center justify-between border-b border-border/40 px-3 py-2 last:border-b-0"
                         >
-                          <div className="truncate text-xs font-medium text-foreground">
+                          <button
+                            type="button"
+                            onClick={() => router.push(`/branches/${s.id}`)}
+                            className="truncate text-left text-xs font-medium text-foreground hover:underline"
+                          >
                             {s.name}
-                          </div>
+                          </button>
                           <div className="flex items-center gap-2">
                             <button
                             type="button"

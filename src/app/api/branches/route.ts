@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -17,7 +17,56 @@ export async function GET() {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    const { data, error } = await supabase
+    const { searchParams } = new URL(request.url);
+    const adminIdParam = searchParams.get("adminId");
+
+    let effectiveAdminId: string | null = adminIdParam || null;
+
+    if (!effectiveAdminId) {
+      // 관리자 토큰으로 요청한 경우 토큰의 사용자 ID로 필터
+      const cookieStore = await cookies();
+      const token = cookieStore.get("admin_v2_token")?.value;
+      if (token) {
+        const authClient = createClient(supabaseUrl, serviceRoleKey);
+        const {
+          data: { user },
+        } = await authClient.auth.getUser(token);
+        if (user?.id) {
+          effectiveAdminId = user.id;
+        }
+      }
+    }
+
+    if (!effectiveAdminId) {
+      return NextResponse.json(
+        { error: "유효한 관리자 정보가 없습니다." },
+        { status: 401 }
+      );
+    }
+
+    const { data: ownedBranches, error: ownedError } = await supabase
+      .from("new_branches")
+      .select("id")
+      .eq("created_by", effectiveAdminId);
+
+    if (ownedError) {
+      console.error(
+        "[admin-v2/branches] owned branches load error:",
+        ownedError
+      );
+      return NextResponse.json(
+        { error: "지사 데이터를 불러오지 못했습니다." },
+        { status: 500 }
+      );
+    }
+
+    const branchFilterIds = (ownedBranches || []).map((b: any) => String(b.id));
+
+    if (branchFilterIds.length === 0) {
+      return NextResponse.json({ branches: [], total: 0 });
+    }
+
+    let query = supabase
       .from("new_branches_with_stats")
       .select(
         "id, platform, province, district, branch_name, display_name, rider_count"
@@ -25,6 +74,10 @@ export async function GET() {
       .order("province", { ascending: true })
       .order("district", { ascending: true })
       .order("display_name", { ascending: true });
+
+    query = query.in("id", branchFilterIds);
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("[admin-v2/branches] Supabase error:", error);

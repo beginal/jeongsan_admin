@@ -351,16 +351,21 @@ export default function PromotionsPage() {
                     ) : (
                       <div className="flex flex-wrap gap-1">
                         {promotion.branches.map((b) => (
-                          <span
+                          <button
                             key={b.branchId + b.name}
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border ${
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(`/branches/${b.branchId}`);
+                            }}
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors hover:shadow-sm ${
                               b.active
-                                ? "bg-emerald-50 border-emerald-100 text-emerald-700"
-                                : "bg-slate-50 border-slate-200 text-slate-500"
+                                ? "bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100"
+                                : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
                             }`}
                           >
                             {b.name}
-                          </span>
+                          </button>
                         ))}
                       </div>
                     )}

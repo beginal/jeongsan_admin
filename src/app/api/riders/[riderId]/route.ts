@@ -154,9 +154,12 @@ export async function PATCH(
       taxResidentNumber,
       branchIds,
       primaryBranchId,
+      verificationStatus,
+      rejectionReason,
     } = body || {};
 
     const updates: Record<string, any> = {};
+    const statusUpdates: Record<string, any> = {};
 
     if (name !== undefined) updates.name = String(name).trim();
     if (phone !== undefined) updates.phone = String(phone).trim();
@@ -169,6 +172,27 @@ export async function PATCH(
     if (taxName !== undefined) updates.taxName = taxName || null;
     if (taxResidentNumber !== undefined)
       updates.taxResidentNumber = taxResidentNumber || null;
+
+    if (
+      verificationStatus === "approved" ||
+      verificationStatus === "pending" ||
+      verificationStatus === "rejected"
+    ) {
+      statusUpdates.verification_status = verificationStatus;
+      if (verificationStatus === "approved") {
+        statusUpdates.approved_at = new Date().toISOString();
+        statusUpdates.rejected_at = null;
+        statusUpdates.rejection_reason = null;
+      } else if (verificationStatus === "rejected") {
+        statusUpdates.rejected_at = new Date().toISOString();
+        statusUpdates.approved_at = null;
+        statusUpdates.rejection_reason = rejectionReason || null;
+      } else {
+        statusUpdates.approved_at = null;
+        statusUpdates.rejected_at = null;
+        statusUpdates.rejection_reason = null;
+      }
+    }
 
     if (Object.keys(updates).length > 0) {
       const { data, error } = await supabase.rpc(
@@ -196,6 +220,24 @@ export async function PATCH(
           {
             error: result?.message || "라이더 정보를 수정하지 못했습니다.",
           },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (Object.keys(statusUpdates).length > 0) {
+      const { error: statusErr } = await supabase
+        .from("riders")
+        .update(statusUpdates)
+        .eq("id", riderId);
+
+      if (statusErr) {
+        console.error(
+          "[admin-v2/rider edit API] verification status update error:",
+          statusErr
+        );
+        return NextResponse.json(
+          { error: "승인 상태를 업데이트하지 못했습니다." },
           { status: 400 }
         );
       }

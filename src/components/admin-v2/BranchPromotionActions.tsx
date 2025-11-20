@@ -17,7 +17,7 @@ export function BranchPromotionActions({
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleDelete = async () => {
+  const handleUnassign = async () => {
     setError(null);
     setDeleting(true);
     try {
@@ -39,6 +39,7 @@ export function BranchPromotionActions({
         );
       }
       router.refresh();
+      return true;
     } catch (err: any) {
       setError(
         err.message ||
@@ -47,6 +48,8 @@ export function BranchPromotionActions({
     } finally {
       setDeleting(false);
     }
+
+    return false;
   };
 
   return (
@@ -72,7 +75,7 @@ export function BranchPromotionActions({
           onClick={() => setShowModal(true)}
           disabled={deleting}
         >
-          삭제
+          해제
         </button>
       </div>
 
@@ -85,11 +88,11 @@ export function BranchPromotionActions({
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-foreground">
-                  이 지사에서 프로모션을 제거할까요?
+                  이 지사에 배정된 프로모션을 해제할까요?
                 </h2>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  해당 지사에 대한 프로모션 배정만 삭제되며, 프로모션
-                  자체는 유지됩니다. 되돌릴 수 없으니 주의해 주세요.
+                  해당 지사와의 배정만 해제되고 프로모션 자체는 유지됩니다.
+                  되돌릴 수 없으니 주의해 주세요.
                 </p>
                 {error && (
                   <p className="mt-2 text-[11px] text-red-600">
@@ -115,15 +118,15 @@ export function BranchPromotionActions({
               <button
                 type="button"
                 onClick={async () => {
-                  await handleDelete();
-                  if (!error) {
+                  const ok = await handleUnassign();
+                  if (ok) {
                     setShowModal(false);
                   }
                 }}
                 className="inline-flex h-8 items-center rounded-md bg-red-600 px-4 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
                 disabled={deleting}
               >
-                {deleting ? "삭제 중..." : "삭제"}
+                {deleting ? "해제 중..." : "해제"}
               </button>
             </div>
           </div>
