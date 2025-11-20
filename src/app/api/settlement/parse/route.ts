@@ -8,6 +8,16 @@ type RiderSummary = {
   licenseId: string;
   riderName: string;
   totalOrders: number;
+  branchName: string;
+  settlementAmount: number;
+  supportTotal: number;
+  deduction: number;
+  totalSettlement: number;
+  fee: number;
+  employment: number;
+  accident: number;
+  timeInsurance: number;
+  retro: number;
 };
 
 type OrderDetail = {
@@ -66,53 +76,102 @@ const splitRider = (full: string) => {
   return { name: full, suffix: "" };
 };
 
-const parseSummarySheet = (wb: XLSX.WorkBook): RiderSummary[] => {
+const parseSummarySheet = (wb: XLSX.WorkBook, branchName: string): RiderSummary[] => {
   const ws = wb.Sheets["종합"];
   if (!ws) return [];
-  const headerRow = findHeaderRow(ws, (v) => v.includes("라이선스 ID"));
-  if (headerRow < 0) return [];
-
   const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
 
-  const colIdx = {
-    license: -1,
-    name: -1,
-    totalOrders: -1,
+  const findCol = (label: string) => {
+    for (let r = range.s.r; r <= range.e.r; r++) {
+      for (let c = range.s.c; c <= range.e.c; c++) {
+        const v = ws[XLSX.utils.encode_cell({ r, c })]?.v;
+        if (v === label) return { row: r, col: c };
+      }
+    }
+    return { row: -1, col: -1 };
   };
 
-  for (let c = range.s.c; c <= range.e.c; c++) {
-    const cell = ws[XLSX.utils.encode_cell({ r: headerRow, c })];
-    const val = cell?.v;
-    if (typeof val === "string") {
-      if (val.includes("라이선스 ID")) colIdx.license = c;
-      if (val.includes("성함")) colIdx.name = c;
-      if (val.includes("총 정산 오더수")) colIdx.totalOrders = c;
-    }
-  }
+  const cols = {
+    license: findCol("라이선스 ID"),
+    name: findCol("성함"),
+    totalOrders: findCol("총 정산 오더수"),
+    settlementAmount: findCol("정산금액"),
+    supportTotal: findCol("총 지원금"),
+    deduction: findCol("차감내역"),
+    totalSettlement: findCol("총 정산금액"),
+    fee: findCol("⑧수수료 차감 금액"),
+    employment: findCol("③기사부담 고용보험"),
+    accident: findCol("⑤기사부담 산재보험"),
+    timeInsurance: findCol("⑥시간제보험"),
+    retro: findCol("⑦보험료 소급"),
+  };
+
+  const headerRow = Math.max(
+    ...Object.values(cols).map((v) => v.row).filter((v) => v >= 0),
+    0
+  );
+  if (cols.license.col < 0 || cols.name.col < 0) return [];
 
   const summaries: RiderSummary[] = [];
   for (let r = headerRow + 1; r <= range.e.r; r++) {
-    const licCell = ws[XLSX.utils.encode_cell({ r, c: colIdx.license })];
-    const nameCell = ws[XLSX.utils.encode_cell({ r, c: colIdx.name })];
-    const totalCell = ws[XLSX.utils.encode_cell({ r, c: colIdx.totalOrders })];
+    const licCell = ws[XLSX.utils.encode_cell({ r, c: cols.license.col })];
+    const nameCell = ws[XLSX.utils.encode_cell({ r, c: cols.name.col })];
+    const totalCell = ws[XLSX.utils.encode_cell({ r, c: cols.totalOrders.col })];
+    const getNum = (col: number) => {
+      if (col < 0) return 0;
+      const raw = ws[XLSX.utils.encode_cell({ r, c: col })]?.v;
+      if (typeof raw === "number") return raw;
+      const num = Number(raw);
+      return Number.isFinite(num) ? num : 0;
+    };
 
     const licenseId = licCell?.v != null ? String(licCell.v).trim() : "";
     const riderNameRaw = nameCell?.v != null ? String(nameCell.v).trim() : "";
     const { name: riderName } = splitRider(riderNameRaw || "");
-    const totalOrdersRaw = totalCell?.v;
-    const totalOrders =
-      typeof totalOrdersRaw === "number"
-        ? Math.round(totalOrdersRaw)
-        : Number(totalOrdersRaw || 0);
+    const totalOrders = totalCell?.v != null ? Math.round(getNum(cols.totalOrders.col)) : 0;
 
-    if (!licenseId && !riderName) continue;
+    const settlementAmount = getNum(cols.settlementAmount.col);
+    const supportTotal = getNum(cols.supportTotal.col);
+    const deduction = getNum(cols.deduction.col);
+    const totalSettlement = getNum(cols.totalSettlement.col);
+    const fee = getNum(cols.fee.col);
+    const employment = getNum(cols.employment.col);
+    const accident = getNum(cols.accident.col);
+    const timeInsurance = getNum(cols.timeInsurance.col);
+    const retro = getNum(cols.retro.col);
+
+    if (!licenseId && !riderName && !totalOrders) continue;
     if (!licenseId && riderName) {
-      summaries.push({ licenseId: "-", riderName, totalOrders: totalOrders || 0 });
+      summaries.push({
+        licenseId: "-",
+        riderName,
+        totalOrders: totalOrders || 0,
+        branchName,
+        settlementAmount,
+        supportTotal,
+        deduction,
+        totalSettlement,
+        fee,
+        employment,
+        accident,
+        timeInsurance,
+        retro,
+      });
     } else {
       summaries.push({
         licenseId: licenseId || "-",
         riderName: riderName || "-",
         totalOrders: totalOrders || 0,
+        branchName,
+        settlementAmount,
+        supportTotal,
+        deduction,
+        totalSettlement,
+        fee,
+        employment,
+        accident,
+        timeInsurance,
+        retro,
       });
     }
   }
@@ -210,7 +269,7 @@ export async function POST(req: Request) {
     const decrypted = await decrypt(buf, { password });
     const wb = XLSX.read(decrypted, { type: "buffer" });
 
-    const summaries = parseSummarySheet(wb);
+    const summaries = parseSummarySheet(wb, branchName);
     const licenseByName = new Map(summaries.map((s) => [s.riderName, s.licenseId]));
     const details = parseOrderDetails(wb, branchName, licenseByName);
     const missions = parseMissionSheet(wb);

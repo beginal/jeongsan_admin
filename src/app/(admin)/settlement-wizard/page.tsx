@@ -51,6 +51,16 @@ type ParsedFileResult = {
     licenseId: string;
     riderName: string;
     totalOrders: number;
+    branchName: string;
+    settlementAmount: number;
+    supportTotal: number;
+    deduction: number;
+    totalSettlement: number;
+    fee: number;
+    employment: number;
+    accident: number;
+    timeInsurance: number;
+    retro: number;
   }[];
   details: {
     licenseId: string;
@@ -79,6 +89,43 @@ type AggRider = {
   details: ParsedFileResult["details"];
 };
 
+type SummaryFinancial = {
+  branchName: string;
+  settlementAmount: number;
+  supportTotal: number;
+  deduction: number;
+  totalSettlement: number;
+  fee: number;
+  employment: number;
+  accident: number;
+  timeInsurance: number;
+  retro: number;
+};
+
+type Step3Row = {
+  licenseId: string;
+  riderName: string;
+  riderSuffix: string;
+  branchName: string;
+  orderCount: number;
+  rentCost: string;
+  payout: string;
+  fee: number;
+  peakScore: string;
+  promoBasis: string;
+  promoAmount: number;
+  settlementAmount: number;
+  supportTotal: number;
+  deduction: number;
+  totalSettlement: number;
+  overallTotal: number;
+  employment: number;
+  accident: number;
+  timeInsurance: number;
+  retro: number;
+  withholding: number;
+};
+
 const excelAccept = ".xls,.xlsx,.xlsm";
 
 const statusClass = (s: PromotionOption["status"]) => {
@@ -86,6 +133,13 @@ const statusClass = (s: PromotionOption["status"]) => {
   if (s === "scheduled") return "border-amber-200 bg-amber-50 text-amber-700";
   return "border-slate-200 bg-slate-50 text-slate-600";
 };
+
+const redCellClass =
+  "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-100";
+const blueCellClass =
+  "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-100";
+const purpleCellClass =
+  "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-100";
 
 const buildPromotionSummary = (type?: string, cfgRaw?: Record<string, any>) => {
   const cfg = cfgRaw?.config ? cfgRaw.config : cfgRaw;
@@ -181,6 +235,11 @@ const splitRider = (full: string) => {
   return { name: full, suffix: "" };
 };
 
+const formatCurrency = (v: number | string) => {
+  const num = typeof v === "number" ? v : Number(v || 0);
+  return num.toLocaleString();
+};
+
 export default function SettlementWizardStep1() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -201,8 +260,20 @@ export default function SettlementWizardStep1() {
     riders: AggRider[];
     branches: string[];
     missions: Record<string, any>[];
+    summaries: Map<
+      string,
+      {
+        name: string;
+        suffix: string;
+        total: number;
+        branchName: string;
+        fin: SummaryFinancial;
+      }
+    >;
   } | null>(null);
   const [selectedRider, setSelectedRider] = useState<string | null>(null);
+  const licenseColWidth = 140;
+  const riderColWidth = 100;
 
   useEffect(() => {
     if (loadedRef.current) return;
@@ -411,6 +482,7 @@ export default function SettlementWizardStep1() {
         form.append("file", u.file);
         form.append("password", u.password);
         form.append("branchName", branchLabel);
+        form.append("branchId", u.branchId || "");
 
         const res = await fetch("/api/settlement/parse", {
           method: "POST",
@@ -424,7 +496,16 @@ export default function SettlementWizardStep1() {
       }
 
       // 병합 및 집계
-      const summaryMap = new Map<string, { name: string; suffix: string; total: number }>();
+      const summaryMap = new Map<
+        string,
+        {
+          name: string;
+          suffix: string;
+          total: number;
+          branchName: string;
+          fin: SummaryFinancial;
+        }
+      >();
       results.forEach((r) => {
         r.summaries.forEach((s) => {
           const lic = s.licenseId || "-";
@@ -433,6 +514,19 @@ export default function SettlementWizardStep1() {
             name: sp.name || "-",
             suffix: sp.suffix || "",
             total: s.totalOrders || 0,
+            branchName: s.branchName || "-",
+            fin: {
+              branchName: s.branchName || "-",
+              settlementAmount: s.settlementAmount || 0,
+              supportTotal: s.supportTotal || 0,
+              deduction: s.deduction || 0,
+              totalSettlement: s.totalSettlement || 0,
+              fee: s.fee || 0,
+              employment: s.employment || 0,
+              accident: s.accident || 0,
+              timeInsurance: s.timeInsurance || 0,
+              retro: s.retro || 0,
+            },
           });
         });
       });
@@ -496,16 +590,22 @@ export default function SettlementWizardStep1() {
         r.details.sort((a, b) => b.acceptedAtMs - a.acceptedAtMs);
       });
 
-      const branchesUsed = Array.from(branchSet).sort((a, b) =>
-        a.localeCompare(b, "ko")
-      );
+      const branchesUsed = Array.from(branchSet).sort((a, b) => a.localeCompare(b, "ko"));
+
+      const ridersArr = Array.from(riderMap.values()).map((r) => {
+        const sum = summaryMap.get(r.licenseId);
+        if (sum) {
+          r.totalOrders = sum.total || r.totalOrders;
+          if (!r.riderSuffix) r.riderSuffix = sum.suffix || r.riderSuffix;
+        }
+        return r;
+      });
 
       setParsed({
-        riders: Array.from(riderMap.values()).sort((a, b) =>
-          (a.riderName || "").localeCompare(b.riderName || "", "ko")
-        ),
+        riders: ridersArr.sort((a, b) => (a.riderName || "").localeCompare(b.riderName || "", "ko")),
         branches: branchesUsed,
         missions: results.flatMap((r) => r.missions || []),
+        summaries: summaryMap,
       });
       setSelectedRider(null);
     } catch (e: any) {
@@ -519,6 +619,131 @@ export default function SettlementWizardStep1() {
     if (uploads.length === 0) return false;
     return uploads.every((u) => u.password.trim() && u.branchId);
   }, [uploads]);
+
+  const branchIdByLabel = useMemo(() => {
+    const map: Record<string, string> = {};
+    branches.forEach((b) => {
+      [b.name, b.displayName, b.branchName].filter(Boolean).forEach((lbl) => {
+        map[String(lbl)] = b.id;
+      });
+    });
+    return map;
+  }, [branches]);
+
+  const calcPromoAmount = (promo: PromotionOption, orders: number, branchId: string) => {
+    const detail = promotionDetail[promo.id];
+    const type = detail?.type || promo.config?.type || promo.status;
+    const cfg = promo.config || {};
+    let amount = 0;
+
+    if (type === "excess") {
+      const src = cfg.excess ?? cfg;
+      const threshold =
+        src.threshold ?? src.targetCount ?? src.base_count ?? src.count ?? 0;
+      const per = src.amountPerExcess ?? src.amount ?? src.amount_per_excess ?? src.excess_amount ?? 0;
+      if (orders > threshold) {
+        amount = (orders - threshold) * per;
+      }
+    } else if (type === "milestone") {
+      const tiers: any[] =
+        cfg.milestones ??
+        cfg.milestone ??
+        cfg.tiers ??
+        cfg.levels ??
+        [];
+      const arr = Array.isArray(tiers) ? tiers : Array.isArray(tiers?.tiers) ? tiers.tiers : [];
+      const achieved = arr.filter((t: any) => orders >= (t.threshold ?? t.targetCount ?? t.target_count ?? 0));
+      if (achieved.length > 0) {
+        const best = achieved.reduce((p, c) =>
+          (c.threshold ?? c.targetCount ?? c.target_count ?? 0) >
+          (p.threshold ?? p.targetCount ?? p.target_count ?? 0)
+            ? c
+            : p
+        );
+        amount = best.amount ?? best.rewardAmount ?? best.reward_amount ?? best.value ?? 0;
+      }
+    } else if (type === "milestone_per_unit") {
+      const tiers: any[] =
+        cfg.milestonePerUnit ?? cfg.milestone_per_unit ?? cfg.tiers ?? cfg.levels ?? [];
+      const arr = Array.isArray(tiers) ? tiers : Array.isArray(tiers?.tiers) ? tiers.tiers : [];
+      arr.forEach((t: any) => {
+        const threshold = t.threshold ?? t.start ?? t.base_count ?? 0;
+        const unitSize = t.unitSize ?? t.size ?? t.per ?? 1;
+        const unitAmount = t.unitAmount ?? t.amount ?? t.unit_amount ?? 0;
+        if (orders > threshold) {
+          const steps = Math.floor((orders - threshold) / unitSize) + 1;
+          amount += steps * unitAmount;
+        }
+      });
+    }
+
+    const typeLabel = detail?.typeLabel || "";
+    return { amount, typeLabel };
+  };
+
+  const step3Rows: Step3Row[] = useMemo(() => {
+    if (!parsed) return [];
+    return [...parsed.riders]
+      .sort((a, b) => (a.riderName || "").localeCompare(b.riderName || "", "ko"))
+      .map((r) => {
+        const summary = parsed.summaries.get(r.licenseId);
+        const orderCount = r.totalOrders || summary?.total || 0;
+        const primaryBranch =
+          summary?.branchName ||
+          Object.entries(r.branchCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+          "-";
+        const branchId = branchIdByLabel[primaryBranch] || "";
+        const promos = branchId ? promotionByBranch[branchId] || [] : [];
+
+        const promoLines: string[] = [];
+        let promoTotal = 0;
+        promos.forEach((p) => {
+          const { amount, typeLabel } = calcPromoAmount(p, orderCount, branchId);
+          if (amount && typeLabel) {
+            promoLines.push(`[${typeLabel}] ${formatCurrency(amount)}원`);
+            promoTotal += amount;
+          }
+        });
+
+        const fin = summary?.fin;
+        const settlementAmount = fin?.settlementAmount || 0;
+        const supportTotal = fin?.supportTotal || 0;
+        const deduction = fin?.deduction || 0;
+        const totalSettlement = fin?.totalSettlement || 0;
+        const fee = fin?.fee || 0;
+        const employment = fin?.employment || 0;
+        const accident = fin?.accident || 0;
+        const timeInsurance = fin?.timeInsurance || 0;
+        const retro = fin?.retro || 0;
+
+        const overallTotal = totalSettlement + promoTotal;
+        const withholding = Math.floor((overallTotal * 0.033) / 10) * 10;
+
+        return {
+          licenseId: r.licenseId || "-",
+          riderName: r.riderName || "-",
+          riderSuffix: r.riderSuffix || "-",
+          branchName: primaryBranch,
+          orderCount,
+          rentCost: "미연동",
+          payout: "미연동",
+          fee,
+          peakScore: "-",
+          promoBasis: promoLines.join(" "),
+          promoAmount: promoTotal,
+          settlementAmount,
+          supportTotal,
+          deduction,
+          totalSettlement,
+          overallTotal,
+          employment,
+          accident,
+          timeInsurance,
+          retro,
+          withholding,
+        };
+      });
+  }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches]);
 
   return (
     <div className="space-y-6">
@@ -928,6 +1153,156 @@ export default function SettlementWizardStep1() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Step 3 */}
+      <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border pb-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <span className="text-lg font-semibold">S3</span>
+          </div>
+          <div>
+            <div className="text-[11px] text-muted-foreground">정산 마법사 / Step 3</div>
+            <h2 className="text-base font-semibold text-foreground">최종 정산 검토</h2>
+            <p className="text-xs text-muted-foreground">
+              라이선스/라이더별 정산 결과를 확인하고 프로모션·공제 내역을 검토합니다.
+            </p>
+          </div>
+          <div className="ml-auto text-[11px] text-muted-foreground">20행 가량 표시 후 스크롤</div>
+        </div>
+
+        {!parsed && (
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
+            Step 2에서 파일을 파싱하면 결과가 여기에 표시됩니다.
+          </div>
+        )}
+
+        {parsed && (
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <div className="max-h-[1080px] overflow-y-auto">
+              <table className="min-w-[2100px] border-separate border-spacing-0 text-sm">
+                <thead className="sticky top-0 z-30 bg-muted/90 text-muted-foreground backdrop-blur">
+                  <tr>
+                    <th
+                      className="sticky left-0 top-0 z-40 border border-border px-3 py-3 text-center font-semibold whitespace-nowrap bg-card"
+                      style={{ width: `${licenseColWidth}px`, minWidth: `${licenseColWidth}px`, maxWidth: `${licenseColWidth}px` }}
+                    >
+                      라이선스 ID
+                    </th>
+                    <th
+                      className="sticky top-0 z-40 border border-border px-3 py-3 text-center font-semibold whitespace-nowrap bg-card"
+                      style={{ left: `${licenseColWidth}px`, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
+                    >
+                      라이더명
+                    </th>
+                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">오더수</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>렌트비용</th>
+                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">실제 입금액</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>수수료</th>
+                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">지사</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${purpleCellClass}`}>피크 점수</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${purpleCellClass}`}>프모 기준</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${purpleCellClass}`}>프로모션</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${blueCellClass}`}>정산금액</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${blueCellClass}`}>총 지원금</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>차감내역</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${blueCellClass}`}>총 정산금액</th>
+                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">전체 총 금액</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>고용보험</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>산재보험</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>시간제보험</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>보험료 소급</th>
+                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">원천세</th>
+                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">상세보기</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {step3Rows.map((row, idx) => (
+                    <tr key={`${row.licenseId}-${idx}`} className="bg-background">
+                      <td
+                        className="sticky left-0 z-20 border border-border px-3 py-3 text-center font-semibold text-foreground whitespace-nowrap bg-card"
+                        style={{ width: `${licenseColWidth}px`, minWidth: `${licenseColWidth}px`, maxWidth: `${licenseColWidth}px` }}
+                      >
+                        {row.licenseId}
+                      </td>
+                      <td
+                        className="sticky z-20 border border-border px-3 py-3 text-center text-foreground whitespace-nowrap bg-card"
+                        style={{ left: `${licenseColWidth}px`, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
+                      >
+                        <div className="font-semibold">{row.riderName}</div>
+                        <div className="text-[11px] text-muted-foreground">뒷번호 {row.riderSuffix}</div>
+                      </td>
+                      <td className="border border-border px-3 py-3 text-center font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap">
+                        {row.orderCount.toLocaleString()}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                        {row.rentCost}
+                      </td>
+                      <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                        {row.payout}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                        {row.fee ? `${formatCurrency(row.fee)}원` : "-"}
+                      </td>
+                      <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                        <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-[3px] text-[11px] font-medium leading-none text-primary">
+                          {row.branchName || "-"}
+                        </span>
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
+                        {row.peakScore}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
+                        {row.promoBasis || "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
+                        {row.promoAmount ? `${formatCurrency(row.promoAmount)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${blueCellClass}`}>
+                        {row.settlementAmount ? `${formatCurrency(row.settlementAmount)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${blueCellClass}`}>
+                        {row.supportTotal ? `${formatCurrency(row.supportTotal)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                        {row.deduction ? `${formatCurrency(row.deduction)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${blueCellClass}`}>
+                        {row.totalSettlement ? `${formatCurrency(row.totalSettlement)}원` : "-"}
+                      </td>
+                      <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                        {row.overallTotal ? `${formatCurrency(row.overallTotal)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                        {row.employment ? `${formatCurrency(row.employment)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                        {row.accident ? `${formatCurrency(row.accident)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                        {row.timeInsurance ? `${formatCurrency(row.timeInsurance)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                        {row.retro ? `${formatCurrency(row.retro)}원` : "-"}
+                      </td>
+                      <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                        {row.withholding ? `${formatCurrency(row.withholding)}원` : "-"}
+                      </td>
+                      <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                        >
+                          보기
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>
