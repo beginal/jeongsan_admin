@@ -13,6 +13,7 @@ type RiderSummary = {
 type OrderDetail = {
   licenseId: string;
   riderName: string;
+  riderSuffix?: string;
   branchName: string;
   orderNo: string;
   acceptedAt: string;

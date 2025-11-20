@@ -22,6 +22,14 @@ type AdminPromotionRow = {
   }[];
 };
 
+type AssignmentRow = {
+  branchId: string;
+  name: string;
+  active: boolean;
+  startDate: string | null;
+  endDate: string | null;
+};
+
 export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -83,7 +91,7 @@ export async function GET() {
         ? (p as any).promotion_branch_assignments
         : [];
 
-      const assignments = assignmentsRaw.map((a: any) => {
+      const assignments: AssignmentRow[] = assignmentsRaw.map((a: any) => {
         const nb = a.new_branches || {};
         const baseLabel =
           nb.display_name ||
@@ -120,8 +128,8 @@ export async function GET() {
         };
       });
 
-      const hasActive = assignments.some((a) => a.active);
-      const hasFuture = assignments.some((a) => {
+      const hasActive: boolean = assignments.some((a: AssignmentRow) => !!a.active);
+      const hasFuture: boolean = assignments.some((a: AssignmentRow) => {
         if (!a.startDate) return false;
         const st = new Date(a.startDate);
         st.setHours(0, 0, 0, 0);

@@ -696,7 +696,7 @@ export default function SettlementWizardStep1() {
                           연결된 프로모션이 없습니다.
                         </div>
                       ) : (
-                        <div className="space-y-1">
+                        <div className="space-y-2">
                           {branchPromos.map((p) => (
                             <div
                               key={p.id}
@@ -714,7 +714,7 @@ export default function SettlementWizardStep1() {
                                 <div className="text-muted-foreground">유형: {promotionDetail[p.id]?.typeLabel}</div>
                               )}
                               {promotionDetail[p.id]?.summaryLines?.map((line, idx) => (
-                                <div key={idx} className="text-muted-foreground">
+                                <div key={idx} className="whitespace-pre-line text-muted-foreground leading-snug">
                                   · {line}
                                 </div>
                               ))}
