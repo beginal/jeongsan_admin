@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 type RiderSummary = {
   licenseId: string;
   riderName: string;
+  riderNameRaw: string;
   totalOrders: number;
   branchName: string;
   settlementAmount: number;
@@ -133,7 +134,7 @@ const parseSummarySheet = (wb: XLSX.WorkBook, branchName: string): RiderSummary[
 
     const licenseId = licCell?.v != null ? String(licCell.v).trim() : "";
     const riderNameRaw = nameCell?.v != null ? String(nameCell.v).trim() : "";
-    const { name: riderName } = splitRider(riderNameRaw || "");
+    const { name: riderName, suffix } = splitRider(riderNameRaw || "");
     const totalOrders = totalCell?.v != null ? Math.round(getNum(cols.totalOrders.col)) : 0;
 
     const settlementAmount = getNum(cols.settlementAmount.col);
@@ -151,6 +152,7 @@ const parseSummarySheet = (wb: XLSX.WorkBook, branchName: string): RiderSummary[
       summaries.push({
         licenseId: "-",
         riderName,
+        riderNameRaw,
         totalOrders: totalOrders || 0,
         branchName,
         settlementAmount,
@@ -167,6 +169,7 @@ const parseSummarySheet = (wb: XLSX.WorkBook, branchName: string): RiderSummary[
       summaries.push({
         licenseId: licenseId || "-",
         riderName: riderName || "-",
+        riderNameRaw,
         totalOrders: totalOrders || 0,
         branchName,
         settlementAmount,

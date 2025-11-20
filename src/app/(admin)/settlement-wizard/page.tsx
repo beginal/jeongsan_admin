@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileSpreadsheet, ShieldCheck, Trash2 } from "lucide-react";
 
@@ -16,6 +16,13 @@ type BranchOption = {
   personalName?: string | null;
   feeType?: "per_case" | "percentage" | null;
   feeValue?: number | null;
+};
+
+type BranchRider = {
+  id: string;
+  name: string;
+  phone: string;
+  phoneSuffix: string;
 };
 
 type PromotionOption = {
@@ -52,6 +59,7 @@ type ParsedFileResult = {
   summaries: {
     licenseId: string;
     riderName: string;
+    riderNameRaw: string;
     totalOrders: number;
     branchName: string;
     settlementAmount: number;
@@ -126,6 +134,8 @@ type Step3Row = {
   timeInsurance: number;
   retro: number;
   withholding: number;
+  matchedRiderId?: string;
+  matchedRiderName?: string;
 };
 
 const excelAccept = ".xls,.xlsx,.xlsm";
@@ -258,6 +268,7 @@ export default function SettlementWizardStep1() {
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [promotionByBranch, setPromotionByBranch] = useState<Record<string, PromotionOption[]>>({});
   const [promotionDetail, setPromotionDetail] = useState<Record<string, PromotionDetail>>({});
+  const [branchRiders, setBranchRiders] = useState<Record<string, BranchRider[]>>({});
   const [uploads, setUploads] = useState<UploadEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -273,8 +284,9 @@ export default function SettlementWizardStep1() {
   missions: Record<string, any>[];
   summaries: Map<
     string,
-    {
-      name: string;
+      {
+        name: string;
+        rawName: string;
         suffix: string;
         total: number;
         branchName: string;
@@ -295,14 +307,16 @@ export default function SettlementWizardStep1() {
       setLoading(true);
       setError(null);
       try {
-        const [branchRes, promoRes] = await Promise.all([
+        const [branchRes, promoRes, ridersRes] = await Promise.all([
           fetch("/api/branches"),
           fetch("/api/promotions"),
+          fetch("/api/branch-riders").catch(() => null),
         ]);
 
-        const [branchData, promoData] = await Promise.all([
+        const [branchData, promoData, ridersData] = await Promise.all([
           branchRes.json().catch(() => ({})),
           promoRes.json().catch(() => ({})),
+          ridersRes ? ridersRes.json().catch(() => ({})) : {},
         ]);
 
         if (!branchRes.ok || branchData?.error) {
@@ -385,6 +399,20 @@ export default function SettlementWizardStep1() {
 
         setPromotionByBranch(map);
         setPromotionDetail(detailMap);
+        if (ridersRes && ridersRes.ok && ridersData?.ridersByBranch) {
+          const riderMap: Record<string, BranchRider[]> = {};
+          Object.entries(ridersData.ridersByBranch as Record<string, any[]>).forEach(
+            ([bid, rows]) => {
+              riderMap[bid] = rows.map((r: any) => ({
+                id: String(r.id),
+                name: r.name || "",
+                phone: r.phone || "",
+                phoneSuffix: r.phoneSuffix || "",
+              }));
+            }
+          );
+          setBranchRiders(riderMap);
+        }
       } catch (e: any) {
         if (!cancelled) setError(e.message || "데이터를 불러오지 못했습니다.");
       } finally {
@@ -525,6 +553,7 @@ export default function SettlementWizardStep1() {
           const sp = splitRider(s.riderName || "-");
           summaryMap.set(lic, {
             name: sp.name || "-",
+            rawName: s.riderNameRaw || s.riderName || "-",
             suffix: sp.suffix || "",
             total: s.totalOrders || 0,
             branchName: s.branchName || "-",
@@ -625,7 +654,7 @@ export default function SettlementWizardStep1() {
             r.riderName = sum.name || r.riderName;
           }
           r.totalOrders = sum.total || r.totalOrders;
-          r.riderSuffix = sum.suffix || r.riderSuffix;
+          r.riderSuffix = sum.suffix || splitRider(sum.rawName || "").suffix || r.riderSuffix;
         }
         return r;
       });
@@ -660,6 +689,29 @@ export default function SettlementWizardStep1() {
     });
     return map;
   }, [branches]);
+
+  const resolveBranchId = useCallback(
+    (label?: string | null) => {
+      if (!label) return null;
+      const id = branchIdByLabel[label];
+      if (id) return id;
+      if (branchRiders[label]) return label;
+      return null;
+    },
+    [branchIdByLabel, branchRiders]
+  );
+
+  const findMatchedRider = useCallback(
+    (branchLabel?: string | null, suffix?: string | null) => {
+      if (!suffix) return null;
+      const bid = resolveBranchId(branchLabel);
+      if (!bid) return null;
+      const list = branchRiders[bid];
+      if (!list) return null;
+      return list.find((r) => r.phoneSuffix === suffix) || null;
+    },
+    [branchRiders, resolveBranchId]
+  );
 
   const calcPromoAmount = (promo: PromotionOption, orders: number, branchId: string) => {
     const detail = promotionDetail[promo.id];
@@ -787,6 +839,13 @@ export default function SettlementWizardStep1() {
         const timeInsurance = fin?.timeInsurance || 0;
         const retro = fin?.retro || 0;
 
+        const riderSuffixResolved =
+          r.riderSuffix ||
+          summary?.suffix ||
+          splitRider(summary?.rawName || "").suffix ||
+          "";
+        const matched = findMatchedRider(primaryBranch, riderSuffixResolved);
+
         const missionSum = missionDates.reduce((acc, d) => {
           const amt = missionTotals[d]?.[r.licenseId] || 0;
           return acc + amt;
@@ -798,7 +857,7 @@ export default function SettlementWizardStep1() {
         return {
           licenseId: r.licenseId || "-",
           riderName: r.riderName || summary?.name || "-",
-          riderSuffix: r.riderSuffix || summary?.suffix || "-",
+          riderSuffix: riderSuffixResolved || "-",
           branchName: primaryBranch,
           orderCount,
           rentCost: "미연동",
@@ -817,9 +876,11 @@ export default function SettlementWizardStep1() {
           timeInsurance,
           retro,
           withholding,
+          matchedRiderId: matched?.id,
+          matchedRiderName: matched?.name,
         };
       });
-  }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches, missionDates, missionTotals]);
+  }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches, missionDates, missionTotals, findMatchedRider]);
 
   return (
     <div className="space-y-6">
@@ -1130,9 +1191,41 @@ export default function SettlementWizardStep1() {
                         }
                       >
                         <td className="px-3 py-2 align-top text-center text-foreground">{r.licenseId}</td>
-                        <td className="px-3 py-2 align-top text-center text-foreground">{r.riderName}</td>
                         <td className="px-3 py-2 align-top text-center text-foreground">
-                          {r.riderSuffix || parsed.summaries.get(r.licenseId)?.suffix || "-"}
+                          {(() => {
+                            const summary = parsed.summaries.get(r.licenseId);
+                            const primaryBranch =
+                              summary?.branchName ||
+                              Object.entries(r.branchCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+                              "-";
+                            const match = findMatchedRider(
+                              primaryBranch,
+                              r.riderSuffix ||
+                                summary?.suffix ||
+                                splitRider(summary?.rawName || "").suffix ||
+                                ""
+                            );
+                            if (match) {
+                              return (
+                                <a
+                                  href={`/riders/${match.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-primary underline underline-offset-2"
+                                >
+                                  {r.riderName}
+                                </a>
+                              );
+                            }
+                            return r.riderName;
+                          })()}
+                        </td>
+                        <td className="px-3 py-2 align-top text-center text-foreground">
+                          {r.riderSuffix ||
+                            parsed.summaries.get(r.licenseId)?.suffix ||
+                            splitRider(parsed.summaries.get(r.licenseId)?.rawName || "").suffix ||
+                            "-"}
                         </td>
                         <td className="px-3 py-2 align-top text-center font-semibold text-foreground">
                           {r.totalOrders.toLocaleString()}
@@ -1311,7 +1404,20 @@ export default function SettlementWizardStep1() {
                         className="sticky z-20 border border-border px-3 py-3 text-center text-foreground whitespace-nowrap bg-card"
                         style={{ left: 0, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
                       >
-                        <div className="font-semibold">{row.riderName}</div>
+                        <div className="font-semibold">
+                          {row.matchedRiderId ? (
+                            <a
+                              href={`/riders/${row.matchedRiderId}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-primary underline underline-offset-2"
+                            >
+                              {row.riderName}
+                            </a>
+                          ) : (
+                            row.riderName
+                          )}
+                        </div>
                         <div className="text-[11px] text-muted-foreground">뒷번호 {row.riderSuffix}</div>
                       </td>
                       <td
@@ -1340,7 +1446,10 @@ export default function SettlementWizardStep1() {
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
                         {row.peakScore}
                       </td>
-                      <td className={`border border-border px-3 py-3 text-center whitespace-pre-line text-[12px] ${purpleCellClass}`}>
+                      <td
+                        className={`border border-border px-3 py-3 text-center whitespace-pre-line text-[12px] ${purpleCellClass}`}
+                        style={{ minWidth: "140px", width: "140px" }}
+                      >
                         {row.promoBasis || "-"}
                       </td>
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
