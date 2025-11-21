@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { Button } from "@/components/ui/Button";
 
 type PromotionType = "excess" | "milestone" | "milestone_per_unit";
 type PromotionStatusDb = "ACTIVE" | "INACTIVE";
@@ -435,6 +436,37 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4 text-xs">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">프로모션 수정</span>
+          <span className="text-muted-foreground text-xs">{name || "제목 없음"}</span>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            variant="danger"
+            size="sm"
+            onClick={() => setShowDeleteModal(true)}
+            disabled={saving || deleting}
+            isLoading={deleting}
+          >
+            삭제
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => router.push("/promotions")}
+            disabled={saving || deleting}
+          >
+            취소
+          </Button>
+          <Button type="submit" variant="primary" size="sm" disabled={saving || deleting} isLoading={saving}>
+            저장
+          </Button>
+        </div>
+      </div>
+
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           {error}
@@ -1045,38 +1077,6 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <GlassButton
-          type="button"
-          variant="destructive"
-          size="sm"
-          onClick={() => setShowDeleteModal(true)}
-          disabled={saving || deleting}
-        >
-          프로모션 삭제
-        </GlassButton>
-        <div className="ml-auto flex items-center gap-2">
-          <GlassButton
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              router.push("/promotions");
-            }}
-            disabled={saving || deleting}
-          >
-            취소
-          </GlassButton>
-          <GlassButton
-            type="submit"
-            variant="primary"
-            size="sm"
-            disabled={saving || deleting}
-          >
-            {saving ? "저장 중..." : "저장"}
-          </GlassButton>
-        </div>
-      </div>
     </form>
   );
 }
