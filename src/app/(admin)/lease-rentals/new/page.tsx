@@ -295,12 +295,12 @@ function Field({
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
-      <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2">
+      <div className="flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 shadow-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
         <input
           type={type}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 w-full bg-transparent text-foreground outline-none"
+          className="h-8 w-full bg-transparent text-foreground placeholder:text-muted-foreground outline-none"
         />
         {trailing && <span className="text-[11px] text-muted-foreground">{trailing}</span>}
       </div>
@@ -331,7 +331,7 @@ function SelectField({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 w-full rounded-md border border-border bg-background px-3 text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        className="h-10 w-full rounded-md border border-border bg-background px-3 text-foreground outline-none shadow-sm focus:border-primary focus:ring-1 focus:ring-primary"
       >
         {placeholder && !value && (
           <option value="" disabled>

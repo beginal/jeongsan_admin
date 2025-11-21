@@ -6,6 +6,7 @@ import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { Button } from "@/components/ui/Button";
 import { showToast } from "@/components/ui/Toast";
 import { DateField } from "@/components/ui/DateField";
+import { NumberField, TextAreaField } from "@/components/ui/FormField";
 
 interface LoanEditFormProps {
   loanId: string;
@@ -186,26 +187,15 @@ export function LoanEditForm({
         </div>
 
         <div className="space-y-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-[11px] font-semibold text-muted-foreground">총 대여금</span>
-            <input
-              type="text"
-              value={principal}
-              onChange={(e) =>
-                setPrincipal(
-                  e.target.value.replace(/[^\d]/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                )
-              }
-              onFocus={() => {
-                if (principal === "0") setPrincipal("");
-              }}
-              onBlur={() => {
-                if (!principal.trim()) setPrincipal("0");
-              }}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              required
-            />
-          </label>
+          <NumberField
+            label="총 대여금"
+            value={principal}
+            onChange={(v) => {
+              setPrincipal(v || "0");
+            }}
+            required
+            unit="원"
+          />
 
           <div className="grid gap-4 md:grid-cols-2">
             <DateField
@@ -246,33 +236,24 @@ export function LoanEditForm({
               </select>
             </label>
 
-            <label className="space-y-1 text-sm">
-              <span className="text-[11px] font-semibold text-muted-foreground">회차 납부 금액 (선택)</span>
-              <input
-                type="text"
-                value={paymentAmountInput}
-                onChange={(e) =>
-                  setPaymentAmountInput(
-                    e.target.value.replace(/[^\d]/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                  )
-                }
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="예: 50,000원"
-              />
-            </label>
+            <NumberField
+              label="회차 납부 금액 (선택)"
+              value={paymentAmountInput}
+              onChange={setPaymentAmountInput}
+              helperText="선택 입력"
+              unit="원"
+            />
           </div>
         </div>
 
         <div className="space-y-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-[11px] font-semibold text-muted-foreground">메모</span>
-            <textarea
-              value={noteInput}
-              onChange={(e) => setNoteInput(e.target.value)}
-              className="min-h-[80px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              placeholder="대여 조건, 납부 플랜 등 메모를 남겨주세요."
-            />
-          </label>
+          <TextAreaField
+            label="메모"
+            value={noteInput}
+            onChange={setNoteInput}
+            placeholder="대여 조건, 납부 플랜 등 메모를 남겨주세요."
+            minRows={4}
+          />
         </div>
       </div>
 
@@ -284,20 +265,12 @@ export function LoanEditForm({
         </div>
 
         <div className="grid gap-3 md:grid-cols-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-[11px] font-semibold text-muted-foreground">금액</span>
-            <input
-              type="text"
-              value={newPaymentAmount}
-              onChange={(e) =>
-                setNewPaymentAmount(
-                  e.target.value.replace(/[^\d]/g, "").replace(/\B(?=(\d{3})+(?!\d))/g, ",")
-                )
-              }
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              placeholder="예: 50,000원"
-            />
-          </label>
+          <NumberField
+            label="금액"
+            value={newPaymentAmount}
+            onChange={setNewPaymentAmount}
+            unit="원"
+          />
           <label className="space-y-1 text-sm">
             <span className="text-[11px] font-semibold text-muted-foreground">입금일</span>
             <DateField value={newPaymentDate} onChange={setNewPaymentDate} />

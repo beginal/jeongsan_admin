@@ -5,6 +5,7 @@ import Link from "next/link";
 import { MinusCircle } from "lucide-react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { DateField } from "@/components/ui/DateField";
+import { NumberField } from "@/components/ui/FormField";
 
 type RiderOption = {
   id: string;
@@ -254,12 +255,10 @@ export default function UncollectedDeductionsPage() {
         <div className="grid gap-3 md:grid-cols-3">
           <label className="space-y-1 text-sm">
             <span className="text-[11px] font-semibold text-muted-foreground">차감 금액</span>
-            <input
-              type="text"
+            <NumberField
               value={amountInput}
-              onChange={(e) => setAmountInput(formatNumberInput(e.target.value))}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              placeholder="예: 50,000원"
+              onChange={(v) => setAmountInput(formatNumberInput(v))}
+              unit="원"
             />
           </label>
           <label className="space-y-1 text-sm">

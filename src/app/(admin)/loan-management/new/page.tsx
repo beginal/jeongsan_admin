@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Wallet } from "lucide-react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { NumberField, TextAreaField } from "@/components/ui/FormField";
 import { DateField } from "@/components/ui/DateField";
 
 type RiderOption = {
@@ -185,22 +186,13 @@ export default function LoanCreatePage() {
         </div>
 
         <div className="space-y-3">
-          <label className="space-y-1 text-sm">
-            <span className="text-[11px] font-semibold text-muted-foreground">총 대여금</span>
-            <input
-              type="text"
-              value={principal}
-              onChange={(e) => setPrincipal(formatInputNumber(e.target.value))}
-              onFocus={() => {
-                if (principal === "0") setPrincipal("");
-              }}
-              onBlur={() => {
-                if (!principal.trim()) setPrincipal("0");
-              }}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              required
-            />
-          </label>
+          <NumberField
+            label="총 대여금"
+            value={principal}
+            onChange={(v) => setPrincipal(v || "0")}
+            required
+            unit="원"
+          />
 
           <label className="space-y-1 text-sm">
             <span className="text-[11px] font-semibold text-muted-foreground">대여 일자</span>
@@ -229,16 +221,13 @@ export default function LoanCreatePage() {
               </select>
             </label>
 
-            <label className="space-y-1 text-sm">
-              <span className="text-[11px] font-semibold text-muted-foreground">회차 납부 금액 (선택)</span>
-              <input
-                type="text"
-                value={paymentAmount}
-                onChange={(e) => setPaymentAmount(formatInputNumber(e.target.value))}
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="예: 50,000원"
-              />
-            </label>
+            <NumberField
+              label="회차 납부 금액 (선택)"
+              value={paymentAmount}
+              onChange={setPaymentAmount}
+              unit="원"
+              helperText="선택 입력"
+            />
           </div>
 
           <label className="space-y-1 text-sm">
@@ -247,15 +236,13 @@ export default function LoanCreatePage() {
           </label>
         </div>
 
-        <label className="space-y-1 text-sm">
-          <span className="text-[11px] font-semibold text-muted-foreground">메모</span>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="min-h-[80px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            placeholder="대여 조건, 납부 플랜 등 메모를 남겨주세요."
-          />
-        </label>
+        <TextAreaField
+          label="메모"
+          value={notes}
+          onChange={setNotes}
+          placeholder="대여 조건, 납부 플랜 등 메모를 남겨주세요."
+          minRows={4}
+        />
 
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">

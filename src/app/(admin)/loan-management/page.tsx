@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type LoanRow = {
   id: string;
@@ -142,7 +143,7 @@ export default function LoanManagementPage() {
               <tr
                 key={loan.id}
                 className="hover:bg-muted/40 cursor-pointer"
-                onClick={() => window.location.href = `/loan-management/${loan.id}/edit`}
+                onClick={() => (window.location.href = `/loan-management/${loan.id}/edit`)}
               >
                 <td className="px-4 py-3 font-medium text-foreground">{loan.riderName}</td>
                 <td className="px-4 py-3 text-left text-muted-foreground">{loan.branchName || "-"}</td>
@@ -164,11 +165,22 @@ export default function LoanManagementPage() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-4 py-6 text-center text-sm text-muted-foreground"
-                >
-                  {loading ? "불러오는 중..." : "검색된 대여금 데이터가 없습니다."}
+                <td colSpan={7} className="px-4 py-6">
+                  <EmptyState
+                    title={loading ? "불러오는 중" : "검색된 대여금이 없습니다"}
+                    description={loading ? "데이터를 불러오고 있습니다." : "필터를 다시 설정하거나 신규 대여금을 등록해 주세요."}
+                    action={
+                      !loading && (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => (window.location.href = "/loan-management/new")}
+                        >
+                          새 대여금 등록
+                        </Button>
+                      )
+                    }
+                  />
                 </td>
               </tr>
             )}

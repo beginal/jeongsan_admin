@@ -14,6 +14,10 @@ import {
   Percent,
   Wallet,
   Wand2,
+  CalendarClock,
+  CalendarRange,
+  Users,
+  ListChecks,
 } from "lucide-react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 
@@ -23,8 +27,7 @@ type NavGroupKey =
   | "branch"
   | "rider"
   | "lease"
-  | "loan"
-  | "deduction";
+  | "finance";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -55,8 +58,8 @@ const NAV_SECTIONS: NavSection[] = [
     label: "정산마법사",
     icon: Wand2,
     items: [
-      { label: "일 정산", href: "/settlement-wizard/daily" },
-      { label: "주 정산", href: "/settlement-wizard/weekly" },
+      { label: "일 정산", href: "/settlement-wizard/daily", icon: CalendarClock },
+      { label: "주 정산", href: "/settlement-wizard/weekly", icon: CalendarRange },
     ],
   },
   {
@@ -82,8 +85,8 @@ const NAV_SECTIONS: NavSection[] = [
     label: "라이더 관리",
     icon: Bike,
     items: [
-      { label: "라이더 목록", href: "/riders" },
-      { label: "익일정산 목록", href: "/settlement-requests", icon: Bike, matchExact: true },
+      { label: "라이더 목록", href: "/riders", icon: Users },
+      { label: "익일정산 목록", href: "/settlement-requests", icon: ListChecks, matchExact: true },
     ],
   },
   {
@@ -93,16 +96,13 @@ const NAV_SECTIONS: NavSection[] = [
     icon: CarFront,
   },
   {
-    key: "loan",
-    label: "대여금 관리",
-    href: "/loan-management",
+    key: "finance",
+    label: "금액/차감 관리",
     icon: Wallet,
-  },
-  {
-    key: "deduction",
-    label: "미차감 관리",
-    href: "/uncollected-deductions",
-    icon: MinusCircle,
+    items: [
+      { label: "대여금 관리", href: "/loan-management", icon: Wallet },
+      { label: "미차감 관리", href: "/uncollected-deductions", icon: MinusCircle },
+    ],
   },
 ];
 
@@ -244,9 +244,9 @@ function SidebarSection({
         onClick={onToggle}
         aria-expanded={isOpen}
         className={cn(
-          "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 h-auto",
+          "relative flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 h-auto overflow-hidden",
           isSectionActive
-            ? "bg-surface-100 text-primary shadow-glass-sm hover:bg-surface-200"
+            ? "bg-surface-100 text-primary shadow-glass-sm hover:bg-surface-200 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-full before:bg-primary"
             : "text-muted-foreground hover:bg-surface-50 hover:text-foreground"
         )}
       >
@@ -286,6 +286,14 @@ function SidebarSection({
                   : "text-muted-foreground hover:bg-surface-50 hover:text-foreground hover:translate-x-1"
               )}
             >
+              {item.icon && (
+                <item.icon
+                  className={cn(
+                    "mr-2 h-4 w-4 text-muted-foreground",
+                    isActive ? "text-primary" : ""
+                  )}
+                />
+              )}
               <span>{item.label}</span>
             </Link>
           );
@@ -313,9 +321,9 @@ function TopLevelLink({ section, currentPath }: TopLevelLinkProps) {
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+        "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 overflow-hidden",
         isActive
-          ? "bg-surface-100 text-primary shadow-glass-sm"
+          ? "bg-surface-100 text-primary shadow-glass-sm before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-full before:bg-primary"
           : "text-muted-foreground hover:bg-surface-50 hover:text-foreground"
       )}
     >

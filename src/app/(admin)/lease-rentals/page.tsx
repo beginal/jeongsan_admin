@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { EmptyState } from "@/components/ui/EmptyState";
 
 type RentalStatus = "active" | "inactive";
 
@@ -142,11 +143,18 @@ export default function LeaseRentalListPage() {
               )}
               {!loading && !error && rentals.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={8}
-                    className="border-b border-border px-4 py-4 text-center text-xs text-muted-foreground"
-                  >
-                    등록된 리스·렌탈 정보가 없습니다.
+                  <td colSpan={8} className="px-4 py-6">
+                    <EmptyState
+                      title="리스/렌탈 정보가 없습니다"
+                      description="차량을 등록하고 라이더에게 배정해 보세요."
+                      action={
+                        <Link href="/lease-rentals/new">
+                          <button className="rounded-md border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground shadow-sm hover:border-primary hover:text-primary">
+                            새 리스/렌탈 등록
+                          </button>
+                        </Link>
+                      }
+                    />
                   </td>
                 </tr>
               )}
