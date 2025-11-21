@@ -269,6 +269,7 @@ const formatMissionLabel = (dateStr: string) => {
 export default function WeeklySettlementWizardPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lastLoadKeyRef = useRef<number | null>(null);
 
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [promotionByBranch, setPromotionByBranch] = useState<Record<string, PromotionOption[]>>({});
@@ -281,7 +282,7 @@ export default function WeeklySettlementWizardPage() {
   const [dragActive, setDragActive] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [globalPassword, setGlobalPassword] = useState("");
-  const loadedRef = useRef(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [parsing, setParsing] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [parsed, setParsed] = useState<{
@@ -305,8 +306,8 @@ export default function WeeklySettlementWizardPage() {
   const riderColWidth = 100;
 
   useEffect(() => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
+    if (lastLoadKeyRef.current === reloadKey) return;
+    lastLoadKeyRef.current = reloadKey;
     let cancelled = false;
 
     async function load() {
@@ -349,6 +350,9 @@ export default function WeeklySettlementWizardPage() {
           feeType: b.fee_type || null,
           feeValue: b.fee_value != null ? Number(b.fee_value) : null,
         }));
+        if (branchList.length === 0) {
+          throw new Error("지사 목록이 비어있습니다. 다시 불러와 주세요.");
+        }
         setBranches(branchList);
 
         const map: Record<string, PromotionOption[]> = {};
@@ -441,7 +445,7 @@ export default function WeeklySettlementWizardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const guessBranchId = (fileName: string) => {
     const lower = fileName.toLowerCase();
@@ -926,7 +930,16 @@ export default function WeeklySettlementWizardPage() {
           <h1 className="text-lg font-semibold text-foreground">파일 업로드 및 검증</h1>
           <p className="text-xs text-muted-foreground">엑셀 파일을 업로드하고 지사/프로모션을 매핑한 뒤 비밀번호를 입력합니다.</p>
         </div>
-        <div className="ml-auto text-[11px] text-muted-foreground">Step 1 / 3</div>
+        <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            데이터 다시 불러오기
+          </button>
+          <span>Step 1 / 3</span>
+        </div>
       </div>
 
       <div

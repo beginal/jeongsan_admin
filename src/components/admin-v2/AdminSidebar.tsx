@@ -10,12 +10,20 @@ import {
   Building2,
   CarFront,
   LayoutDashboard,
+  MinusCircle,
   Percent,
   Wallet,
   Wand2,
 } from "lucide-react";
 
-type NavGroupKey = "dashboard" | "settlement" | "branch" | "rider" | "lease" | "loan";
+type NavGroupKey =
+  | "dashboard"
+  | "settlement"
+  | "branch"
+  | "rider"
+  | "lease"
+  | "loan"
+  | "deduction";
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -84,6 +92,12 @@ const NAV_SECTIONS: NavSection[] = [
     label: "대여금 관리",
     href: "/loan-management",
     icon: Wallet,
+  },
+  {
+    key: "deduction",
+    label: "미차감 관리",
+    href: "/uncollected-deductions",
+    icon: MinusCircle,
   },
 ];
 

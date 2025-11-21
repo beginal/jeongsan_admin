@@ -1,3 +1,6 @@
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
+
 import { notFound } from "next/navigation";
 
 export default function AdminCatchAllPage() {

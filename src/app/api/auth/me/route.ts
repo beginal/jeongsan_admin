@@ -10,6 +10,8 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const expiresAt = decodeExp(token);
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -44,6 +46,7 @@ export async function GET() {
       id,
       email,
       name,
+      expiresAt,
     });
   } catch (e) {
     console.error("[auth/me] Unexpected error:", e);
@@ -51,5 +54,33 @@ export async function GET() {
       { error: "사용자 정보를 불러오는 중 오류가 발생했습니다." },
       { status: 500 }
     );
+  }
+}
+
+function decodeExp(token: string): number | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payloadBase64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = payloadBase64.padEnd(
+      payloadBase64.length + ((4 - (payloadBase64.length % 4)) % 4),
+      "="
+    );
+    const json =
+      typeof atob === "function"
+        ? atob(padded)
+        : Buffer.from(padded, "base64").toString("binary");
+    const payload = JSON.parse(
+      decodeURIComponent(
+        json
+          .split("")
+          .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+          .join("")
+      )
+    );
+    if (typeof payload.exp === "number") return payload.exp;
+    return null;
+  } catch {
+    return null;
   }
 }

@@ -43,12 +43,35 @@ export async function GET(request: NextRequest) {
       )
       .order("loan_date", { ascending: false });
 
+    const { data: scheduleRows } = await supabase
+      .from("rider_loans")
+      .select("rider_id, payment_weekday, payment_amount, loan_date")
+      .order("loan_date", { ascending: false })
+      .limit(2000);
+
     if (fetchError) {
       return NextResponse.json(
         { error: "대여금 목록을 불러오지 못했습니다." },
         { status: 500 }
       );
     }
+
+    const scheduleByRider: Record<string, { weekday: number | null; amount: number | null }> = {};
+    (scheduleRows || []).forEach((row: any) => {
+      const riderId = row.rider_id;
+      if (!riderId) return;
+      if (scheduleByRider[riderId]) return; // 이미 최신건 세팅됨
+      scheduleByRider[riderId] = {
+        weekday:
+          row.payment_weekday === null || row.payment_weekday === undefined
+            ? null
+            : Number(row.payment_weekday),
+        amount:
+          row.payment_amount === null || row.payment_amount === undefined
+            ? null
+            : Number(row.payment_amount),
+      };
+    });
 
     const loans = (data || [])
       .map((row: any) => {
@@ -64,6 +87,8 @@ export async function GET(request: NextRequest) {
           riderId: row.rider_id as string,
           riderName,
           branchName,
+          paymentWeekday: scheduleByRider[row.rider_id]?.weekday ?? null,
+          paymentAmount: scheduleByRider[row.rider_id]?.amount ?? null,
           totalLoan: Number(row.total_loan || 0),
           paidAmount: Number(row.paid_amount || 0),
           remainingAmount: Number(row.remaining_amount || 0),

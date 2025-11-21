@@ -88,11 +88,12 @@ const parseSummarySheet = (wb: XLSX.WorkBook, branchName: string): RiderSummary[
   if (!ws) return [];
   const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
 
-  const findCol = (label: string) => {
+  const findCol = (label: string | string[]) => {
+    const labels = Array.isArray(label) ? label : [label];
     for (let r = range.s.r; r <= range.e.r; r++) {
       for (let c = range.s.c; c <= range.e.c; c++) {
         const v = ws[XLSX.utils.encode_cell({ r, c })]?.v;
-        if (v === label) return { row: r, col: c };
+        if (labels.includes(String(v))) return { row: r, col: c };
       }
     }
     return { row: -1, col: -1 };
@@ -100,7 +101,7 @@ const parseSummarySheet = (wb: XLSX.WorkBook, branchName: string): RiderSummary[
 
   const cols = {
     license: findCol("라이선스 ID"),
-    name: findCol("성함"),
+    name: findCol(["성함", "이름"]),
     totalOrders: findCol("총 정산 오더수"),
     settlementAmount: findCol("정산금액"),
     supportTotal: findCol("총 지원금"),
@@ -196,7 +197,8 @@ const parseOrderDetails = (
   const ws = wb.Sheets["오더별 상세 내역서"];
   if (!ws) return [];
 
-  const headerRow = findHeaderRow(ws, (v) => v === "이름");
+  const nameHeaders = ["이름", "성함"];
+  const headerRow = findHeaderRow(ws, (v) => nameHeaders.includes(String(v)));
   if (headerRow < 0) return [];
 
   const range = XLSX.utils.decode_range(ws["!ref"] || "A1:A1");
@@ -209,7 +211,7 @@ const parseOrderDetails = (
 
   for (let c = range.s.c; c <= range.e.c; c++) {
     const val = ws[XLSX.utils.encode_cell({ r: headerRow, c })]?.v;
-    if (val === "이름") colIdx.name = c;
+    if (nameHeaders.includes(String(val))) colIdx.name = c;
     if (val === "축약형 주문번호") colIdx.orderNo = c;
     if (val === "수락시간") colIdx.accepted = c;
     if (val === "피크타임") colIdx.peak = c;
@@ -276,7 +278,9 @@ const parseMissionSheet = (wb: XLSX.WorkBook): MissionRow[] => {
   for (let r = headerRow + 1; r <= range.e.r; r++) {
     const status = ws[XLSX.utils.encode_cell({ r, c: colMap["달성 유무"] })]?.v;
     if (status !== "달성") continue;
-    const nameRaw = ws[XLSX.utils.encode_cell({ r, c: colMap["이름"] })]?.v;
+    const nameRaw =
+      ws[XLSX.utils.encode_cell({ r, c: colMap["이름"] })]?.v ??
+      ws[XLSX.utils.encode_cell({ r, c: colMap["성함"] })]?.v;
     if (!nameRaw) continue;
     const missionName = ws[XLSX.utils.encode_cell({ r, c: colMap["미션 명"] })]?.v || "";
     if (typeof missionName !== "string" || !missionName.startsWith("기본미션_")) {

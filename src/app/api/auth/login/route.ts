@@ -55,6 +55,7 @@ export async function POST(request: Request) {
     // Supabase에서 발급한 access_token 자체가 JWT이므로, 이를 admin_v2_token으로 그대로 사용
     const response = NextResponse.json({
       user: { id: data.user.id, email: data.user.email, role: "admin" },
+      expiresAt: data.session.expires_at,
     });
 
     response.cookies.set("admin_v2_token", data.session.access_token, {
@@ -62,8 +63,18 @@ export async function POST(request: Request) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24,
+      maxAge: 60 * 60, // access token은 1시간, 만료 전 refresh로 연장
     });
+
+    if (data.session.refresh_token) {
+      response.cookies.set("admin_v2_refresh", data.session.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 14, // 2주
+      });
+    }
 
     return response;
   } catch (e) {
