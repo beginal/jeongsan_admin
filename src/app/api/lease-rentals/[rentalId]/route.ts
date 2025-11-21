@@ -1,44 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 const mapStatus = (isActive: boolean | null | undefined) =>
   isActive ? "active" : "inactive";
-
-async function getAdminId(supabaseUrl: string, serviceRoleKey: string) {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_v2_token")?.value;
-  if (!token) return null;
-  const auth = createClient(supabaseUrl, serviceRoleKey);
-  const {
-    data: { user },
-  } = await auth.auth.getUser(token);
-  return user?.id || null;
-}
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ rentalId: string }> }
 ) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
   try {
-    const adminId = await getAdminId(supabaseUrl, serviceRoleKey);
-    if (!adminId) {
-      return NextResponse.json(
-        { error: "유효한 관리자 정보가 없습니다." },
-        { status: 401 }
-      );
-    }
+    const adminId = auth.user.id;
 
     const { rentalId } = await params;
 
@@ -101,26 +75,12 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ rentalId: string }> }
 ) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
-    const adminId = await getAdminId(supabaseUrl, serviceRoleKey);
-    if (!adminId) {
-      return NextResponse.json(
-        { error: "유효한 관리자 정보가 없습니다." },
-        { status: 401 }
-      );
-    }
+    const adminId = auth.user.id;
 
     const body = await req.json();
     const {

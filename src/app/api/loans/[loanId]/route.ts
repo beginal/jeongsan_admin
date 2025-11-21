@@ -1,25 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-function getSupabase() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return { error: "Supabase 환경 변수가 설정되지 않았습니다." };
-  }
-
-  return { supabase: createClient(supabaseUrl, serviceRoleKey) };
-}
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ loanId: string }> }
 ) {
-  const { supabase, error } = getSupabase();
-  if (error || !supabase) {
-    return NextResponse.json({ error }, { status: 500 });
-  }
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   const { loanId } = await params;
 
@@ -115,10 +103,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ loanId: string }> }
 ) {
-  const { supabase, error } = getSupabase();
-  if (error || !supabase) {
-    return NextResponse.json({ error }, { status: 500 });
-  }
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   const { loanId } = await params;
   const payload = await request.json().catch(() => ({}));

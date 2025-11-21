@@ -1,35 +1,13 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("admin_v2_token")?.value;
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const auth = createClient(supabaseUrl, serviceRoleKey);
-    const {
-      data: { user },
-    } = await auth.auth.getUser(token);
-    const adminId = user?.id;
-    if (!adminId) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const adminId = auth.user.id;
 
     const { data, error } = await supabase
       .from("vehicles")
@@ -56,4 +34,3 @@ export async function GET() {
     );
   }
 }
-

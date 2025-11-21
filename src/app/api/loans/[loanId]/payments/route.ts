@@ -1,26 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { cookies } from "next/headers";
-
-function getSupabase() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return { error: "Supabase 환경 변수가 설정되지 않았습니다." };
-  }
-
-  return { supabase: createClient(supabaseUrl, serviceRoleKey) };
-}
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ loanId: string }> }
 ) {
-  const { supabase, error } = getSupabase();
-  if (error || !supabase) {
-    return NextResponse.json({ error }, { status: 500 });
-  }
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   const { loanId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -50,17 +37,7 @@ export async function POST(
       );
     }
 
-    let createdBy: string | null = null;
-    try {
-      const cookieStore = await cookies();
-      const token = cookieStore.get("admin_v2_token")?.value;
-      if (token) {
-        const { data } = await supabase.auth.getUser(token);
-        createdBy = data.user?.id || null;
-      }
-    } catch {
-      // ignore
-    }
+    const createdBy: string | null = auth.user.id || null;
 
     const { data: inserted, error: insertError } = await supabase
       .from("rider_loan_payments")
@@ -104,10 +81,9 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ loanId: string }> }
 ) {
-  const { supabase, error } = getSupabase();
-  if (error || !supabase) {
-    return NextResponse.json({ error }, { status: 500 });
-  }
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   const { loanId } = await params;
   const body = await request.json().catch(() => ({}));
