@@ -588,16 +588,13 @@ export default async function BranchDetailPage({
                     key={r.id}
                     className="hover:bg-muted/70"
                   >
-                    <td className="px-3 py-2 align-middle text-xs font-semibold text-primary">
+                    <td className="relative px-3 py-2 align-middle text-xs font-semibold text-primary">
+                      {r.name || "-"}
                       <Link
                         href={`/riders/${encodeURIComponent(r.id)}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center underline-offset-2 hover:underline"
+                        className="absolute inset-0"
                         aria-label={`${r.name} 상세 보기`}
-                      >
-                        {r.name || "-"}
-                      </Link>
+                      />
                     </td>
                     <td className="px-3 py-2 align-middle text-xs text-muted-foreground">
                       {r.phone || "-"}
