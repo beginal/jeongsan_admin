@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { Button } from "@/components/ui/Button";
 
 type PromotionStatus = "active" | "scheduled" | "ended";
 type PromotionType = "excess" | "milestone" | "milestone_per_unit" | "";
@@ -145,30 +146,21 @@ export default function PromotionsPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4 border-b border-border pb-4">
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3 border-b border-border pb-4">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <span className="text-lg font-semibold">%</span>
           </div>
           <div>
-            <div className="text-[11px] text-muted-foreground">
-              프로모션 관리 / Promotions
-            </div>
-            <h1 className="text-lg font-semibold text-foreground">
-              프로모션 관리
-            </h1>
+            <div className="text-[11px] text-muted-foreground">프로모션 관리 / Promotions</div>
+            <h1 className="text-lg font-semibold text-foreground">프로모션 관리</h1>
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-sm">
-          <GlassButton
-            type="button"
-            variant="primary"
-            size="sm"
-            onClick={() => router.push("/promotions/new")}
-          >
+          <Button variant="primary" size="sm" onClick={() => router.push("/promotions/new")}>
             + 새 프로모션 추가
-          </GlassButton>
+          </Button>
         </div>
       </div>
 
@@ -370,28 +362,16 @@ export default function PromotionsPage() {
                         className="inline-flex items-center gap-2"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <GlassButton
-                          type="button"
-                          variant="primary"
+                        <Button
+                          variant="secondary"
                           size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          onClick={() =>
-                            router.push(
-                              `/promotions/${promotion.id}/edit`
-                            )
-                          }
+                          onClick={() => router.push(`/promotions/${promotion.id}/edit`)}
                         >
                           수정
-                        </GlassButton>
-                        <GlassButton
-                          type="button"
-                          variant="destructive"
-                          size="sm"
-                          className="h-7 px-2 text-[11px]"
-                          onClick={() => handleDelete(promotion.id)}
-                        >
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => handleDelete(promotion.id)}>
                           삭제
-                        </GlassButton>
+                        </Button>
                       </div>
                     </td>
                   </tr>
