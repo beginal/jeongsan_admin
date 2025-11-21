@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { formatPhone } from "@/lib/phone";
 import { badgeToneClass, getRiderStatusMeta } from "@/lib/status";
 import { Button } from "@/components/ui/Button";
+import { showToast } from "@/components/ui/Toast";
 
 type RiderStatus = "approved" | "pending" | "rejected";
 
@@ -161,7 +162,7 @@ export default function RidersPage() {
         )
       );
     } catch (e: any) {
-      alert(e.message || "상태를 변경하지 못했습니다.");
+      showToast(e.message || "상태를 변경하지 못했습니다.", "error");
     } finally {
       setActionLoadingId(null);
     }
@@ -180,7 +181,7 @@ export default function RidersPage() {
       }
       setRiders((prev) => prev.filter((r) => r.id !== riderId));
     } catch (e: any) {
-      alert(e.message || "라이더를 삭제하지 못했습니다.");
+      showToast(e.message || "라이더를 삭제하지 못했습니다.", "error");
     } finally {
       setActionLoadingId(null);
     }

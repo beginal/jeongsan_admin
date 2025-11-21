@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileSpreadsheet, ShieldCheck, Trash2 } from "lucide-react";
+import { showToast } from "@/components/ui/Toast";
 
 type BranchOption = {
   id: string;
@@ -1353,12 +1354,14 @@ export default function WeeklySettlementWizardPage() {
         </button>
         <button
           type="button"
-          className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
-          disabled={!isStepComplete}
-          onClick={() => alert("Step1 데이터 저장 후 다음 스텝으로 이어집니다. (추후 구현)")}
-        >
-          다음 단계
-        </button>
+        className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+        disabled={!isStepComplete}
+        onClick={() =>
+          showToast("Step1 데이터 저장 후 다음 스텝으로 이어집니다. (추후 구현)", "info")
+        }
+      >
+        다음 단계
+      </button>
       </div>
     </div>
   );

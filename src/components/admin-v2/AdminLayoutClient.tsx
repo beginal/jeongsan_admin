@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Menu, Moon, Sun } from "lucide-react";
 import { AdminSidebar, AdminSidebarMobile } from "@/components/admin-v2/AdminSidebar";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { ToastHost } from "@/components/ui/Toast";
 
 type ThemeMode = "light" | "dark";
 
@@ -148,6 +149,7 @@ export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <ToastHost />
       <AdminSidebar />
       <AdminSidebarMobile open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -218,4 +220,3 @@ export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
     </div>
   );
 }
-

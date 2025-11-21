@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { showToast } from "@/components/ui/Toast";
 
 type RentalStatus = "active" | "inactive";
 
@@ -121,11 +122,13 @@ export default function LeaseRentalEditPage() {
         if (!res.ok || data?.error) {
           throw new Error(data?.error || "저장에 실패했습니다.");
         }
-        alert("저장되었습니다.");
+        showToast("저장되었습니다.", "success");
         router.push("/lease-rentals");
       })
       .catch((e: any) => {
-        setError(e.message || "저장에 실패했습니다.");
+        const msg = e.message || "저장에 실패했습니다.";
+        setError(msg);
+        showToast(msg, "error");
       })
       .finally(() => setSaving(false));
   };
