@@ -1,42 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 const mapStatus = (isActive: boolean | null | undefined) =>
   isActive ? "active" : "inactive";
 
 export async function GET(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("admin_v2_token")?.value;
-
-    let adminId: string | null = null;
-    if (token) {
-      const auth = createClient(supabaseUrl, serviceRoleKey);
-      const {
-        data: { user },
-      } = await auth.auth.getUser(token);
-      adminId = user?.id || null;
-    }
-
-    if (!adminId) {
-      return NextResponse.json(
-        { error: "유효한 관리자 정보가 없습니다." },
-        { status: 401 }
-      );
-    }
+    const adminId: string | null = auth.user.id || null;
 
     const { data, error } = await supabase
       .from("vehicles")

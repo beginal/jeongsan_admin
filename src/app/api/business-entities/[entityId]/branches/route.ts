@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ entityId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl) {
     console.error(
       "[admin-v2/business-entities branches POST] Supabase env not set"
     );
@@ -19,7 +17,9 @@ export async function POST(
   }
 
   const { entityId } = await params;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   let body: any = {};
   try {

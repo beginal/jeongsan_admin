@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ promotionId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl) {
     console.error("[admin-v2/promotion assignments PATCH] Supabase env not set");
     return NextResponse.json(
       { error: "Supabase 환경 변수가 설정되지 않았습니다." },
@@ -17,7 +15,9 @@ export async function PATCH(
   }
 
   const { promotionId } = await params;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   let payload: any;
   try {
@@ -82,9 +82,7 @@ export async function DELETE(
   { params }: { params: Promise<{ promotionId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl) {
     console.error("[admin-v2/promotion assignments DELETE] Supabase env not set");
     return NextResponse.json(
       { error: "Supabase 환경 변수가 설정되지 않았습니다." },
@@ -93,7 +91,9 @@ export async function DELETE(
   }
 
   const { promotionId } = await params;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   let body: any = {};
   try {

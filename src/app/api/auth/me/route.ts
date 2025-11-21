@@ -1,43 +1,16 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET() {
-  const cookieStore = await cookies();
-  const token = cookieStore.get("admin_v2_token")?.value;
-
-  if (!token) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const token = auth.token;
   const expiresAt = decodeExp(token);
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("[auth/me] Supabase env not set");
-    return NextResponse.json(
-      { error: "서버 설정 오류입니다." },
-      { status: 500 }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-
   try {
-    const { data, error } = await supabase.auth.getUser(token);
+    const user = auth.user;
 
-    if (error || !data.user) {
-      // 토큰 만료(bad_jwt)는 정상적인 케이스이므로 조용히 401만 반환
-      const code = (error as any)?.code;
-      if (code && code !== "bad_jwt") {
-        console.error("[auth/me] getUser error:", error);
-      }
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { id, email, user_metadata } = data.user;
+    const { id, email, user_metadata } = user;
     const name =
       (user_metadata?.name as string | undefined) ||
       (email ? email.split("@")[0] : "관리자");
