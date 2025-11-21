@@ -1,0 +1,9 @@
+import { ReactNode } from "react";
+
+export default function Template({ children }: { children: ReactNode }) {
+    return (
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out">
+            {children}
+        </div>
+    );
+}

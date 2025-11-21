@@ -15,6 +15,7 @@ import {
   Wallet,
   Wand2,
 } from "lucide-react";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type NavGroupKey =
   | "dashboard"
@@ -178,7 +179,7 @@ function AdminSidebarContent() {
 
 export function AdminSidebar() {
   return (
-    <aside className="hidden w-64 lg:flex lg:flex-col lg:border-r lg:border-border lg:bg-sidebar">
+    <aside className="hidden w-64 lg:flex lg:flex-col lg:border-r lg:border-white/20 lg:bg-sidebar/80 lg:backdrop-blur-md shadow-xl shadow-black/5 z-30">
       <AdminSidebarContent />
     </aside>
   );
@@ -235,33 +236,34 @@ function SidebarSection({
 
   return (
     <div className="space-y-1">
-      <button
+      <GlassButton
         type="button"
+        variant="ghost"
         onClick={onToggle}
         aria-expanded={isOpen}
         className={cn(
-          "flex w-full items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors",
+          "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 h-auto",
           isAnyChildActive || isOpen
-            ? "bg-muted text-foreground"
-            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            ? "bg-surface-100 text-primary shadow-glass-sm hover:bg-surface-200"
+            : "text-muted-foreground hover:bg-surface-50 hover:text-foreground"
         )}
       >
-        <span className="flex items-center gap-2">
+        <span className="flex items-center gap-3">
           {SectionIcon && (
-            <SectionIcon className="h-4 w-4 text-muted-foreground" />
+            <SectionIcon className={cn("h-4 w-4 transition-colors", isAnyChildActive || isOpen ? "text-primary" : "text-muted-foreground")} />
           )}
           <span>{section.label}</span>
         </span>
         <span
           className={cn(
-            "text-xs transition-transform",
+            "text-xs transition-transform duration-200 text-muted-foreground/70",
             isOpen ? "rotate-90" : ""
           )}
         >
           ▸
         </span>
-      </button>
-      <div className={cn("space-y-1 pl-3", !isOpen && "hidden")}>
+      </GlassButton>
+      <div className={cn("space-y-1 pl-3 overflow-hidden transition-all", !isOpen && "hidden")}>
         {items.map((item) => {
           const isActive =
             activeHref === item.href ||
@@ -276,10 +278,10 @@ function SidebarSection({
               key={item.href}
               href={item.href}
               className={cn(
-                "admin-sidebar-subnav flex items-center rounded-md px-3 py-1.5 text-xs transition-colors",
+                "admin-sidebar-subnav flex items-center rounded-lg px-3 py-2 text-xs transition-all duration-200",
                 isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-primary/10 text-primary font-semibold translate-x-1"
+                  : "text-muted-foreground hover:bg-surface-50 hover:text-foreground hover:translate-x-1"
               )}
             >
               <span>{item.label}</span>
@@ -309,13 +311,13 @@ function TopLevelLink({ section, currentPath }: TopLevelLinkProps) {
     <Link
       href={href}
       className={cn(
-        "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
         isActive
-          ? "bg-primary/10 text-primary"
-          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+          ? "bg-surface-100 text-primary shadow-glass-sm"
+          : "text-muted-foreground hover:bg-surface-50 hover:text-foreground"
       )}
     >
-      {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+      {Icon && <Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground")} />}
       <span>{section.label}</span>
     </Link>
   );
@@ -376,21 +378,27 @@ function SidebarUserSection() {
     <div ref={containerRef} className="relative text-xs">
       {open && (
         <div className="mb-2 rounded-md border border-border bg-card py-1 text-left shadow-lg">
-          <button
+          <GlassButton
             type="button"
-            className="block w-full px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground h-auto rounded-none"
           >
             정보 수정
-          </button>
-          <button
+          </GlassButton>
+          <GlassButton
             type="button"
-            className="block w-full px-3 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground h-auto rounded-none"
           >
             비밀번호 변경
-          </button>
-          <button
+          </GlassButton>
+          <GlassButton
             type="button"
-            className="block w-full px-3 py-1.5 text-left text-xs text-red-600 hover:bg-muted"
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start px-3 py-1.5 text-xs text-red-600 hover:bg-muted hover:text-red-700 h-auto rounded-none"
             onClick={async () => {
               try {
                 await fetch("/api/auth/logout", { method: "POST" });
@@ -401,23 +409,24 @@ function SidebarUserSection() {
             }}
           >
             로그아웃
-          </button>
+          </GlassButton>
         </div>
       )}
 
-      <button
+      <GlassButton
         type="button"
+        variant="ghost"
         onClick={() => setOpen((prev) => !prev)}
-        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-xs transition-colors hover:bg-muted"
+        className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-xs transition-colors hover:bg-muted h-auto"
       >
         <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
           {initials}
         </div>
-        <div className="flex-1">
+        <div className="flex-1 text-left">
           <div className="text-xs font-medium text-foreground">{userName}</div>
           <div className="text-[11px] text-muted-foreground">{userEmail}</div>
         </div>
-      </button>
+      </GlassButton>
     </div>
   );
 }

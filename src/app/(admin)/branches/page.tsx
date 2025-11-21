@@ -1,7 +1,8 @@
- "use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type BranchRow = {
   id: string;
@@ -140,13 +141,14 @@ export default function BranchesPage() {
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-sm">
-          <button
+          <GlassButton
             type="button"
-            className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+            variant="primary"
+            size="sm"
             onClick={() => router.push("/branches/new")}
           >
             + 새 지사 추가
-          </button>
+          </GlassButton>
         </div>
       </div>
 
@@ -188,39 +190,33 @@ export default function BranchesPage() {
 
             {/* Platform filter pills */}
             <div className="hidden rounded-full border border-border bg-background/60 p-0.5 text-[11px] text-muted-foreground sm:flex">
-              <button
+              <GlassButton
                 type="button"
+                variant={platformFilter === "all" ? "primary" : "ghost"}
+                size="sm"
+                className={`h-6 rounded-full px-2.5 text-[11px] ${platformFilter !== "all" ? "hover:bg-transparent" : ""}`}
                 onClick={() => setPlatformFilter("all")}
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                  platformFilter === "all"
-                    ? "bg-card text-foreground shadow-sm"
-                    : ""
-                }`}
               >
                 전체
-              </button>
-              <button
+              </GlassButton>
+              <GlassButton
                 type="button"
+                variant={platformFilter === "coupang" ? "primary" : "ghost"}
+                size="sm"
+                className={`h-6 rounded-full px-2.5 text-[11px] ${platformFilter !== "coupang" ? "hover:bg-transparent" : ""}`}
                 onClick={() => setPlatformFilter("coupang")}
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                  platformFilter === "coupang"
-                    ? "bg-sky-500 text-white shadow-sm"
-                    : ""
-                }`}
               >
                 쿠팡
-              </button>
-              <button
+              </GlassButton>
+              <GlassButton
                 type="button"
+                variant={platformFilter === "baemin" ? "primary" : "ghost"}
+                size="sm"
+                className={`h-6 rounded-full px-2.5 text-[11px] ${platformFilter !== "baemin" ? "hover:bg-transparent" : ""}`}
                 onClick={() => setPlatformFilter("baemin")}
-                className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                  platformFilter === "baemin"
-                    ? "bg-emerald-500 text-white shadow-sm"
-                    : ""
-                }`}
               >
                 배민
-              </button>
+              </GlassButton>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -327,63 +323,63 @@ export default function BranchesPage() {
                       router.push(`/branches/${branch.id}`)
                     }
                   >
-                  <td className="px-4 py-3 align-middle">
-                    <div
-                      className="flex h-5 items-center justify-center"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <input
-                        type="checkbox"
-                        className="h-3.5 w-3.5 cursor-pointer rounded border border-border text-primary accent-primary"
-                      />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm">
-                    <span
-                      className={
-                        branch.platform === "coupang"
-                          ? "inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700"
+                    <td className="px-4 py-3 align-middle">
+                      <div
+                        className="flex h-5 items-center justify-center"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-3.5 w-3.5 cursor-pointer rounded border border-border text-primary accent-primary"
+                        />
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm">
+                      <span
+                        className={
+                          branch.platform === "coupang"
+                            ? "inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700"
+                            : branch.platform === "baemin"
+                              ? "inline-flex rounded-full border border-teal-100 bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700"
+                              : "inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+                        }
+                      >
+                        {branch.platform === "coupang"
+                          ? "쿠팡"
                           : branch.platform === "baemin"
-                            ? "inline-flex rounded-full border border-teal-100 bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700"
-                            : "inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700"
-                      }
-                    >
-                      {branch.platform === "coupang"
-                        ? "쿠팡"
-                        : branch.platform === "baemin"
-                          ? "배민"
-                          : branch.platform || "기타"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm">
-                    {branch.province ? (
-                      <span className="inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
-                        {branch.province}
+                            ? "배민"
+                            : branch.platform || "기타"}
                       </span>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm">
-                    {branch.district ? (
-                      <span className="inline-flex rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-                        {branch.district}
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm text-foreground">
-                    {branch.branchName}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
-                    {branch.displayName}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
-                    {branch.riderCount.toLocaleString()}명
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm">
+                      {branch.province ? (
+                        <span className="inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                          {branch.province}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm">
+                      {branch.district ? (
+                        <span className="inline-flex rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                          {branch.district}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm text-foreground">
+                      {branch.branchName}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
+                      {branch.displayName}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
+                      {branch.riderCount.toLocaleString()}명
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type SignupFormState = {
   name: string;
@@ -324,13 +325,15 @@ export default function SignupPage() {
               </p>
             )}
 
-            <button
+            <GlassButton
               type="submit"
               disabled={loading}
-              className="mt-5 flex h-9 w-full items-center justify-center rounded-md bg-primary text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+              variant="primary"
+              size="lg"
+              className="mt-5 w-full"
             >
               {loading ? "회원가입 처리 중..." : "회원가입"}
-            </button>
+            </GlassButton>
           </form>
 
           <p className="mt-4 text-center text-[11px] text-muted-foreground">

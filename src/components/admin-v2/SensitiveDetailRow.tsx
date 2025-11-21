@@ -5,6 +5,7 @@ import {
   formatAccountForDisplay,
   formatMaskedAccountForDisplay,
 } from "@/lib/accountFormat";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 interface SensitiveDetailRowProps {
   label: string;
@@ -86,20 +87,24 @@ export function SensitiveDetailRow({
         <span className="truncate">{display}</span>
         {rawNormalized && (
           <div className="flex items-center gap-1">
-            <button
+            <GlassButton
               type="button"
+              variant="outline"
+              size="icon"
+              className="h-6 w-6"
               onClick={() => setVisible((v) => !v)}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               {visible ? "🙈" : "👁"}
-            </button>
-            <button
+            </GlassButton>
+            <GlassButton
               type="button"
+              variant="outline"
+              size="icon"
+              className="h-6 w-6"
               onClick={handleCopy}
-              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               ⧉
-            </button>
+            </GlassButton>
           </div>
         )}
       </div>

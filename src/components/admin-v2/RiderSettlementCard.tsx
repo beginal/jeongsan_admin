@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from "react";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type SettlementMode = "daily" | "weekly";
 
@@ -126,32 +127,38 @@ export function RiderSettlementCard({ riderId }: RiderSettlementCardProps) {
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px]">
-        <button
+        <GlassButton
           type="button"
           onClick={refresh}
-          className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 font-medium text-foreground hover:bg-muted"
+          variant="outline"
+          size="sm"
+          className="h-8 px-3"
           disabled={loading}
         >
           새로고침
-        </button>
+        </GlassButton>
         {pending && (
           <>
-            <button
+            <GlassButton
               type="button"
               disabled={actionLoading}
               onClick={() => handleAction("approve")}
-              className="inline-flex h-8 items-center rounded-md bg-primary px-3 font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+              variant="primary"
+              size="sm"
+              className="h-8 px-3"
             >
               승인
-            </button>
-            <button
+            </GlassButton>
+            <GlassButton
               type="button"
               disabled={actionLoading}
               onClick={() => handleAction("reject")}
-              className="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-70"
+              variant="destructive"
+              size="sm"
+              className="h-8 px-3"
             >
               반려
-            </button>
+            </GlassButton>
           </>
         )}
       </div>

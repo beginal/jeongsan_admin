@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Menu, Moon, Sun } from "lucide-react";
 import { AdminSidebar, AdminSidebarMobile } from "@/components/admin-v2/AdminSidebar";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type ThemeMode = "light" | "dark";
 
@@ -146,48 +147,56 @@ export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background dark:bg-slate-900">
+    <div className="flex h-screen overflow-hidden bg-background">
       <AdminSidebar />
       <AdminSidebarMobile open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-16 items-center gap-3 border-b border-border bg-background/80 px-4 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80 lg:px-6">
+      <div className="flex min-w-0 flex-1 flex-col relative">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-white/20 bg-background/60 px-4 backdrop-blur-md lg:px-6 transition-all duration-200">
           <div className="flex flex-1 items-center gap-3">
-            <button
+            <GlassButton
               type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground lg:hidden"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 lg:hidden"
               aria-label="사이드바 열기"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu className="h-4 w-4" />
-            </button>
+            </GlassButton>
           </div>
 
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-2 rounded-full border border-border bg-surface-100/50 px-3 py-1.5 text-[11px] text-muted-foreground backdrop-blur-sm shadow-sm">
               <span className={isDanger ? "text-red-600 font-semibold" : "text-foreground"}>
                 세션 {formatRemaining()}
               </span>
-              <button
+              <GlassButton
                 type="button"
                 onClick={refreshSession}
                 disabled={refreshing}
-                className="inline-flex items-center rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60 disabled:bg-primary/60"
+                variant="primary"
+                size="sm"
+                className="h-auto px-2.5 py-0.5 text-[10px]"
               >
                 {refreshing ? "연장 중..." : "연장"}
-              </button>
+              </GlassButton>
             </div>
-            <button
+            <GlassButton
               type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card hover:text-foreground dark:border-slate-700 dark:bg-slate-800"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full"
               aria-label="Notifications"
             >
               <Bell className="h-4 w-4" />
-            </button>
-            <button
+            </GlassButton>
+            <GlassButton
               type="button"
               onClick={toggleTheme}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card hover:text-foreground dark:border-slate-700 dark:bg-slate-800"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full"
               aria-label="Toggle theme"
             >
               {theme === "light" ? (
@@ -195,13 +204,13 @@ export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
               ) : (
                 <Sun className="h-4 w-4" />
               )}
-            </button>
+            </GlassButton>
             {sessionError && <span className="text-[11px] text-amber-700">{sessionError}</span>}
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto bg-muted/30 px-4 py-6 dark:bg-slate-950 lg:px-6">
-          <div className="mx-auto flex max-w-6xl flex-col gap-6">
+        <main className="flex-1 overflow-y-auto px-4 py-6 lg:px-8 scroll-smooth">
+          <div className="mx-auto flex max-w-7xl flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {children}
           </div>
         </main>

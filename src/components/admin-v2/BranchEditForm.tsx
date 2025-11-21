@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlassCard } from "@/components/ui/glass/GlassCard";
+import { GlassInput } from "@/components/ui/glass/GlassInput";
+import { GlassSelect } from "@/components/ui/glass/GlassSelect";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type FeeType = "per_case" | "percentage" | "";
 
@@ -70,7 +74,7 @@ export function BranchEditForm({
   const [districtId, setDistrictId] = useState<string>(() => {
     const provinceNumeric = Number(
       provinceOptions.find((p) => p.name === initialProvince)?.id ??
-        provinceOptions[0]?.id
+      provinceOptions[0]?.id
     );
     const found = districtOptions.find(
       (d) =>
@@ -150,7 +154,7 @@ export function BranchEditForm({
       if (!res.ok) {
         throw new Error(
           (data && (data.error as string)) ||
-            "지사 정보를 저장하지 못했습니다."
+          "지사 정보를 저장하지 못했습니다."
         );
       }
 
@@ -184,7 +188,7 @@ export function BranchEditForm({
       if (!res.ok) {
         throw new Error(
           (data && (data.error as string)) ||
-            "지사를 삭제하지 못했습니다."
+          "지사를 삭제하지 못했습니다."
         );
       }
       router.push("/branches");
@@ -207,262 +211,224 @@ export function BranchEditForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50/50 px-4 py-3 text-sm text-red-700 backdrop-blur-sm">
           {error}
         </div>
       )}
 
       {/* Delete confirmation modal */}
       {mode === "edit" && branchId && showDeleteModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
-          <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 text-sm shadow-lg">
-            <div className="mb-3 flex items-start gap-3">
-              <div className="mt-0.5 flex h-8 w-8 items-center justify-center rounded-full bg-red-50 text-xs font-semibold text-red-600">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <GlassCard className="w-full max-w-sm p-6 shadow-xl">
+            <div className="mb-4 flex items-start gap-4">
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
                 !
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-foreground">
+                <h2 className="text-lg font-bold text-foreground">
                   지사를 삭제하시겠습니까?
                 </h2>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-2 text-sm text-muted-foreground">
                   삭제 후에는 이 지사와 연결된 데이터에 영향이 있을 수 있으며,
                   되돌릴 수 없습니다.
                 </p>
               </div>
             </div>
-            <div className="flex justify-end gap-2 pt-2 text-xs">
-              <button
+            <div className="flex justify-end gap-3 pt-2">
+              <GlassButton
                 type="button"
+                variant="ghost"
                 onClick={() => setShowDeleteModal(false)}
-                className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
                 disabled={deleting}
               >
                 취소
-              </button>
-              <button
+              </GlassButton>
+              <GlassButton
                 type="button"
+                variant="destructive"
                 onClick={async () => {
                   await handleDelete();
                   setShowDeleteModal(false);
                 }}
-                className="inline-flex h-8 items-center rounded-md bg-red-600 px-4 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
                 disabled={deleting}
               >
                 {deleting ? "삭제 중..." : "삭제"}
-              </button>
+              </GlassButton>
             </div>
-          </div>
+          </GlassCard>
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-6">
         {/* 기본 정보 */}
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            기본 정보
-          </h2>
-
-          <div className="mt-3 space-y-3">
+        <GlassCard title="기본 정보">
+          <div className="grid gap-6">
             {/* 플랫폼 스위치 */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground block">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground block ml-1">
                 플랫폼
               </label>
-              <div className="flex w-full rounded-full border border-border bg-muted/60 p-0.5 text-xs">
-                <button
+              <div className="flex w-full rounded-xl border border-border bg-muted/30 p-1 text-xs">
+                <GlassButton
                   type="button"
+                  variant="ghost"
                   onClick={() => setPlatform("coupang")}
-                  className={`inline-flex flex-1 items-center justify-center rounded-full px-3 py-1 ${
-                    platform === "coupang"
-                      ? "bg-sky-500 text-white shadow-sm"
-                      : "text-muted-foreground"
-                  }`}
+                  className={`flex-1 rounded-lg px-3 py-2 font-medium h-auto ${platform === "coupang"
+                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/20 hover:bg-sky-600 hover:text-white"
+                    : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
+                    }`}
                 >
                   쿠팡
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton
                   type="button"
+                  variant="ghost"
                   onClick={() => setPlatform("baemin")}
-                  className={`inline-flex flex-1 items-center justify-center rounded-full px-3 py-1 ${
-                    platform === "baemin"
-                      ? "bg-emerald-500 text-white shadow-sm"
-                      : "text-muted-foreground"
-                  }`}
+                  className={`flex-1 rounded-lg px-3 py-2 font-medium h-auto ${platform === "baemin"
+                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600 hover:text-white"
+                    : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
+                    }`}
                 >
                   배민
-                </button>
+                </GlassButton>
               </div>
             </div>
 
             {/* 시/도, 구/시/군 */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  시/도
-                </label>
-                <select
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={provinceId}
-                  onChange={(e) => {
-                    setProvinceId(e.target.value);
-                    setDistrictId("");
-                  }}
-                >
-                  {provinceOptions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="grid grid-cols-2 gap-4">
+              <GlassSelect
+                label="시/도"
+                value={provinceId}
+                onChange={(e) => {
+                  setProvinceId(e.target.value);
+                  setDistrictId("");
+                }}
+              >
+                {provinceOptions.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </GlassSelect>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  구/시/군
-                </label>
-                <select
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                  value={districtId}
-                  onChange={(e) => setDistrictId(e.target.value)}
-                >
-                  <option value="">선택</option>
-                  {filteredDistricts.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <GlassSelect
+                label="구/시/군"
+                value={districtId}
+                onChange={(e) => setDistrictId(e.target.value)}
+              >
+                <option value="">선택</option>
+                {filteredDistricts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </GlassSelect>
             </div>
 
             {/* 지사명 */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                지사명
-              </label>
-              <input
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={branchName}
-                onChange={(e) => setBranchName(e.target.value)}
-                placeholder="예: 강남 중앙 1지사"
-              />
-            </div>
+            <GlassInput
+              label="지사명"
+              value={branchName}
+              onChange={(e) => setBranchName(e.target.value)}
+              placeholder="예: 강남 중앙 1지사"
+            />
 
             {/* 최종 지사명 (읽기 전용) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground ml-1">
                 최종 지사명 (자동 생성)
               </label>
               <input
-                className="h-9 w-full rounded-md border border-dashed border-border bg-muted/40 px-2 text-xs text-muted-foreground"
+                className="h-11 w-full rounded-xl border-2 border-dashed border-border/60 bg-muted/20 px-4 text-sm text-muted-foreground font-medium"
                 value={computedDisplayName || displayName}
                 readOnly
                 disabled
               />
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[11px] text-muted-foreground ml-1">
                 구/시/군 + 지사명이 합쳐진 결과이며 직접 수정할 수 없습니다.
               </p>
             </div>
           </div>
-        </div>
+        </GlassCard>
 
         {/* 소속 정보 */}
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            소속 정보
-          </h2>
+        <GlassCard title="소속 정보">
+          <div className="grid gap-6">
+            <GlassSelect
+              label="소속(법인)"
+              value={corporateId}
+              onChange={(e) => {
+                setCorporateId(e.target.value);
+                setPersonalId("");
+              }}
+            >
+              <option value="">선택 안 함</option>
+              {corporateOptions.map((corp) => (
+                <option key={corp.id} value={corp.id}>
+                  {corp.name}
+                </option>
+              ))}
+            </GlassSelect>
 
-          <div className="mt-3 space-y-3">
-            {/* 소속(법인) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                소속(법인)
-              </label>
-              <select
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={corporateId}
-                onChange={(e) => {
-                  setCorporateId(e.target.value);
-                  setPersonalId("");
-                }}
-              >
-                <option value="">선택 안 함</option>
-                {corporateOptions.map((corp) => (
-                  <option key={corp.id} value={corp.id}>
-                    {corp.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 소속(개인) */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
-                소속(개인)
-              </label>
-              <select
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={personalId}
-                onChange={(e) => setPersonalId(e.target.value)}
-              >
-                <option value="">선택 안 함</option>
-                {filteredPersonalOptions.map((pers) => (
-                  <option key={pers.id} value={pers.id}>
-                    {pers.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <GlassSelect
+              label="소속(개인)"
+              value={personalId}
+              onChange={(e) => setPersonalId(e.target.value)}
+            >
+              <option value="">선택 안 함</option>
+              {filteredPersonalOptions.map((pers) => (
+                <option key={pers.id} value={pers.id}>
+                  {pers.name}
+                </option>
+              ))}
+            </GlassSelect>
           </div>
-        </div>
+        </GlassCard>
 
         {/* 정산 정보 */}
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            정산 정보
-          </h2>
-          <div className="mt-3 space-y-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground">
+        <GlassCard title="정산 정보">
+          <div className="grid gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground ml-1">
                 설정된 정산 수수료
               </label>
-              <div className="flex gap-2">
-                <button
+              <div className="flex gap-3">
+                <GlassButton
                   type="button"
+                  variant="ghost"
                   onClick={() => setFeeType("per_case")}
-                  className={`inline-flex flex-1 items-center justify-center rounded-md border px-2 py-1 text-[11px] ${
-                    feeType === "per_case"
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background text-muted-foreground"
-                  }`}
+                  className={`flex-1 rounded-xl border px-4 py-2.5 text-xs font-medium h-auto ${feeType === "per_case"
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90 hover:text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
                 >
                   건당 수수료
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton
                   type="button"
+                  variant="ghost"
                   onClick={() => setFeeType("percentage")}
-                  className={`inline-flex flex-1 items-center justify-center rounded-md border px-2 py-1 text-[11px] ${
-                    feeType === "percentage"
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-background text-muted-foreground"
-                  }`}
+                  className={`flex-1 rounded-xl border px-4 py-2.5 text-xs font-medium h-auto ${feeType === "percentage"
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90 hover:text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
                 >
                   % 수수료
-                </button>
+                </GlassButton>
               </div>
               {feeType && (
-                <div className="mt-2">
+                <div className="mt-3 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="relative">
-                    <input
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 pr-16 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    <GlassInput
                       type="number"
                       min={0}
                       step={feeType === "per_case" ? 1 : 0.1}
                       value={feeValue}
                       onChange={(e) => setFeeValue(e.target.value)}
+                      className="pr-16"
                     />
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                      <span className="text-xs text-muted-foreground">
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-4">
+                      <span className="text-xs font-medium text-muted-foreground">
                         {feeType === "per_case" ? "원 / 건" : "%"}
                       </span>
                     </div>
@@ -470,43 +436,43 @@ export function BranchEditForm({
                 </div>
               )}
               {!feeType && (
-                <p className="text-[11px] text-muted-foreground">
+                <p className="text-[11px] text-muted-foreground ml-1">
                   건당 수수료 또는 % 수수료 중 하나를 선택해 주세요.
                 </p>
               )}
             </div>
           </div>
-        </div>
+        </GlassCard>
       </div>
 
       {/* 액션 버튼 */}
-      <div className="flex items-center justify-between border-t border-border pt-4 text-xs">
+      <div className="flex items-center justify-between border-t border-border/50 pt-6 text-xs">
         {mode === "edit" && branchId && (
-          <button
+          <GlassButton
             type="button"
+            variant="destructive"
             onClick={() => setShowDeleteModal(true)}
-            className="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
             disabled={saving || deleting}
           >
             {deleting ? "삭제 중..." : "지사 삭제"}
-          </button>
+          </GlassButton>
         )}
-        <div className="ml-auto flex gap-2">
-          <button
+        <div className="ml-auto flex gap-3">
+          <GlassButton
             type="button"
+            variant="outline"
             onClick={() => router.back()}
-            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
             disabled={saving || deleting}
           >
             취소
-          </button>
-          <button
+          </GlassButton>
+          <GlassButton
             type="submit"
-            className="inline-flex h-8 items-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-60"
+            variant="primary"
             disabled={saving || deleting}
           >
             {saving ? "저장 중..." : "저장"}
-          </button>
+          </GlassButton>
         </div>
       </div>
     </form>

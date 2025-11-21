@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type BusinessEntityType = "CORPORATE" | "PERSONAL";
 
@@ -92,30 +93,32 @@ export function BusinessEntityCreateForm({
                 사업자 유형
               </label>
               <div className="mt-1 inline-flex rounded-full border border-border bg-background/60 p-0.5 text-[11px] text-muted-foreground">
-                <button
+                <GlassButton
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setType("CORPORATE")}
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                    type === "CORPORATE"
-                      ? "bg-sky-500 text-white shadow-sm"
-                      : ""
-                  }`}
+                  className={`h-auto rounded-full px-2.5 py-0.5 text-[11px] hover:bg-transparent ${type === "CORPORATE"
+                    ? "bg-sky-500 text-white shadow-sm hover:bg-sky-600 hover:text-white"
+                    : "hover:text-foreground"
+                    }`}
                   disabled={saving}
                 >
                   법인
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setType("PERSONAL")}
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                    type === "PERSONAL"
-                      ? "bg-emerald-500 text-white shadow-sm"
-                      : ""
-                  }`}
+                  className={`h-auto rounded-full px-2.5 py-0.5 text-[11px] hover:bg-transparent ${type === "PERSONAL"
+                    ? "bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 hover:text-white"
+                    : "hover:text-foreground"
+                    }`}
                   disabled={saving}
                 >
                   개인
-                </button>
+                </GlassButton>
               </div>
             </div>
 
@@ -177,21 +180,23 @@ export function BusinessEntityCreateForm({
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-        <button
+        <GlassButton
           type="button"
-          className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+          variant="outline"
+          size="sm"
           onClick={() => router.push("/business-entities")}
           disabled={saving}
         >
           취소
-        </button>
-        <button
+        </GlassButton>
+        <GlassButton
           type="submit"
-          className="inline-flex h-8 items-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+          variant="primary"
+          size="sm"
           disabled={saving}
         >
           {saving ? "생성 중..." : "생성"}
-        </button>
+        </GlassButton>
       </div>
     </form>
   );

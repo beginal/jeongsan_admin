@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MinusCircle } from "lucide-react";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type RiderOption = {
   id: string;
@@ -104,12 +105,12 @@ export default function UncollectedDeductionsPage() {
         const data = await res.json();
         const parsed: RiderOption[] = Array.isArray(data.riders)
           ? data.riders.map((r: any) => ({
-              id: String(r.id),
-              name: r.name || "",
-              phoneSuffix: r.phoneSuffix || "",
-              branchName: r.branchName || "",
-              businessName: r.businessName || "",
-            }))
+            id: String(r.id),
+            name: r.name || "",
+            phoneSuffix: r.phoneSuffix || "",
+            branchName: r.branchName || "",
+            businessName: r.businessName || "",
+          }))
           : [];
         setRiders(parsed);
       } catch (e: any) {
@@ -219,15 +220,16 @@ export default function UncollectedDeductionsPage() {
                   <div className="px-3 py-2 text-xs text-muted-foreground">검색된 라이더가 없습니다.</div>
                 )}
                 {filteredRiders.map((r) => (
-                  <button
+                  <GlassButton
                     type="button"
                     key={r.id}
+                    variant="ghost"
                     onClick={() => {
                       setSelectedRider(r);
                       setRiderSearch(r.name);
                       setDropdownOpen(false);
                     }}
-                    className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted"
+                    className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted h-auto rounded-none"
                   >
                     <span className="font-medium text-foreground">
                       {r.name} {r.phoneSuffix ? `(${r.phoneSuffix})` : ""}
@@ -236,7 +238,7 @@ export default function UncollectedDeductionsPage() {
                       {r.businessName ? `${r.businessName} · ` : ""}
                       {r.branchName || "지사 정보 없음"}
                     </span>
-                  </button>
+                  </GlassButton>
                 ))}
               </div>
             )}
@@ -300,13 +302,14 @@ export default function UncollectedDeductionsPage() {
         )}
 
         <div className="flex items-center justify-end gap-2">
-          <button
+          <GlassButton
             type="button"
+            variant="primary"
+            size="sm"
             onClick={handleAdd}
-            className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
           >
             등록
-          </button>
+          </GlassButton>
         </div>
       </div>
 
@@ -356,26 +359,29 @@ export default function UncollectedDeductionsPage() {
                 <td className="px-4 py-3 text-center">
                   <div className="flex flex-wrap items-center justify-center gap-2 text-[11px]">
                     {d.status !== "deducted" && (
-                      <button
+                      <GlassButton
                         type="button"
+                        variant={d.status === "cancelled" ? "outline" : "destructive"}
+                        size="sm"
                         onClick={() => updateStatus(d.id, d.status === "cancelled" ? "scheduled" : "cancelled")}
-                        className={`inline-flex items-center rounded-full px-3 py-1 font-semibold ${
-                          d.status === "cancelled"
-                            ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : "border border-red-200 bg-red-50 text-red-700"
-                        }`}
+                        className={`h-7 px-3 text-[11px] ${d.status === "cancelled"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                            : ""
+                          }`}
                       >
                         {d.status === "cancelled" ? "복구" : "취소"}
-                      </button>
+                      </GlassButton>
                     )}
                     {d.status === "scheduled" && (
-                      <button
+                      <GlassButton
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => updateStatus(d.id, "deducted")}
-                        className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 font-semibold text-primary"
+                        className="h-7 bg-primary/10 px-3 text-[11px] text-primary hover:bg-primary/20"
                       >
                         차감완료
-                      </button>
+                      </GlassButton>
                     )}
                   </div>
                 </td>

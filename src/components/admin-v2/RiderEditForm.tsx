@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { RiderStatusActions } from "@/components/admin-v2/RiderStatusActions";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { useRouter } from "next/navigation";
 import {
   formatAccountForDisplay,
@@ -467,16 +468,18 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
                               .join(" ")}
                           </div>
                         </div>
-                        <button
+                        <GlassButton
                           type="button"
-                          className="ml-2 inline-flex h-7 items-center rounded-md border border-border bg-background px-2 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                          variant="outline"
+                          size="sm"
+                          className="ml-2 h-7 px-2 text-[11px]"
                           onClick={() => {
                             setSelectedBranchIds([b.id]);
                             setPrimaryBranchId(b.id);
                           }}
                         >
                           선택
-                        </button>
+                        </GlassButton>
                       </div>
                     ))
                   )}
@@ -515,9 +518,11 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button
+                            <GlassButton
                               type="button"
-                              className="inline-flex h-7 items-center rounded-md border border-red-200 bg-red-50 px-2 text-[11px] font-medium text-red-700 hover:bg-red-100"
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 px-2 text-[11px]"
                               onClick={() =>
                                 setSelectedBranchIds((prev) =>
                                   prev.filter((x) => x !== id)
@@ -525,7 +530,7 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
                               }
                             >
                               제거
-                            </button>
+                            </GlassButton>
                           </div>
                         </div>
                       );
@@ -539,23 +544,25 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-        <button
+        <GlassButton
           type="button"
-          className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+          variant="outline"
+          size="sm"
           onClick={() =>
             router.push(`/riders/${encodeURIComponent(riderId)}`)
           }
           disabled={saving}
         >
           취소
-        </button>
-        <button
+        </GlassButton>
+        <GlassButton
           type="submit"
-          className="inline-flex h-8 items-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+          variant="primary"
+          size="sm"
           disabled={saving}
         >
           {saving ? "저장 중..." : "저장"}
-        </button>
+        </GlassButton>
       </div>
     </form>
   );

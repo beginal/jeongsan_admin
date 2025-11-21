@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type BranchOption = {
   id: string;
@@ -9,8 +10,8 @@ type BranchOption = {
   province: string;
   district: string;
   platform: string;
-   corporateEntityName?: string | null;
-   personalEntityName?: string | null;
+  corporateEntityName?: string | null;
+  personalEntityName?: string | null;
 };
 
 interface BusinessEntityBranchAssignButtonProps {
@@ -112,7 +113,7 @@ export function BusinessEntityBranchAssignButton({
           branchId,
           message: String(
             data.error ||
-              "이미 다른 사업자로 설정되어 있습니다. 변경하시겠습니까?"
+            "이미 다른 사업자로 설정되어 있습니다. 변경하시겠습니까?"
           ),
         });
         return;
@@ -137,13 +138,14 @@ export function BusinessEntityBranchAssignButton({
 
   return (
     <>
-      <button
+      <GlassButton
         type="button"
-        className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-[11px] font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+        variant="primary"
+        size="sm"
         onClick={() => setOpen(true)}
       >
         지사 추가
-      </button>
+      </GlassButton>
 
       {open && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
@@ -157,13 +159,15 @@ export function BusinessEntityBranchAssignButton({
                   이 사업자에 소속될 지사를 선택하세요.
                 </p>
               </div>
-              <button
+              <GlassButton
                 type="button"
-                className="text-[11px] text-muted-foreground hover:text-foreground"
+                variant="ghost"
+                size="sm"
+                className="h-auto p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
                 onClick={() => setOpen(false)}
               >
                 닫기
-              </button>
+              </GlassButton>
             </div>
 
             <div className="mb-3">
@@ -199,10 +203,11 @@ export function BusinessEntityBranchAssignButton({
               {!loading &&
                 !error &&
                 filteredBranches.map((b) => (
-                  <button
+                  <GlassButton
                     key={b.id}
                     type="button"
-                    className="flex w-full items-center justify-between border-b border-border/50 px-3 py-2 text-left last:border-b-0 hover:bg-card"
+                    variant="ghost"
+                    className="flex w-full items-center justify-between border-b border-border/50 px-3 py-2 text-left last:border-b-0 hover:bg-card h-auto rounded-none"
                     onClick={() => handleAssign(b.id)}
                     disabled={assigningId === b.id}
                   >
@@ -217,9 +222,9 @@ export function BusinessEntityBranchAssignButton({
                         <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
                           {[
                             b.corporateEntityName &&
-                              `[법인] ${b.corporateEntityName}`,
+                            `[법인] ${b.corporateEntityName}`,
                             b.personalEntityName &&
-                              `[개인] ${b.personalEntityName}`,
+                            `[개인] ${b.personalEntityName}`,
                           ]
                             .filter(Boolean)
                             .join(" / ")}
@@ -228,16 +233,15 @@ export function BusinessEntityBranchAssignButton({
                     </div>
                     <div className="ml-2 text-[11px] text-muted-foreground">
                       <span
-                        className={`inline-flex h-7 items-center rounded-md px-3 text-[11px] font-medium shadow-sm ${
-                          assigningId === b.id
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-primary text-primary-foreground hover:bg-primary/90"
-                        }`}
+                        className={`inline-flex h-7 items-center rounded-md px-3 text-[11px] font-medium shadow-sm ${assigningId === b.id
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-primary text-primary-foreground hover:bg-primary/90"
+                          }`}
                       >
                         {assigningId === b.id ? "추가 중..." : "추가"}
                       </span>
                     </div>
-                  </button>
+                  </GlassButton>
                 ))}
             </div>
           </div>
@@ -261,24 +265,26 @@ export function BusinessEntityBranchAssignButton({
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 text-xs">
-              <button
+              <GlassButton
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setConfirmInfo(null)}
-                className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
                 disabled={assigningId !== null}
               >
                 취소
-              </button>
-              <button
+              </GlassButton>
+              <GlassButton
                 type="button"
+                variant="primary"
+                size="sm"
                 onClick={() =>
                   confirmInfo && handleAssign(confirmInfo.branchId, true)
                 }
-                className="inline-flex h-8 items-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
                 disabled={assigningId !== null}
               >
                 변경
-              </button>
+              </GlassButton>
             </div>
           </div>
         </div>

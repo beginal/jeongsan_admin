@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type PromotionStatus = "active" | "scheduled" | "ended";
 type PromotionType = "excess" | "milestone" | "milestone_per_unit" | "";
@@ -55,10 +56,10 @@ export default function PromotionsPage() {
                   : "active",
               branches: Array.isArray(p.branches)
                 ? p.branches.map((b: any) => ({
-                    branchId: String(b.branchId || b.branch_id || ""),
-                    name: (b.name as string) || "",
-                    active: !!b.active,
-                  }))
+                  branchId: String(b.branchId || b.branch_id || ""),
+                  name: (b.name as string) || "",
+                  active: !!b.active,
+                }))
                 : [],
             }))
           );
@@ -160,13 +161,14 @@ export default function PromotionsPage() {
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-sm">
-          <button
+          <GlassButton
             type="button"
-            className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+            variant="primary"
+            size="sm"
             onClick={() => router.push("/promotions/new")}
           >
             + 새 프로모션 추가
-          </button>
+          </GlassButton>
         </div>
       </div>
 
@@ -196,50 +198,42 @@ export default function PromotionsPage() {
 
             <div className="flex flex-wrap items-center gap-2 text-[11px]">
               <div className="hidden rounded-full border border-border bg-background/60 p-0.5 sm:flex">
-                <button
+                <GlassButton
                   type="button"
+                  variant={typeFilter === "all" ? "primary" : "ghost"}
+                  size="sm"
+                  className={`h-6 rounded-full px-2.5 text-[11px] ${typeFilter !== "all" ? "hover:bg-transparent" : ""}`}
                   onClick={() => setTypeFilter("all")}
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                    typeFilter === "all"
-                      ? "bg-card text-foreground shadow-sm"
-                      : "text-muted-foreground"
-                  }`}
                 >
                   전체 유형
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton
                   type="button"
+                  variant={typeFilter === "excess" ? "primary" : "ghost"}
+                  size="sm"
+                  className={`h-6 rounded-full px-2.5 text-[11px] ${typeFilter !== "excess" ? "hover:bg-transparent" : ""}`}
                   onClick={() => setTypeFilter("excess")}
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                    typeFilter === "excess"
-                      ? "bg-sky-500 text-white shadow-sm"
-                      : "text-muted-foreground"
-                  }`}
                 >
                   건수 초과
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton
                   type="button"
+                  variant={typeFilter === "milestone" ? "primary" : "ghost"}
+                  size="sm"
+                  className={`h-6 rounded-full px-2.5 text-[11px] ${typeFilter !== "milestone" ? "hover:bg-transparent" : ""}`}
                   onClick={() => setTypeFilter("milestone")}
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                    typeFilter === "milestone"
-                      ? "bg-emerald-500 text-white shadow-sm"
-                      : "text-muted-foreground"
-                  }`}
                 >
                   목표 달성
-                </button>
-                <button
+                </GlassButton>
+                <GlassButton
                   type="button"
+                  variant={typeFilter === "milestone_per_unit" ? "primary" : "ghost"}
+                  size="sm"
+                  className={`h-6 rounded-full px-2.5 text-[11px] ${typeFilter !== "milestone_per_unit" ? "hover:bg-transparent" : ""}`}
                   onClick={() => setTypeFilter("milestone_per_unit")}
-                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                    typeFilter === "milestone_per_unit"
-                      ? "bg-indigo-500 text-white shadow-sm"
-                      : "text-muted-foreground"
-                  }`}
                 >
                   단위당 보상
-                </button>
+                </GlassButton>
               </div>
 
               <select
@@ -323,80 +317,85 @@ export default function PromotionsPage() {
               {!loading &&
                 !error &&
                 filteredPromotions.map((promotion) => (
-                <tr
-                  key={promotion.id}
-                  className="cursor-pointer hover:bg-muted/60"
-                  onClick={() =>
-                    router.push(`/promotions/${promotion.id}/edit`)
-                  }
-                >
-                  <td className="px-4 py-3 align-middle text-sm text-foreground">
-                    {promotion.name}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
-                    {typeLabel(promotion.type)}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm">
-                    <span
-                      className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusClass(
-                        promotion.status
-                      )}`}
-                    >
-                      {statusLabel(promotion.status)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
-                    {promotion.branches.length === 0 ? (
-                      "-"
-                    ) : (
-                      <div className="flex flex-wrap gap-1">
-                        {promotion.branches.map((b) => (
-                          <button
-                            key={b.branchId + b.name}
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              router.push(`/branches/${b.branchId}`);
-                            }}
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium border transition-colors hover:shadow-sm ${
-                              b.active
-                                ? "bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100"
-                                : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
-                            }`}
-                          >
-                            {b.name}
-                          </button>
-                        ))}
+                  <tr
+                    key={promotion.id}
+                    className="cursor-pointer hover:bg-muted/60"
+                    onClick={() =>
+                      router.push(`/promotions/${promotion.id}/edit`)
+                    }
+                  >
+                    <td className="px-4 py-3 align-middle text-sm text-foreground">
+                      {promotion.name}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
+                      {typeLabel(promotion.type)}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm">
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusClass(
+                          promotion.status
+                        )}`}
+                      >
+                        {statusLabel(promotion.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
+                      {promotion.branches.length === 0 ? (
+                        "-"
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {promotion.branches.map((b) => (
+                            <GlassButton
+                              key={b.branchId + b.name}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/branches/${b.branchId}`);
+                              }}
+                              className={`h-5 rounded-full px-2 text-[10px] ${b.active
+                                  ? "bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                                  : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-600"
+                                }`}
+                            >
+                              {b.name}
+                            </GlassButton>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-middle text-right text-xs">
+                      <div
+                        className="inline-flex items-center gap-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <GlassButton
+                          type="button"
+                          variant="primary"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() =>
+                            router.push(
+                              `/promotions/${promotion.id}/edit`
+                            )
+                          }
+                        >
+                          수정
+                        </GlassButton>
+                        <GlassButton
+                          type="button"
+                          variant="destructive"
+                          size="sm"
+                          className="h-7 px-2 text-[11px]"
+                          onClick={() => handleDelete(promotion.id)}
+                        >
+                          삭제
+                        </GlassButton>
                       </div>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 align-middle text-right text-xs">
-                    <div
-                      className="inline-flex items-center gap-2"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        type="button"
-                        className="inline-flex h-7 items-center rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
-                        onClick={() =>
-                          router.push(
-                            `/promotions/${promotion.id}/edit`
-                          )
-                        }
-                      >
-                        수정
-                      </button>
-                      <button
-                        type="button"
-                        className="inline-flex h-7 items-center rounded-md border border-red-200 bg-red-50 px-2 text-[11px] font-medium text-red-700 hover:bg-red-100"
-                        onClick={() => handleDelete(promotion.id)}
-                      >
-                        삭제
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>

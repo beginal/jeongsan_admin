@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 interface BranchRiderActionsProps {
   riderId: string;
@@ -40,9 +41,11 @@ export function BranchRiderActions({ riderId }: BranchRiderActionsProps) {
   return (
     <>
       <div className="flex justify-end gap-1">
-        <button
+        <GlassButton
           type="button"
-          className="inline-flex h-7 items-center rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+          variant="secondary"
+          size="sm"
+          className="h-7 px-2 text-[11px]"
           onClick={() =>
             router.push(
               `/riders/${encodeURIComponent(riderId)}/edit`
@@ -51,15 +54,17 @@ export function BranchRiderActions({ riderId }: BranchRiderActionsProps) {
           disabled={deleting}
         >
           수정
-        </button>
-        <button
+        </GlassButton>
+        <GlassButton
           type="button"
-          className="inline-flex h-7 items-center rounded-md border border-red-200 bg-red-50 px-2 text-[11px] font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+          variant="destructive"
+          size="sm"
+          className="h-7 px-2 text-[11px]"
           onClick={() => setShowModal(true)}
           disabled={deleting}
         >
           삭제
-        </button>
+        </GlassButton>
       </div>
 
       {showModal && (
@@ -85,32 +90,34 @@ export function BranchRiderActions({ riderId }: BranchRiderActionsProps) {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 text-xs">
-              <button
+              <GlassButton
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   if (!deleting) {
                     setShowModal(false);
                     setError(null);
                   }
                 }}
-                className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
                 disabled={deleting}
               >
                 취소
-              </button>
-              <button
+              </GlassButton>
+              <GlassButton
                 type="button"
+                variant="destructive"
+                size="sm"
                 onClick={async () => {
                   await handleDelete();
                   if (!error) {
                     setShowModal(false);
                   }
                 }}
-                className="inline-flex h-8 items-center rounded-md bg-red-600 px-4 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
                 disabled={deleting}
               >
                 {deleting ? "삭제 중..." : "삭제"}
-              </button>
+              </GlassButton>
             </div>
           </div>
         </div>

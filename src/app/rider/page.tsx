@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { GlassCard } from "@/components/ui/glass/GlassCard";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { cn } from "@/lib/utils";
 
 type RiderStatus = "approved" | "pending" | "rejected";
 type SettlementMode = "daily" | "weekly";
@@ -126,7 +129,7 @@ export default function RiderLandingPage() {
       return {
         state: status,
         label: "승인됨",
-        className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+        className: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
         description: "승인 완료 – 모든 기능을 사용할 수 있습니다.",
       };
     }
@@ -134,7 +137,7 @@ export default function RiderLandingPage() {
       return {
         state: status,
         label: "승인 반려",
-        className: "bg-red-100 text-red-700 border-red-200",
+        className: "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800",
         description:
           profile?.rejectionReason ||
           "승인이 반려되었습니다. 담당 지사에 문의해 주세요.",
@@ -143,7 +146,7 @@ export default function RiderLandingPage() {
     return {
       state: "pending" as RiderStatus,
       label: "승인 대기",
-      className: "bg-amber-100 text-amber-700 border-amber-200",
+      className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
       description: "승인 완료 후 익일 정산 요청을 보낼 수 있습니다.",
     };
   }, [profile?.verificationStatus, profile?.rejectionReason]);
@@ -237,8 +240,8 @@ export default function RiderLandingPage() {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-8">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-4 shadow-sm">
+    <div className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-4 py-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <GlassCard className="flex flex-wrap items-center justify-between gap-3 p-6">
         <div className="space-y-1">
           <div className="text-xs uppercase tracking-[0.2em] text-muted-foreground">라이더 포털</div>
           <div className="text-xl font-semibold text-foreground">
@@ -248,7 +251,7 @@ export default function RiderLandingPage() {
             {profile?.branch?.name || "-"} {profile?.branch?.region ? `· ${profile.branch.region}` : ""}
           </div>
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusMeta.className}`}>
+            <span className={cn("inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium", statusMeta.className)}>
               {statusMeta.label}
             </span>
             <span className="text-[11px] text-muted-foreground">
@@ -259,88 +262,92 @@ export default function RiderLandingPage() {
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           {pendingRequest ? (
             <>
-              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-800">
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
                 승인 대기
               </span>
-              <button
-                type="button"
+              <GlassButton
+                variant="outline"
+                size="sm"
                 disabled={actionLoading}
                 onClick={handleCancelRequest}
-                className="inline-flex h-9 items-center rounded-md border border-amber-200 bg-amber-50 px-3 font-medium text-amber-800 shadow-sm hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                className="text-amber-800 border-amber-200 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-800 dark:hover:bg-amber-900/20"
               >
                 요청 취소
-              </button>
+              </GlassButton>
             </>
           ) : settlementMode === "weekly" ? (
-            <button
-              type="button"
+            <GlassButton
+              variant="primary"
+              size="sm"
               disabled={!isApproved || isPendingDaily || actionLoading}
               title={
                 isApproved ? (isPendingDaily ? "승인 대기 중" : "") : "승인 완료 후 사용 가능합니다."
               }
               onClick={() => handleSettlementRequest("daily")}
-              className="inline-flex h-9 items-center rounded-md bg-primary px-3 font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPendingDaily ? "승인 대기" : "익일 정산 요청"}
-            </button>
+            </GlassButton>
           ) : (
-            <button
-              type="button"
+            <GlassButton
+              variant="primary"
+              size="sm"
               disabled={!isApproved || isPendingWeekly || actionLoading}
               title={
                 isApproved ? (isPendingWeekly ? "승인 대기 중" : "") : "승인 완료 후 사용 가능합니다."
               }
               onClick={() => handleSettlementRequest("weekly")}
-              className="inline-flex h-9 items-center rounded-md bg-primary px-3 font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPendingWeekly ? "주 정산 변경 대기" : "주 정산으로 변경 요청"}
-            </button>
+            </GlassButton>
           )}
-          <button
-            type="button"
-            className="inline-flex h-9 items-center rounded-md border border-slate-200 bg-slate-50 px-3 font-medium text-slate-700 shadow-sm hover:bg-slate-100"
+          <GlassButton
+            variant="outline"
+            size="sm"
+            className="border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
           >
             로그아웃
-          </button>
+          </GlassButton>
         </div>
-      </header>
+      </GlassCard>
 
       {loading && (
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm text-muted-foreground">
+        <GlassCard className="text-sm text-muted-foreground">
           불러오는 중입니다...
-        </div>
+        </GlassCard>
       )}
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <GlassCard className="border-red-200 bg-red-50/50 text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
           {error}
-        </div>
+        </GlassCard>
       )}
       {settlementError && !loading && (
-        <div className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <GlassCard className="flex items-start justify-between gap-3 border-red-200 bg-red-50/50 text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
           <div className="flex-1">{settlementError}</div>
-          <button
+          <GlassButton
             type="button"
-            className="text-[11px] font-medium underline"
+            variant="ghost"
+            size="sm"
+            className="h-auto p-0 text-[11px] font-medium underline hover:bg-transparent text-red-700"
             onClick={refreshSettlement}
           >
             다시 불러오기
-          </button>
-        </div>
+          </GlassButton>
+        </GlassCard>
       )}
       {actionMessage && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <GlassCard className="border-emerald-200 bg-emerald-50/50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-400">
           {actionMessage}
-        </div>
+        </GlassCard>
       )}
       {actionError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <GlassCard className="border-red-200 bg-red-50/50 text-red-700 dark:border-red-900 dark:bg-red-900/20 dark:text-red-400">
           {actionError}
-        </div>
+        </GlassCard>
       )}
 
       {profile && !loading && !error && (
         <>
-          <section className="rounded-xl border border-border bg-card px-4 py-4 shadow-sm">
+          <GlassCard>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <div className="text-[11px] uppercase tracking-wide text-muted-foreground">정산 주기</div>
@@ -359,17 +366,16 @@ export default function RiderLandingPage() {
                 </div>
               )}
               {!pendingRequest && settlementMode === "daily" && (
-                <div className="rounded-lg border border-dashed border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-700">
+                <div className="rounded-lg border border-dashed border-emerald-200 bg-emerald-50/50 px-3 py-2 text-[11px] text-emerald-700 dark:border-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-400">
                   익일 정산이 적용되었습니다. 필요 시 주 정산으로 전환 요청을 보낼 수 있습니다.
                 </div>
               )}
             </div>
-          </section>
+          </GlassCard>
 
           <section className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3 rounded-xl border border-border bg-card px-4 py-4 shadow-sm">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">기본 정보</h2>
-              <div className="flex items-center justify-between text-sm">
+            <GlassCard title="기본 정보" className="space-y-3">
+              <div className="flex items-center justify-between text-sm pt-2">
                 <span className="text-muted-foreground">이름</span>
                 <span className="font-medium text-foreground">{profile.name || "-"}</span>
               </div>
@@ -387,11 +393,10 @@ export default function RiderLandingPage() {
                   {profile.branch?.name || "-"} {profile.branch?.region ? `(${profile.branch.region})` : ""}
                 </span>
               </div>
-            </div>
+            </GlassCard>
 
-            <div className="space-y-3 rounded-xl border border-border bg-card px-4 py-4 shadow-sm">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">정산 계좌</h2>
-              <div className="flex items-center justify-between text-sm">
+            <GlassCard title="정산 계좌" className="space-y-3">
+              <div className="flex items-center justify-between text-sm pt-2">
                 <span className="text-muted-foreground">은행</span>
                 <span className="font-medium text-foreground">{profile.bankName || "-"}</span>
               </div>
@@ -406,11 +411,11 @@ export default function RiderLandingPage() {
               <p className="text-[11px] text-muted-foreground">
                 계좌 정보 수정은 담당 지사에 문의해 주세요.
               </p>
-            </div>
+            </GlassCard>
           </section>
 
           {loanSummary && (
-            <section className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
+            <GlassCard>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <div className="text-[11px] uppercase tracking-wide text-muted-foreground">대여금</div>
@@ -421,7 +426,7 @@ export default function RiderLandingPage() {
                     총 {loanSummary.total.toLocaleString()}원 · 상환 {loanSummary.paid.toLocaleString()}원
                   </div>
                 </div>
-                <div className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] text-amber-800">
+                <div className="rounded-full border border-amber-200 bg-amber-50/50 px-3 py-1 text-[11px] text-amber-800 dark:border-amber-900 dark:bg-amber-900/20 dark:text-amber-400">
                   {loanSummary.nextPayment
                     ? `다음 납부 예정 ${loanSummary.nextPayment?.split("T")[0]}`
                     : "다음 납부 예정 없음"}
@@ -430,18 +435,17 @@ export default function RiderLandingPage() {
               <p className="mt-3 text-[11px] text-muted-foreground">
                 대여금 상환 정보에 대해 문의가 필요하면 담당 지사에 연락해 주세요.
               </p>
-            </section>
+            </GlassCard>
           )}
 
-          <section className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">정산 내역</h2>
+          <GlassCard title="정산 내역">
+            <div className="flex items-center justify-between pt-2">
               <span className="text-[11px] text-muted-foreground">추후 업데이트 예정입니다.</span>
             </div>
             <div className="mt-3 rounded-md border border-dashed border-border bg-muted/30 px-3 py-4 text-center text-xs text-muted-foreground">
               정산 내역 조회 기능이 곧 제공될 예정입니다.
             </div>
-          </section>
+          </GlassCard>
         </>
       )}
     </div>

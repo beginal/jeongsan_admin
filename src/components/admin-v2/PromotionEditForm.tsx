@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type PromotionType = "excess" | "milestone" | "milestone_per_unit";
 type PromotionStatusDb = "ACTIVE" | "INACTIVE";
@@ -171,10 +172,10 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
           const tiers =
             ms.length > 0
               ? ms.map((m) => ({
-                  threshold:
-                    m.threshold != null ? String(m.threshold ?? "") : "",
-                  amount: m.amount != null ? String(m.amount ?? "") : "",
-                }))
+                threshold:
+                  m.threshold != null ? String(m.threshold ?? "") : "",
+                amount: m.amount != null ? String(m.amount ?? "") : "",
+              }))
               : [{ threshold: "", amount: "" }];
           setConfigMilestone({ tiers });
         } else if (p.type === "milestone_per_unit") {
@@ -459,25 +460,27 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 text-xs">
-              <button
+              <GlassButton
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setShowDeleteModal(false)}
-                className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
                 disabled={deleting}
               >
                 취소
-              </button>
-              <button
+              </GlassButton>
+              <GlassButton
                 type="button"
+                variant="destructive"
+                size="sm"
                 onClick={async () => {
                   await handleDelete();
                   setShowDeleteModal(false);
                 }}
-                className="inline-flex h-8 items-center rounded-md bg-red-600 px-4 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
                 disabled={deleting}
               >
                 {deleting ? "삭제 중..." : "삭제"}
-              </button>
+              </GlassButton>
             </div>
           </div>
         </div>
@@ -523,28 +526,24 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                     활성 상태
                   </label>
                   <div className="mt-1 inline-flex rounded-full border border-border bg-background/60 p-0.5 text-[11px] text-muted-foreground">
-                    <button
+                    <GlassButton
                       type="button"
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                        status === "ACTIVE"
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : ""
-                      }`}
+                      variant={status === "ACTIVE" ? "primary" : "ghost"}
+                      size="sm"
+                      className={`h-6 rounded-full px-2.5 text-[11px] ${status !== "ACTIVE" ? "hover:bg-transparent" : ""}`}
                       onClick={() => setStatus("ACTIVE")}
                     >
                       활성
-                    </button>
-                    <button
+                    </GlassButton>
+                    <GlassButton
                       type="button"
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                        status === "INACTIVE"
-                          ? "bg-primary text-primary-foreground shadow-sm"
-                          : ""
-                      }`}
+                      variant={status === "INACTIVE" ? "primary" : "ghost"}
+                      size="sm"
+                      className={`h-6 rounded-full px-2.5 text-[11px] ${status !== "INACTIVE" ? "hover:bg-transparent" : ""}`}
                       onClick={() => setStatus("INACTIVE")}
                     >
                       비활성
-                    </button>
+                    </GlassButton>
                   </div>
                 </div>
               </div>
@@ -692,9 +691,11 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                         />
                       </div>
                       <div className="flex items-end">
-                        <button
+                        <GlassButton
                           type="button"
-                          className="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-[11px] font-medium text-red-700 hover:bg-red-100"
+                          variant="destructive"
+                          size="sm"
+                          className="h-8 px-3 text-[11px]"
                           onClick={() =>
                             setConfigMilestone((prev) => ({
                               tiers: prev.tiers.filter((_, i) => i !== idx),
@@ -703,13 +704,15 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                           disabled={configMilestone.tiers.length <= 1}
                         >
                           삭제
-                        </button>
+                        </GlassButton>
                       </div>
                     </div>
                   ))}
-                  <button
+                  <GlassButton
                     type="button"
-                    className="inline-flex h-8 w-full items-center justify-center rounded-md border border-dashed border-primary/40 bg-primary/5 px-3 text-[11px] font-medium text-primary hover:bg-primary/10"
+                    variant="outline"
+                    size="sm"
+                    className="w-full border-dashed border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
                     onClick={() =>
                       setConfigMilestone((prev) => ({
                         tiers: [...prev.tiers, { threshold: "", amount: "" }],
@@ -717,7 +720,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                     }
                   >
                     + 구간 추가
-                  </button>
+                  </GlassButton>
                 </div>
               )}
               {type === "milestone_per_unit" && (
@@ -790,28 +793,24 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                   조건 결합 방식
                 </label>
                 <div className="mt-1 inline-flex rounded-full border border-border bg-background/60 p-0.5 text-[11px] text-muted-foreground">
-                  <button
+                  <GlassButton
                     type="button"
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                      peakMode === "AND"
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : ""
-                    }`}
+                    variant={peakMode === "AND" ? "primary" : "ghost"}
+                    size="sm"
+                    className={`h-6 rounded-full px-2.5 text-[11px] ${peakMode !== "AND" ? "hover:bg-transparent" : ""}`}
                     onClick={() => setPeakMode("AND")}
                   >
                     AND (모든 조건 충족)
-                  </button>
-                  <button
+                  </GlassButton>
+                  <GlassButton
                     type="button"
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${
-                      peakMode === "OR"
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : ""
-                    }`}
+                    variant={peakMode === "OR" ? "primary" : "ghost"}
+                    size="sm"
+                    className={`h-6 rounded-full px-2.5 text-[11px] ${peakMode !== "OR" ? "hover:bg-transparent" : ""}`}
                     onClick={() => setPeakMode("OR")}
                   >
                     OR (하나라도 충족)
-                  </button>
+                  </GlassButton>
                 </div>
               </div>
 
@@ -833,9 +832,9 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                             prev.map((c, i) =>
                               i === idx
                                 ? {
-                                    ...c,
-                                    slot: e.target.value as PeakSlot,
-                                  }
+                                  ...c,
+                                  slot: e.target.value as PeakSlot,
+                                }
                                 : c
                             )
                           )
@@ -868,9 +867,11 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                       />
                     </div>
                     <div className="flex items-end">
-                      <button
+                      <GlassButton
                         type="button"
-                        className="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-[11px] font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+                        variant="destructive"
+                        size="sm"
+                        className="h-8 px-3 text-[11px]"
                         onClick={() =>
                           setPeakConditions((prev) =>
                             prev.filter((_, i) => i !== idx)
@@ -878,13 +879,15 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                         }
                       >
                         삭제
-                      </button>
+                      </GlassButton>
                     </div>
                   </div>
                 ))}
-                <button
+                <GlassButton
                   type="button"
-                  className="inline-flex h-8 w-full items-center justify-center rounded-md border border-dashed border-primary/40 bg-primary/5 px-3 text-[11px] font-medium text-primary hover:bg-primary/10"
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-dashed border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
                   onClick={() =>
                     setPeakConditions((prev) => [
                       ...prev,
@@ -893,7 +896,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                   }
                 >
                   조건 추가
-                </button>
+                </GlassButton>
               </div>
             </div>
           </div>
@@ -957,13 +960,15 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                               </div>
                             )}
                           </div>
-                          <button
+                          <GlassButton
                             type="button"
-                            className="ml-2 inline-flex h-7 items-center rounded-md bg-primary px-2 text-[11px] font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
+                            variant="primary"
+                            size="sm"
+                            className="ml-2 h-7 px-2 text-[11px]"
                             onClick={() => handleAddBranch(b)}
                           >
                             추가
-                          </button>
+                          </GlassButton>
                         </div>
                       ))
                     )}
@@ -990,21 +995,23 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                           key={s.id}
                           className="flex items-center justify-between border-b border-border/40 px-3 py-2 last:border-b-0"
                         >
-                          <button
+                          <GlassButton
                             type="button"
+                            variant="ghost"
+                            className="h-auto justify-start p-0 text-xs font-medium text-foreground hover:bg-transparent hover:underline"
                             onClick={() => router.push(`/branches/${s.id}`)}
-                            className="truncate text-left text-xs font-medium text-foreground hover:underline"
                           >
                             {s.name}
-                          </button>
+                          </GlassButton>
                           <div className="flex items-center gap-2">
-                            <button
-                            type="button"
-                              className={`inline-flex h-7 items-center rounded-md border px-2 text-[11px] font-medium ${
-                                s.active
-                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : "border-slate-200 bg-slate-50 text-slate-500"
-                              }`}
+                            <GlassButton
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className={`h-7 px-2 text-[11px] ${s.active
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
+                                : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-600"
+                                }`}
                               onClick={() =>
                                 setSelectedBranches((prev) =>
                                   prev.map((x) =>
@@ -1016,14 +1023,16 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                               }
                             >
                               {s.active ? "●" : "○"}
-                            </button>
-                            <button
+                            </GlassButton>
+                            <GlassButton
                               type="button"
-                              className="inline-flex h-7 items-center rounded-md border border-red-200 bg-red-50 px-2 text-[11px] font-medium text-red-700 hover:bg-red-100"
+                              variant="destructive"
+                              size="sm"
+                              className="h-7 px-2 text-[11px]"
                               onClick={() => handleRemoveBranch(s.id)}
                             >
                               제거
-                            </button>
+                            </GlassButton>
                           </div>
                         </div>
                       ))
@@ -1037,32 +1046,35 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <button
+        <GlassButton
           type="button"
-          className="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+          variant="destructive"
+          size="sm"
           onClick={() => setShowDeleteModal(true)}
           disabled={saving || deleting}
         >
           프로모션 삭제
-        </button>
+        </GlassButton>
         <div className="ml-auto flex items-center gap-2">
-          <button
+          <GlassButton
             type="button"
-            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+            variant="outline"
+            size="sm"
             onClick={() => {
               router.push("/promotions");
             }}
             disabled={saving || deleting}
           >
             취소
-          </button>
-          <button
+          </GlassButton>
+          <GlassButton
             type="submit"
-            className="inline-flex h-8 items-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+            variant="primary"
+            size="sm"
             disabled={saving || deleting}
           >
             {saving ? "저장 중..." : "저장"}
-          </button>
+          </GlassButton>
         </div>
       </div>
     </form>

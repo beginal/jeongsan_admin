@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Wallet } from "lucide-react";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type RiderOption = {
   id: string;
@@ -36,12 +37,12 @@ export default function LoanCreatePage() {
         const ridersJson = await ridersRes.json().catch(() => ({}));
         const ridersParsed: RiderOption[] = Array.isArray(ridersJson.riders)
           ? ridersJson.riders.map((r: any) => ({
-              id: String(r.id),
-              name: r.name || "",
-              phoneSuffix: r.phoneSuffix || "",
-              branchName: r.branchName || "",
-              businessName: r.businessName || "",
-            }))
+            id: String(r.id),
+            name: r.name || "",
+            phoneSuffix: r.phoneSuffix || "",
+            branchName: r.branchName || "",
+            businessName: r.businessName || "",
+          }))
           : [];
         setRiders(ridersParsed);
       } catch (e: any) {
@@ -116,12 +117,14 @@ export default function LoanCreatePage() {
           </div>
         </div>
         <div className="ml-auto flex items-center gap-2 text-xs">
-          <Link
-            href="/loan-management"
-            className="inline-flex h-9 items-center rounded-md border border-border bg-card px-3 font-medium text-muted-foreground hover:text-foreground"
+          <GlassButton
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => router.push("/loan-management")}
           >
             목록으로
-          </Link>
+          </GlassButton>
         </div>
       </div>
 
@@ -149,15 +152,16 @@ export default function LoanCreatePage() {
                     <div className="px-3 py-2 text-xs text-muted-foreground">검색된 라이더가 없습니다.</div>
                   )}
                   {filteredRiders.map((r) => (
-                    <button
+                    <GlassButton
                       type="button"
                       key={r.id}
+                      variant="ghost"
                       onClick={() => {
                         setSelectedRiderId(r.id);
                         setRiderSearch(r.name);
                         setDropdownOpen(false);
                       }}
-                      className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted"
+                      className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted h-auto rounded-none"
                     >
                       <span className="font-medium text-foreground">
                         {r.name} {r.phoneSuffix ? `(${r.phoneSuffix})` : ""}
@@ -166,7 +170,7 @@ export default function LoanCreatePage() {
                         {r.businessName ? `${r.businessName} · ` : ""}
                         {r.branchName || "지사 정보 없음"}
                       </span>
-                    </button>
+                    </GlassButton>
                   ))}
                 </div>
               )}
@@ -271,13 +275,14 @@ export default function LoanCreatePage() {
         )}
 
         <div className="flex items-center gap-2">
-          <button
+          <GlassButton
             type="submit"
+            variant="primary"
+            size="sm"
             disabled={saving}
-            className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
           >
             {saving ? "저장 중..." : "등록"}
-          </button>
+          </GlassButton>
           <span className="text-[11px] text-muted-foreground">
             저장 후 자동으로 수정 화면으로 이동합니다.
           </span>
@@ -286,8 +291,8 @@ export default function LoanCreatePage() {
     </div>
   );
 }
-  const formatInputNumber = (value: string) => {
-    const digits = value.replace(/[^\d]/g, "");
-    if (!digits) return "";
-    return Number(digits).toLocaleString();
-  };
+const formatInputNumber = (value: string) => {
+  const digits = value.replace(/[^\d]/g, "");
+  if (!digits) return "";
+  return Number(digits).toLocaleString();
+};

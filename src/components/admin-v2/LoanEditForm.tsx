@@ -2,6 +2,7 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
+import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 interface LoanEditFormProps {
   loanId: string;
@@ -319,14 +320,15 @@ export function LoanEditForm({
         </div>
 
         <div className="flex items-center justify-end gap-2">
-          <button
+          <GlassButton
             type="button"
             disabled={addingPayment}
             onClick={addPayment}
-            className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-50"
+            variant="primary"
+            size="sm"
           >
             {addingPayment ? "추가 중..." : "입금 추가"}
-          </button>
+          </GlassButton>
         </div>
 
         <div className="overflow-auto rounded-md border border-border bg-card">
@@ -353,17 +355,15 @@ export function LoanEditForm({
                     {p.note || "-"}
                   </td>
                   <td className="px-3 py-2 text-center">
-                    <button
+                    <GlassButton
                       type="button"
                       onClick={() => toggleCancelPayment(p.id, Boolean(p.cancelled))}
-                      className={`inline-flex h-8 items-center justify-center rounded-full px-3 text-[11px] font-semibold ${
-                        p.cancelled
-                          ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : "border border-red-200 bg-red-50 text-red-700"
-                      }`}
+                      variant={p.cancelled ? "outline" : "destructive"}
+                      size="sm"
+                      className={p.cancelled ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800" : ""}
                     >
                       {p.cancelled ? "복구" : "취소"}
-                    </button>
+                    </GlassButton>
                   </td>
                 </tr>
               ))}
