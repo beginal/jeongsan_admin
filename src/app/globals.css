@@ -123,3 +123,35 @@
   border-left: 1px solid hsl(220, 10%, 85%);
   border-radius: 9999px;
 }
+
+/* Stacked card connector (left rail + elbow) */
+.stacked-card {
+  position: relative;
+  overflow: visible;
+}
+.stacked-card::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: -12px;
+  bottom: -12px;
+  border-left: 1px solid hsl(var(--border));
+  border-color: hsl(220, 10%, 60%);
+  opacity: 0.35;
+  border-radius: 8px;
+}
+.stacked-card::after {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 18px;
+  width: 16px;
+  border-top: 1px solid hsl(var(--border));
+  border-color: hsl(220, 10%, 60%);
+  opacity: 0.35;
+  border-radius: 8px 0 0 0;
+}
+.stacked-card-first::before,
+.stacked-card-first::after {
+  display: none;
+}
