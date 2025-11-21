@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { showToast } from "@/components/ui/Toast";
+import { DateField } from "@/components/ui/DateField";
 
 type RentalStatus = "active" | "inactive";
 
@@ -228,17 +229,17 @@ export default function LeaseRentalEditPage() {
                 onChange={(v) => handleChange("dailyFee", v)}
                 trailing="원"
               />
-              <Field
+              <DateField
                 label="계약 시작일"
-                type="date"
                 value={form.startDate}
                 onChange={(v) => handleChange("startDate", v)}
+                required
               />
-              <Field
+              <DateField
                 label="계약 종료일"
-                type="date"
                 value={form.endDate}
                 onChange={(v) => handleChange("endDate", v)}
+                min={form.startDate || undefined}
               />
               <div className="md:col-span-2">
                 <StatusSwitch

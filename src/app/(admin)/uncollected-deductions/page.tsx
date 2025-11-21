@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { MinusCircle } from "lucide-react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { DateField } from "@/components/ui/DateField";
 
 type RiderOption = {
   id: string;
@@ -274,11 +275,9 @@ export default function UncollectedDeductionsPage() {
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-[11px] font-semibold text-muted-foreground">적용 기준일(선택)</span>
-            <input
-              type="date"
+            <DateField
               value={applyAt}
-              onChange={(e) => setApplyAt(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              onChange={setApplyAt}
               placeholder="다음 정산일"
             />
           </label>

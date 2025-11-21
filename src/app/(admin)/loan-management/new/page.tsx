@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Wallet } from "lucide-react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { DateField } from "@/components/ui/DateField";
 
 type RiderOption = {
   id: string;
@@ -203,13 +204,7 @@ export default function LoanCreatePage() {
 
           <label className="space-y-1 text-sm">
             <span className="text-[11px] font-semibold text-muted-foreground">대여 일자</span>
-            <input
-              type="date"
-              value={loanDate}
-              onChange={(e) => setLoanDate(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              required
-            />
+            <DateField value={loanDate} onChange={setLoanDate} required />
           </label>
         </div>
 
@@ -248,13 +243,7 @@ export default function LoanCreatePage() {
 
           <label className="space-y-1 text-sm">
             <span className="text-[11px] font-semibold text-muted-foreground">납부 마감일 (선택)</span>
-            <input
-              type="date"
-              value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              placeholder="납부 마감일"
-            />
+            <DateField value={dueDate} onChange={setDueDate} min={loanDate || undefined} />
           </label>
         </div>
 

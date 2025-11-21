@@ -5,6 +5,7 @@ import { useState } from "react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { Button } from "@/components/ui/Button";
 import { showToast } from "@/components/ui/Toast";
+import { DateField } from "@/components/ui/DateField";
 
 interface LoanEditFormProps {
   loanId: string;
@@ -207,27 +208,20 @@ export function LoanEditForm({
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="text-[11px] font-semibold text-muted-foreground">대여 일자</span>
-              <input
-                type="date"
-                value={loanDateInput}
-                onChange={(e) => setLoanDateInput(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                required
-              />
-            </label>
+            <DateField
+              label="대여 일자"
+              required
+              value={loanDateInput}
+              onChange={setLoanDateInput}
+            />
 
-            <label className="space-y-1 text-sm">
-              <span className="text-[11px] font-semibold text-muted-foreground">납부 마감일 (선택)</span>
-              <input
-                type="date"
-                value={dueDateInput}
-                onChange={(e) => setDueDateInput(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="납부 마감일"
-              />
-            </label>
+            <DateField
+              label="납부 마감일 (선택)"
+              value={dueDateInput}
+              onChange={setDueDateInput}
+              helperText="선택 입력"
+              min={loanDateInput || undefined}
+            />
           </div>
         </div>
 
@@ -306,12 +300,7 @@ export function LoanEditForm({
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-[11px] font-semibold text-muted-foreground">입금일</span>
-            <input
-              type="date"
-              value={newPaymentDate}
-              onChange={(e) => setNewPaymentDate(e.target.value)}
-              className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-            />
+            <DateField value={newPaymentDate} onChange={setNewPaymentDate} />
           </label>
           <label className="space-y-1 text-sm">
             <span className="text-[11px] font-semibold text-muted-foreground">비고</span>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { Button } from "@/components/ui/Button";
+import { DateField } from "@/components/ui/DateField";
 
 type PromotionType = "excess" | "milestone" | "milestone_per_unit";
 type PromotionStatusDb = "ACTIVE" | "INACTIVE";
@@ -641,28 +642,19 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    시작일
-                  </label>
-                  <input
-                    type="date"
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    종료일
-                  </label>
-                  <input
-                    type="date"
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                  />
-                </div>
+                <DateField
+                  label="시작일"
+                  value={startDate}
+                  onChange={setStartDate}
+                  placeholder="YYYY-MM-DD"
+                />
+                <DateField
+                  label="종료일"
+                  value={endDate}
+                  onChange={setEndDate}
+                  placeholder="YYYY-MM-DD"
+                  min={startDate || undefined}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground">
