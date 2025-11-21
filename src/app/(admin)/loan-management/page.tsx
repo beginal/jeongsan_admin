@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Wallet } from "lucide-react";
+import { Button } from "@/components/ui/Button";
 
 type LoanRow = {
   id: string;
@@ -94,20 +94,12 @@ export default function LoanManagementPage() {
               🔍
             </span>
           </div>
-          <button
-            type="button"
-            onClick={loadLoans}
-            className="inline-flex h-9 items-center rounded-md border border-border bg-card px-3 text-xs font-medium text-muted-foreground hover:text-foreground"
-            disabled={loading}
-          >
+          <Button variant="secondary" size="sm" onClick={loadLoans} disabled={loading} isLoading={loading}>
             새로고침
-          </button>
-          <Link
-            href="/loan-management/new"
-            className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-          >
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => window.location.href = "/loan-management/new"}>
             + 대여금 추가
-          </Link>
+          </Button>
         </div>
       </div>
 
@@ -147,7 +139,11 @@ export default function LoanManagementPage() {
           </thead>
           <tbody className="divide-y divide-border">
             {filtered.map((loan) => (
-              <tr key={loan.id} className="hover:bg-muted/40">
+              <tr
+                key={loan.id}
+                className="hover:bg-muted/40 cursor-pointer"
+                onClick={() => window.location.href = `/loan-management/${loan.id}/edit`}
+              >
                 <td className="px-4 py-3 font-medium text-foreground">{loan.riderName}</td>
                 <td className="px-4 py-3 text-left text-muted-foreground">{loan.branchName || "-"}</td>
                 <td className="px-4 py-3 text-right text-foreground">
@@ -161,13 +157,8 @@ export default function LoanManagementPage() {
                 </td>
                 <td className="px-4 py-3 text-center text-foreground">{formatDate(loan.loanDate)}</td>
                 <td className="px-4 py-3 text-center text-foreground">{formatDate(loan.paymentDate)}</td>
-                <td className="px-4 py-3 text-center">
-                  <Link
-                    href={`/loan-management/${loan.id}/edit`}
-                    className="inline-flex items-center rounded-full border border-primary/60 bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary transition hover:bg-primary/20"
-                  >
-                    ✏️ 수정
-                  </Link>
+                <td className="px-4 py-3 text-center text-[11px] text-muted-foreground">
+                  행 클릭으로 수정
                 </td>
               </tr>
             ))}
