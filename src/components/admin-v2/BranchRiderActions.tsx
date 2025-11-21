@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { Button } from "@/components/ui/Button";
 
 interface BranchRiderActionsProps {
   riderId: string;
@@ -41,30 +41,25 @@ export function BranchRiderActions({ riderId }: BranchRiderActionsProps) {
   return (
     <>
       <div className="flex justify-end gap-1">
-        <GlassButton
+        <Button
           type="button"
           variant="secondary"
           size="sm"
-          className="h-7 px-2 text-[11px]"
-          onClick={() =>
-            router.push(
-              `/riders/${encodeURIComponent(riderId)}/edit`
-            )
-          }
+          onClick={() => router.push(`/riders/${encodeURIComponent(riderId)}/edit`)}
           disabled={deleting}
         >
           수정
-        </GlassButton>
-        <GlassButton
+        </Button>
+        <Button
           type="button"
-          variant="destructive"
+          variant="danger"
           size="sm"
-          className="h-7 px-2 text-[11px]"
           onClick={() => setShowModal(true)}
           disabled={deleting}
+          isLoading={deleting}
         >
           삭제
-        </GlassButton>
+        </Button>
       </div>
 
       {showModal && (
@@ -90,9 +85,9 @@ export function BranchRiderActions({ riderId }: BranchRiderActionsProps) {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 text-xs">
-              <GlassButton
+              <Button
                 type="button"
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 onClick={() => {
                   if (!deleting) {
@@ -103,10 +98,10 @@ export function BranchRiderActions({ riderId }: BranchRiderActionsProps) {
                 disabled={deleting}
               >
                 취소
-              </GlassButton>
-              <GlassButton
+              </Button>
+              <Button
                 type="button"
-                variant="destructive"
+                variant="danger"
                 size="sm"
                 onClick={async () => {
                   await handleDelete();
@@ -115,9 +110,10 @@ export function BranchRiderActions({ riderId }: BranchRiderActionsProps) {
                   }
                 }}
                 disabled={deleting}
+                isLoading={deleting}
               >
-                {deleting ? "삭제 중..." : "삭제"}
-              </GlassButton>
+                삭제
+              </Button>
             </div>
           </div>
         </div>
