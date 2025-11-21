@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 interface UpdateBranchBody {
   platform?: "coupang" | "baemin";
@@ -17,19 +16,10 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ branchId: string }> }
 ) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("[admin-v2/branches PATCH] Supabase env not set");
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
   const { branchId } = await params;
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   let body: UpdateBranchBody;
   try {
@@ -98,40 +88,14 @@ export async function PATCH(
 
     // 3) branch_settlement_policies - 활성 정책 새로 입력
     if (body.feeType && body.feeValue != null) {
-      const cookieStore = await cookies();
-      const token = cookieStore.get("admin_v2_token")?.value;
-
-      if (!token) {
-        return NextResponse.json(
-          { error: "로그인 정보가 없습니다. 다시 로그인해 주세요." },
-          { status: 401 }
-        );
-      }
-
-      const authClient = createClient(supabaseUrl, serviceRoleKey);
-      const {
-        data: { user },
-        error: userError,
-      } = await authClient.auth.getUser(token);
-
-      if (userError || !user) {
-        console.error(
-          "[admin-v2/branches PATCH] getUser error:",
-          userError || "no user"
-        );
-        return NextResponse.json(
-          { error: "사용자 정보를 확인하지 못했습니다." },
-          { status: 401 }
-        );
-      }
-
+      const userId = auth.user.id;
       const { error: policyError } = await supabase
         .from("branch_settlement_policies")
         .insert({
           branch_id: branchId,
           fee_type: body.feeType,
           fee_value: body.feeValue,
-          created_by: user.id,
+          created_by: userId,
         });
 
       if (policyError) {
@@ -160,21 +124,12 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ branchId: string }> }
 ) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("[admin-v2/branches DELETE] Supabase env not set");
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
   const { branchId } = await params;
 
   try {
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const auth = await requireAdminAuth();
+    if ("response" in auth) return auth.response;
+    const supabase = auth.serviceSupabase ?? auth.supabase;
 
     const { error: deleteError } = await supabase
       .from("new_branches")

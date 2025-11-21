@@ -1,48 +1,13 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.error("[admin-v2/branches] Supabase env not set");
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const adminIdParam = searchParams.get("adminId");
-
-    let effectiveAdminId: string | null = adminIdParam || null;
-
-    if (!effectiveAdminId) {
-      // 관리자 토큰으로 요청한 경우 토큰의 사용자 ID로 필터
-      const cookieStore = await cookies();
-      const token = cookieStore.get("admin_v2_token")?.value;
-      if (token) {
-        const authClient = createClient(supabaseUrl, serviceRoleKey);
-        const {
-          data: { user },
-        } = await authClient.auth.getUser(token);
-        if (user?.id) {
-          effectiveAdminId = user.id;
-        }
-      }
-    }
-
-    if (!effectiveAdminId) {
-      return NextResponse.json(
-        { error: "유효한 관리자 정보가 없습니다." },
-        { status: 401 }
-      );
-    }
+    const effectiveAdminId = auth.user.id;
 
     const { data: ownedBranches, error: ownedError } = await supabase
       .from("new_branches")
@@ -233,23 +198,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
     // 현재 로그인한 사용자 (created_by / 정책용)
-    const cookieStore = await cookies();
-    const token = cookieStore.get("admin_v2_token")?.value;
-    let userId: string | null = null;
-
-    if (token) {
-      const authClient = createClient(supabaseUrl, serviceRoleKey);
-      const {
-        data: { user },
-      } = await authClient.auth.getUser(token);
-      if (user) {
-        userId = user.id;
-      }
-    }
+    const userId: string | null = auth.user.id || null;
 
     const regionValue =
       (body.province && body.district

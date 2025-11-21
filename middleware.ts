@@ -4,12 +4,14 @@ import { NextResponse } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 공개 경로: 로그인/회원가입/라이더 등록/정적 파일
+  // 공개 경로: 로그인/회원가입/라이더 등록/정적 파일/API 공개 경로
   if (
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/register") ||
     pathname.startsWith("/rider") || // 라이더 포털
+    pathname.startsWith("/api/auth") || // 인증 엔드포인트
+    pathname.startsWith("/api/public") || // 공개 API
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/_next")
   ) {
@@ -50,9 +52,7 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: [
-    "/((?!api|login|signup|_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
 };
 
 function isTokenExpired(token: string): boolean {

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl) {
     console.error("[admin-v2/business-entities] Supabase env not set");
     return NextResponse.json(
       { error: "Supabase 환경 변수가 설정되지 않았습니다." },
@@ -13,7 +12,9 @@ export async function GET() {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
     // 1) 기본 사업자 목록
@@ -188,9 +189,8 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl) {
     console.error("[admin-v2/business-entities POST] Supabase env not set");
     return NextResponse.json(
       { error: "Supabase 환경 변수가 설정되지 않았습니다." },
@@ -198,7 +198,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   let body: any = {};
   try {

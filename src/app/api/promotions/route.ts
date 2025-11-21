@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 type AdminPromotionRow = {
   id: string;
@@ -42,7 +42,9 @@ export async function GET() {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
     // 프로모션 + 배정 지사를 한 번에 조회 (테이블 기준)

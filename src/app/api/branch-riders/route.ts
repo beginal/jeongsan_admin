@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -13,34 +12,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
-    const { searchParams } = new URL(request.url);
-    const adminIdParam = searchParams.get("adminId");
-
-    let effectiveAdminId: string | null = adminIdParam || null;
-
-    if (!effectiveAdminId) {
-      const cookieStore = await cookies();
-      const token = cookieStore.get("admin_v2_token")?.value;
-      if (token) {
-        const authClient = createClient(supabaseUrl, serviceRoleKey);
-        const {
-          data: { user },
-        } = await authClient.auth.getUser(token);
-        if (user?.id) {
-          effectiveAdminId = user.id;
-        }
-      }
-    }
-
-    if (!effectiveAdminId) {
-      return NextResponse.json(
-        { error: "유효한 관리자 정보가 없습니다." },
-        { status: 401 }
-      );
-    }
+    const effectiveAdminId = auth.user.id;
 
     const { data: ownedBranches, error: ownedError } = await supabase
       .from("new_branches")
