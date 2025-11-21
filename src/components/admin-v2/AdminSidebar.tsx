@@ -231,6 +231,8 @@ function SidebarSection({
     .sort((a, b) => b.href.length - a.href.length);
   const activeHref = matchingItems[0]?.href ?? null;
   const isAnyChildActive = Boolean(activeHref);
+  // 대분류 active 표시 조건: 실제 active 소분류가 있을 때만
+  const isSectionActive = isAnyChildActive;
 
   const SectionIcon = section.icon;
 
@@ -243,14 +245,14 @@ function SidebarSection({
         aria-expanded={isOpen}
         className={cn(
           "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 h-auto",
-          isAnyChildActive || isOpen
+          isSectionActive
             ? "bg-surface-100 text-primary shadow-glass-sm hover:bg-surface-200"
             : "text-muted-foreground hover:bg-surface-50 hover:text-foreground"
         )}
       >
         <span className="flex items-center gap-3">
           {SectionIcon && (
-            <SectionIcon className={cn("h-4 w-4 transition-colors", isAnyChildActive || isOpen ? "text-primary" : "text-muted-foreground")} />
+            <SectionIcon className={cn("h-4 w-4 transition-colors", isSectionActive ? "text-primary" : "text-muted-foreground")} />
           )}
           <span>{section.label}</span>
         </span>
