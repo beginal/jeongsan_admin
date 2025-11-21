@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { formatPhone } from "@/lib/phone";
+import { badgeToneClass, getSettlementRequestStatusMeta } from "@/lib/status";
 
 type SettlementMode = "daily" | "weekly";
 
@@ -15,22 +17,6 @@ type RequestRow = {
   requestedMode: SettlementMode;
   status: "pending" | "approved" | "rejected";
   createdAt?: string;
-};
-
-const formatPhone = (raw?: string | null) => {
-  const digits = (raw || "").replace(/\D/g, "").slice(0, 11);
-  if (!digits) return "";
-  if (digits.startsWith("02")) {
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-    if (digits.length <= 9) {
-      return `${digits.slice(0, 2)}-${digits.slice(2, digits.length - 2)}-${digits.slice(-2)}`;
-    }
-    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
-  }
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, digits.length - 4)}-${digits.slice(-4)}`;
 };
 
 export default function RiderSettlementRequestsPage() {
@@ -178,19 +164,16 @@ export default function RiderSettlementRequestsPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    {row.status === "approved" ? (
-                      <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-700">
-                        승인됨
-                      </span>
-                    ) : row.status === "pending" ? (
-                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-                        승인 대기
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700">
-                        반려됨
-                      </span>
-                    )}
+                    {(() => {
+                      const meta = getSettlementRequestStatusMeta(row.status);
+                      return (
+                        <span
+                          className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${badgeToneClass(meta.tone)}`}
+                        >
+                          {meta.label}
+                        </span>
+                      );
+                    })()}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {row.createdAt ? new Date(row.createdAt).toLocaleString() : "-"}
