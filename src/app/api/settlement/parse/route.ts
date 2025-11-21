@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import { decrypt } from "officecrypto-tool";
 import * as XLSX from "xlsx";
+import { requireAdminAuth } from "@/lib/auth";
 
 export const runtime = "nodejs";
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB 보호 한도
 
 type RiderSummary = {
   licenseId: string;
@@ -315,6 +318,9 @@ const parseMissionSheet = (wb: XLSX.WorkBook): MissionRow[] => {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdminAuth();
+    if ("response" in auth) return auth.response;
+
     const form = await req.formData();
     const file = form.get("file");
     const password = String(form.get("password") || "");
@@ -325,6 +331,10 @@ export async function POST(req: Request) {
     }
     if (!password) {
       return NextResponse.json({ error: "비밀번호가 필요합니다." }, { status: 400 });
+    }
+
+    if (typeof (file as any).size === "number" && (file as any).size > MAX_FILE_BYTES) {
+      return NextResponse.json({ error: "파일 크기가 큽니다. 10MB 이하로 업로드해 주세요." }, { status: 400 });
     }
 
     const buf = Buffer.from(await file.arrayBuffer());

@@ -77,6 +77,33 @@ export async function GET(
   const supabase = auth.serviceSupabase ?? auth.supabase;
   const { riderId } = await params;
 
+  // 관리자가 소유한 라이더/지사인지 확인
+  const { data: riderRow } = await supabase
+    .from("riders")
+    .select("id, created_by")
+    .eq("id", riderId)
+    .maybeSingle();
+
+  let isOwned = riderRow?.created_by === auth.user.id;
+
+  if (!isOwned) {
+    const { data: assignments } = await supabase
+      .from("rider_new_branches")
+      .select("new_branches: new_branch_id (created_by)")
+      .eq("rider_id", riderId)
+      .limit(5);
+    isOwned = (assignments || []).some(
+      (a: any) => a?.new_branches?.created_by === auth.user.id
+    );
+  }
+
+  if (!isOwned) {
+    return NextResponse.json(
+      { error: "정산 요청을 찾을 수 없습니다." },
+      { status: 404 }
+    );
+  }
+
   try {
     const settlement = await getSettlementStatus(supabase, riderId);
     return NextResponse.json({ settlement });
@@ -115,6 +142,32 @@ export async function PATCH(
     return NextResponse.json(
       { error: "유효하지 않은 처리 요청입니다." },
       { status: 400 }
+    );
+  }
+
+  const { data: riderRow } = await supabase
+    .from("riders")
+    .select("id, created_by")
+    .eq("id", riderId)
+    .maybeSingle();
+
+  let isOwned = riderRow?.created_by === adminUserId;
+
+  if (!isOwned) {
+    const { data: assignments } = await supabase
+      .from("rider_new_branches")
+      .select("new_branches: new_branch_id (created_by)")
+      .eq("rider_id", riderId)
+      .limit(5);
+    isOwned = (assignments || []).some(
+      (a: any) => a?.new_branches?.created_by === adminUserId
+    );
+  }
+
+  if (!isOwned) {
+    return NextResponse.json(
+      { error: "정산 요청을 찾을 수 없습니다." },
+      { status: 404 }
     );
   }
 

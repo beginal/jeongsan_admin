@@ -8,6 +8,7 @@ export async function POST(
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
   const supabase = auth.serviceSupabase ?? auth.supabase;
+  const adminId = auth.user.id;
 
   const { loanId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -26,11 +27,29 @@ export async function POST(
   try {
     const { data: loanRow, error: loanError } = await supabase
       .from("rider_loans")
-      .select("id, rider_id")
+      .select(
+        `id, rider_id, branch_id, rider:rider_id(created_by), branch:branch_id(created_by)`
+      )
       .eq("id", loanId)
       .maybeSingle();
 
     if (loanError || !loanRow) {
+      return NextResponse.json(
+        { error: "대여금 정보를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
+    const riderInfo = Array.isArray((loanRow as any).rider)
+      ? (loanRow as any).rider[0]
+      : (loanRow as any).rider;
+    const branchInfo = Array.isArray((loanRow as any).branch)
+      ? (loanRow as any).branch[0]
+      : (loanRow as any).branch;
+    const isOwned =
+      (riderInfo?.created_by && riderInfo.created_by === adminId) ||
+      (branchInfo?.created_by && branchInfo.created_by === adminId);
+    if (!isOwned) {
       return NextResponse.json(
         { error: "대여금 정보를 찾을 수 없습니다." },
         { status: 404 }
@@ -84,6 +103,7 @@ export async function PATCH(
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
   const supabase = auth.serviceSupabase ?? auth.supabase;
+  const adminId = auth.user.id;
 
   const { loanId } = await params;
   const body = await request.json().catch(() => ({}));
@@ -98,6 +118,32 @@ export async function PATCH(
   }
 
   try {
+    const { data: loanRow, error: loanError } = await supabase
+      .from("rider_loans")
+      .select(
+        `id, rider_id, branch_id, rider:rider_id(created_by), branch:branch_id(created_by)`
+      )
+      .eq("id", loanId)
+      .maybeSingle();
+
+    const riderInfo = Array.isArray((loanRow as any)?.rider)
+      ? (loanRow as any).rider[0]
+      : (loanRow as any)?.rider;
+    const branchInfo = Array.isArray((loanRow as any)?.branch)
+      ? (loanRow as any).branch[0]
+      : (loanRow as any)?.branch;
+    const isOwned =
+      loanRow &&
+      ((riderInfo?.created_by && riderInfo.created_by === adminId) ||
+        (branchInfo?.created_by && branchInfo.created_by === adminId));
+
+    if (loanError || !loanRow || !isOwned) {
+      return NextResponse.json(
+        { error: "대여금 정보를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
+
     const { error: updateError } = await supabase
       .from("rider_loan_payments")
       .update({ cancelled: cancel })

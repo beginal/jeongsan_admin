@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 type RiderRegisterBody = {
   adminId?: string | null;
   branchId?: string | null;
+  linkCode?: string | null;
   name?: string;
   phone?: string;
   baeminId?: string;
@@ -42,6 +43,7 @@ export async function POST(request: Request) {
   const phone = (body.phone || "").trim();
   const baeminId = (body.baeminId || "").trim();
   const password = (body.password || "").trim();
+  const linkCode = (body.linkCode || "").trim();
   const residentNumber = (body.residentNumber || "").trim();
   const bankName = (body.bankName || "").trim();
   const accountHolder = (body.accountHolder || "").trim();
@@ -65,6 +67,13 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { error: "필수 정보를 모두 입력해 주세요." },
+      { status: 400 }
+    );
+  }
+
+  if (!adminIdReq || !linkCode) {
+    return NextResponse.json(
+      { error: "유효한 초대 링크가 필요합니다." },
       { status: 400 }
     );
   }
@@ -95,73 +104,60 @@ export async function POST(request: Request) {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    // 로그인된 관리자 아이디가 없을 수 있어 기본 소유자(beginal)로 fallback
-    const DEFAULT_ADMIN_ID = "dba00257-538c-4a5a-830b-e092099fa0b6";
-    const targetAdminId = adminIdReq || DEFAULT_ADMIN_ID;
+    // adminId 필수
+    if (!adminIdReq) {
+      return NextResponse.json(
+        { error: "유효한 등록 링크 또는 관리자 정보가 필요합니다." },
+        { status: 400 }
+      );
+    }
 
-    let linkCode: string | null = targetAdminId;
-    // admin이 전달되면 활성 링크 조회, 없으면 자동 생성 (필수)
-    if (targetAdminId) {
-      // 1) 우선 타겟 admin 기준 조회
-      let links: any[] | null = null;
-      let linkError: any = null;
-      try {
-        const res = await supabase
-          .from("registration_links")
-          .select("link_code")
-          .eq("admin_id", targetAdminId)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        links = res.data || [];
-        linkError = res.error;
-      } catch (e) {
-        linkError = e;
-      }
+    // 제공된 초대 링크 검증 (자동 생성 제거)
+    const { data: linkRow, error: linkError } = await supabase
+      .from("registration_links")
+      .select("link_code, admin_id, is_active, new_branch_id, expires_at")
+      .eq("link_code", linkCode)
+      .eq("admin_id", adminIdReq)
+      .eq("is_active", true)
+      .maybeSingle();
 
-      if (linkError) {
-        console.error("[public/riders POST] registration_links error:", linkError);
-      }
+    if (linkError || !linkRow) {
+      return NextResponse.json(
+        { error: "유효하지 않은 등록 링크입니다." },
+        { status: 400 }
+      );
+    }
 
-      if (links && links.length > 0) {
-        linkCode = String(links[0].link_code);
-      } else {
-        // 2) 타겟 admin 기준 활성 링크가 없으면 auto 생성
-        const code = `auto-${Math.random().toString(36).slice(2, 10)}`;
-        const { data: newLink, error: createLinkError } = await supabase
-          .from("registration_links")
-          .insert({
-            admin_id: targetAdminId,
-            link_code: code,
-            is_active: true,
-            new_branch_id: branchId || null,
-            name: "자동 생성 링크",
-          })
-          .select("link_code")
-          .maybeSingle();
-
-        if (createLinkError || !newLink) {
-          console.error("[public/riders POST] auto link create error:", createLinkError);
-          return NextResponse.json(
-            { error: "등록 링크를 확인하지 못했습니다." },
-            { status: 400 }
-          );
-        } else {
-          linkCode = String(newLink.link_code);
-        }
-      }
+    if (linkRow.expires_at && new Date(linkRow.expires_at).getTime() < Date.now()) {
+      return NextResponse.json(
+        { error: "만료된 등록 링크입니다." },
+        { status: 400 }
+      );
     }
 
     // 1) 지사 존재 확인만 선행 (링크 검증은 함수에서 수행)
     const { data: branchExists, error: branchCheckError } = await supabase
       .from("new_branches")
-      .select("id")
+      .select("id, created_by")
       .eq("id", branchId)
       .maybeSingle();
 
     if (branchCheckError || !branchExists) {
       return NextResponse.json(
         { error: "존재하지 않는 지사입니다." },
+        { status: 400 }
+      );
+    }
+    if (String(branchExists.created_by || "") !== adminIdReq) {
+      return NextResponse.json(
+        { error: "해당 지사를 소유한 관리자 정보가 아닙니다." },
+        { status: 400 }
+      );
+    }
+
+    if (linkRow.new_branch_id && String(linkRow.new_branch_id) !== branchId) {
+      return NextResponse.json(
+        { error: "등록 링크와 지사 정보가 일치하지 않습니다." },
         { status: 400 }
       );
     }

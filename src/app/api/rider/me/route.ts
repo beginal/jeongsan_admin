@@ -4,7 +4,7 @@ import { requireRiderAuth } from "@/lib/auth";
 export async function GET() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase; // RLS 보호 경로는 anon 키만 사용
   const token = auth.token;
 
   try {
@@ -29,32 +29,9 @@ export async function GET() {
         .eq("phone", phoneDigits)
         .maybeSingle();
       riderId = riderByPhone?.id || null;
-
-      if (!riderId && phoneDigits.length >= 6) {
-        const fuzzyPattern = `%${phoneDigits.split("").join("%")}%`;
-        const { data: riderByFuzzy } = await supabase
-          .from("riders")
-          .select("id")
-          .ilike("phone", fuzzyPattern)
-          .limit(1)
-          .maybeSingle();
-        riderId = riderByFuzzy?.id || riderId;
-      }
-
-      if (!riderId && phoneDigits.length >= 4) {
-        const suffix = phoneDigits.slice(-4);
-        const likePattern = `%${suffix}`;
-        const { data: riderByLike } = await supabase
-          .from("riders")
-          .select("id, phone")
-          .ilike("phone", likePattern)
-          .limit(1)
-          .maybeSingle();
-        riderId = riderByLike?.id || null;
-      }
     }
 
-    // 전화번호로도 찾지 못했을 때만 auth user id를 최후 후보로 시도
+    // 전화번호로도 찾지 못했을 때만 auth user id를 최후 후보로 시도 (정확 일치만 허용)
     if (!riderId && (user?.id || decoded?.sub)) {
       const candidate = user?.id || decoded?.sub;
       const { data: riderByUserId } = await supabase

@@ -41,29 +41,6 @@ async function resolveRiderId(
       .maybeSingle();
 
     riderId = (riderByPhone as any)?.id || riderId;
-
-    if (!riderId && phoneDigits.length >= 6) {
-      const fuzzyPattern = `%${phoneDigits.split("").join("%")}%`;
-      const { data: riderByFuzzy } = await supabase
-        .from("riders")
-        .select("id")
-        .ilike("phone", fuzzyPattern)
-        .limit(1)
-        .maybeSingle();
-      riderId = (riderByFuzzy as any)?.id || riderId;
-    }
-
-    if (!riderId && phoneDigits.length >= 4) {
-      const suffix = phoneDigits.slice(-4);
-      const likePattern = `%${suffix}`;
-      const { data: riderByLike } = await supabase
-        .from("riders")
-        .select("id, phone")
-        .ilike("phone", likePattern)
-        .limit(1)
-        .maybeSingle();
-      riderId = (riderByLike as any)?.id || riderId;
-    }
   }
   if (!riderId && user?.id) {
     const { data: riderByUserId } = await supabase
@@ -115,7 +92,7 @@ async function getSettlementStatus(
 export async function GET() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
@@ -148,7 +125,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
@@ -227,7 +204,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {

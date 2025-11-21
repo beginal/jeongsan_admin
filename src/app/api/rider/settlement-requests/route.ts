@@ -5,9 +5,9 @@ export async function GET() {
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
   const userId = auth.user.id;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
-    const supabase = auth.supabase;
     const { data, error } = await supabase
       .from("rider_settlement_requests")
       .select(

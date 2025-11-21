@@ -21,6 +21,17 @@ export async function PATCH(
   if ("response" in auth) return auth.response;
   const supabase = auth.serviceSupabase ?? auth.supabase;
 
+  // 소유자 확인: 다른 관리자의 지사에 대한 수정 차단
+  const { data: branchOwner, error: ownerError } = await supabase
+    .from("new_branches")
+    .select("id, created_by")
+    .eq("id", branchId)
+    .maybeSingle();
+
+  if (ownerError || !branchOwner || branchOwner.created_by !== auth.user.id) {
+    return NextResponse.json({ error: "존재하지 않거나 권한이 없습니다." }, { status: 404 });
+  }
+
   let body: UpdateBranchBody;
   try {
     body = (await request.json()) as UpdateBranchBody;
@@ -130,6 +141,19 @@ export async function DELETE(
     const auth = await requireAdminAuth();
     if ("response" in auth) return auth.response;
     const supabase = auth.serviceSupabase ?? auth.supabase;
+
+    const { data: branchOwner, error: ownerError } = await supabase
+      .from("new_branches")
+      .select("id, created_by")
+      .eq("id", branchId)
+      .maybeSingle();
+
+    if (ownerError || !branchOwner || branchOwner.created_by !== auth.user.id) {
+      return NextResponse.json(
+        { error: "존재하지 않거나 권한이 없습니다." },
+        { status: 404 }
+      );
+    }
 
     const { error: deleteError } = await supabase
       .from("new_branches")
