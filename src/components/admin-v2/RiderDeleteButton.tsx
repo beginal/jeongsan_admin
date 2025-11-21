@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 
 interface RiderDeleteButtonProps {
   riderId: string;
@@ -24,7 +25,7 @@ export function RiderDeleteButton({ riderId }: RiderDeleteButtonProps) {
       if (!res.ok) {
         throw new Error(
           (data && (data.error as string)) ||
-            "라이더를 삭제하지 못했습니다."
+          "라이더를 삭제하지 못했습니다."
         );
       }
       router.push("/riders");
@@ -38,14 +39,16 @@ export function RiderDeleteButton({ riderId }: RiderDeleteButtonProps) {
 
   return (
     <>
-      <button
+      <Button
         type="button"
+        variant="danger"
+        size="sm"
         onClick={() => setShowModal(true)}
-        className="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
         disabled={deleting}
+        isLoading={deleting}
       >
         라이더 삭제
-      </button>
+      </Button>
 
       {showModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
@@ -68,32 +71,35 @@ export function RiderDeleteButton({ riderId }: RiderDeleteButtonProps) {
               </div>
             </div>
             <div className="flex justify-end gap-2 pt-2 text-xs">
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   if (!deleting) {
                     setShowModal(false);
                     setError(null);
                   }
                 }}
-                className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
                 disabled={deleting}
               >
                 취소
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="danger"
+                size="sm"
                 onClick={async () => {
                   await handleDelete();
                   if (!error) {
                     setShowModal(false);
                   }
                 }}
-                className="inline-flex h-8 items-center rounded-md bg-red-600 px-4 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60"
                 disabled={deleting}
+                isLoading={deleting}
               >
-                {deleting ? "삭제 중..." : "삭제"}
-              </button>
+                삭제
+              </Button>
             </div>
           </div>
         </div>
