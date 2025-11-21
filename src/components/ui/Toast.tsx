@@ -42,19 +42,19 @@ export function ToastHost() {
   if (!mounted || typeof document === "undefined") return null;
 
   return createPortal(
-    <div className="fixed right-4 top-4 z-50 flex flex-col gap-2">
+    <div className="fixed left-1/2 top-4 z-50 flex -translate-x-1/2 flex-col gap-2">
       {toasts.map((toast) => (
         <div
           key={toast.id}
           className={cn(
-            "min-w-[240px] rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur transition",
-            "bg-white/90 text-slate-900 border-slate-200 dark:bg-slate-900/80 dark:text-slate-100 dark:border-slate-700",
+            "min-w-[260px] max-w-[90vw] rounded-lg px-4 py-3 text-sm shadow-lg backdrop-blur transition border",
+            "bg-white text-slate-900 border-slate-200 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700",
             toast.tone === "success" &&
-              "border-emerald-200 text-emerald-900 bg-emerald-50/95 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100",
+              "border-success-200 text-success-900 bg-success-50 dark:border-success-500/50 dark:bg-success-500/15 dark:text-success-100",
             toast.tone === "error" &&
-              "border-red-200 text-red-900 bg-red-50/95 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100",
+              "border-danger-200 text-danger-900 bg-danger-50 dark:border-danger-500/50 dark:bg-danger-500/15 dark:text-danger-100",
             toast.tone === "info" &&
-              "border-slate-200 text-slate-900 bg-slate-50/95 dark:border-slate-500/40 dark:bg-slate-500/10 dark:text-slate-100"
+              "border-info-200 text-info-900 bg-info-50 dark:border-info-500/40 dark:bg-info-500/15 dark:text-info-100"
           )}
         >
           {toast.message}
