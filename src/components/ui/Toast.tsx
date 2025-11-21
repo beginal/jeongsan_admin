@@ -47,12 +47,14 @@ export function ToastHost() {
         <div
           key={toast.id}
           className={cn(
-            "min-w-[240px] rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur",
-            toast.tone === "success"
-              ? "border-emerald-300/50 bg-emerald-500/10 text-emerald-100"
-              : toast.tone === "error"
-                ? "border-red-300/50 bg-red-500/10 text-red-100"
-                : "border-slate-300/50 bg-slate-500/10 text-slate-100"
+            "min-w-[240px] rounded-lg border px-4 py-3 text-sm shadow-lg backdrop-blur transition",
+            "bg-white/90 text-slate-900 border-slate-200 dark:bg-slate-900/80 dark:text-slate-100 dark:border-slate-700",
+            toast.tone === "success" &&
+              "border-emerald-200 text-emerald-900 bg-emerald-50/95 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-100",
+            toast.tone === "error" &&
+              "border-red-200 text-red-900 bg-red-50/95 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-100",
+            toast.tone === "info" &&
+              "border-slate-200 text-slate-900 bg-slate-50/95 dark:border-slate-500/40 dark:bg-slate-500/10 dark:text-slate-100"
           )}
         >
           {toast.message}
