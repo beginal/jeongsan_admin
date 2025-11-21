@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { cn } from "@/lib/utils";
 
 type RentalStatus = "active" | "inactive";
 
@@ -172,7 +171,7 @@ export default function LeaseRentalEditPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          <SectionCard title="차량 정보" stacked isFirst>
+          <SectionCard title="차량 정보">
             <div className="grid gap-3 md:grid-cols-2">
               <Field
                 label="차량번호"
@@ -193,7 +192,7 @@ export default function LeaseRentalEditPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="계약 정보" stacked>
+          <SectionCard title="계약 정보">
             <div className="grid gap-3 md:grid-cols-2">
               <SelectField
                 label="라이더"
@@ -240,7 +239,7 @@ export default function LeaseRentalEditPage() {
             </div>
           </SectionCard>
 
-          <SectionCard title="보험 정보" stacked>
+          <SectionCard title="보험 정보">
             <div className="grid gap-3 md:grid-cols-2">
               <SelectField
                 label="보험사"
@@ -330,25 +329,9 @@ function SelectField({
   );
 }
 
-function SectionCard({
-  title,
-  children,
-  stacked = false,
-  isFirst = false,
-}: {
-  title: string;
-  children: React.ReactNode;
-  stacked?: boolean;
-  isFirst?: boolean;
-}) {
+function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border border-border bg-card px-4 py-3 shadow-sm",
-        stacked && "stacked-card",
-        stacked && isFirst && "stacked-card-first"
-      )}
-    >
+    <div className="rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       </div>
