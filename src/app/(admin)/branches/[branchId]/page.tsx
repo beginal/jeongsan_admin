@@ -586,10 +586,18 @@ export default async function BranchDetailPage({
                 {branchRiders.map((r) => (
                   <tr
                     key={r.id}
-                    className="relative cursor-pointer hover:bg-muted/70"
+                    className="hover:bg-muted/70"
                   >
                     <td className="px-3 py-2 align-middle text-xs font-semibold text-primary">
-                      {r.name || "-"}
+                      <Link
+                        href={`/riders/${encodeURIComponent(r.id)}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center underline-offset-2 hover:underline"
+                        aria-label={`${r.name} 상세 보기`}
+                      >
+                        {r.name || "-"}
+                      </Link>
                     </td>
                     <td className="px-3 py-2 align-middle text-xs text-muted-foreground">
                       {r.phone || "-"}
@@ -603,13 +611,6 @@ export default async function BranchDetailPage({
                         {riderStatusLabel(r.verificationStatus)}
                       </span>
                     </td>
-                    <a
-                      href={`/riders/${encodeURIComponent(r.id)}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="absolute inset-0"
-                      aria-label={`${r.name} 상세 보기`}
-                    />
                   </tr>
                 ))}
               </tbody>
