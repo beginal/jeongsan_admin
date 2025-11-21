@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { showToast } from "@/components/ui/Toast";
 
 interface RiderDeleteButtonProps {
   riderId: string;
@@ -28,10 +29,12 @@ export function RiderDeleteButton({ riderId }: RiderDeleteButtonProps) {
           "라이더를 삭제하지 못했습니다."
         );
       }
+      showToast("라이더를 삭제했습니다.", "success");
       router.push("/riders");
       router.refresh();
     } catch (err: any) {
       setError(err.message || "라이더를 삭제하지 못했습니다.");
+      showToast(err.message || "라이더를 삭제하지 못했습니다.", "error");
     } finally {
       setDeleting(false);
     }

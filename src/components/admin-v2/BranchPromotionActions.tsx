@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { showToast } from "@/components/ui/Toast";
 
 interface BranchPromotionActionsProps {
   promotionId: string;
@@ -39,6 +40,7 @@ export function BranchPromotionActions({
           "프로모션 지사 배정을 삭제하지 못했습니다."
         );
       }
+      showToast("프로모션 배정을 해제했습니다.", "success");
       router.refresh();
       return true;
     } catch (err: any) {
@@ -46,6 +48,7 @@ export function BranchPromotionActions({
         err.message ||
         "프로모션 지사 배정을 삭제하지 못했습니다."
       );
+      showToast(err.message || "프로모션 지사 배정을 삭제하지 못했습니다.", "error");
     } finally {
       setDeleting(false);
     }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { showToast } from "@/components/ui/Toast";
 
 interface BranchDeleteButtonProps {
   branchId: string;
@@ -28,10 +29,12 @@ export function BranchDeleteButton({ branchId }: BranchDeleteButtonProps) {
           "지사를 삭제하지 못했습니다."
         );
       }
+      showToast("지사를 삭제했습니다.", "success");
       router.push("/branches");
       router.refresh();
     } catch (err: any) {
       setError(err.message || "지사를 삭제하지 못했습니다.");
+      showToast(err.message || "지사를 삭제하지 못했습니다.", "error");
     } finally {
       setDeleting(false);
     }
