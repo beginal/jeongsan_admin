@@ -23,17 +23,17 @@ export function LoginPageClient() {
     setLoading(true);
 
     try {
-      // 라이더 로그인은 아직 백엔드 연동 전이므로 일단 패스
-      if (mode === "rider") {
-        setError("라이더 로그인은 추후 오픈될 예정입니다.");
-        setLoading(false);
-        return;
-      }
+      const endpoint =
+        mode === "admin" ? "/api/auth/login" : "/api/auth/login-rider";
+      const payload =
+        mode === "admin"
+          ? { email, password }
+          : { phone: email, password };
 
-      const res = await fetch("/api/auth/login", {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
@@ -41,7 +41,11 @@ export function LoginPageClient() {
         throw new Error(data?.error || "로그인에 실패했습니다.");
       }
 
-      router.push(redirectTo);
+      if (mode === "rider") {
+        router.push("/rider");
+      } else {
+        router.push(redirectTo);
+      }
     } catch (err: any) {
       setError(err.message || "로그인 중 오류가 발생했습니다.");
     } finally {
@@ -113,13 +117,13 @@ export function LoginPageClient() {
                     id="email"
                     type="email"
                     autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                    placeholder="admin@example.com"
-                  />
-                </div>
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                placeholder="admin@example.com"
+              />
+            </div>
 
                 <div className="space-y-1">
                   <label
@@ -170,19 +174,28 @@ export function LoginPageClient() {
                     htmlFor="email"
                     className="block text-xs font-medium text-muted-foreground"
                   >
-                    이메일
-                  </label>
-                  <input
-                    id="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                    placeholder="rider@example.com"
-                  />
-                </div>
+                  휴대폰 번호
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  autoComplete="tel"
+                  required
+                  value={email}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+                    if (digits.length <= 3) {
+                      setEmail(digits);
+                    } else if (digits.length <= 7) {
+                      setEmail(`${digits.slice(0, 3)}-${digits.slice(3)}`);
+                    } else {
+                      setEmail(`${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`);
+                    }
+                  }}
+                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                  placeholder="010-0000-0000"
+                />
+              </div>
 
                 <div className="space-y-1">
                   <label
@@ -243,4 +256,3 @@ export function LoginPageClient() {
     </div>
   );
 }
-

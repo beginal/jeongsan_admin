@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { BusinessEntityCreateForm } from "@/components/admin-v2/BusinessEntityCreateForm";
 
 function formatBusinessRegNo(raw?: string | null) {
@@ -55,13 +56,13 @@ export default async function BusinessEntityNewPage() {
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs">
-          <a
+          <Link
             href="/business-entities"
             className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <span className="mr-1 text-[11px]">←</span>
             사업자 목록
-          </a>
+          </Link>
         </div>
       </div>
 

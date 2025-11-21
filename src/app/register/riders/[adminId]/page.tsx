@@ -67,6 +67,8 @@ export default function RiderPublicRegisterPage() {
   const [branchId, setBranchId] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
   const [residentNumber, setResidentNumber] = useState("");
   const [baeminId, setBaeminId] = useState("");
   const [bankName, setBankName] = useState("");
@@ -175,6 +177,8 @@ export default function RiderPublicRegisterPage() {
       !branchId ||
       !name.trim() ||
       !phone.trim() ||
+      !password.trim() ||
+      !passwordConfirm.trim() ||
       !residentNumber.trim() ||
       !bankName.trim() ||
       !accountHolder.trim() ||
@@ -183,6 +187,14 @@ export default function RiderPublicRegisterPage() {
       (!taxSameAsBasic && !taxResidentNumber.trim())
     ) {
       setSubmitError("필수 항목을 모두 입력해 주세요.");
+      return false;
+    }
+    if (password !== passwordConfirm) {
+      setSubmitError("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+      return false;
+    }
+    if (password.trim().length < 8) {
+      setSubmitError("비밀번호는 8자 이상 입력해 주세요.");
       return false;
     }
     setSubmitError(null);
@@ -213,6 +225,7 @@ export default function RiderPublicRegisterPage() {
           name: name.trim(),
           phone: normalizedPhone,
           baeminId: baeminId.trim() || null,
+          password: password.trim(),
           residentNumber: normalizedResident,
           bankName: bankName.trim(),
           accountHolder: accountHolder.trim(),
@@ -265,6 +278,8 @@ export default function RiderPublicRegisterPage() {
       </div>
     );
   }
+
+  const passwordHint = "정산 정보 조회·수정을 위한 비밀번호입니다. 꼭 기억해 주세요.";
 
   return (
     <>
@@ -323,6 +338,33 @@ export default function RiderPublicRegisterPage() {
                     value={residentNumber}
                     onChange={(e) => setResidentNumber(formatSsn(e.target.value))}
                     placeholder="000000-0000000"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    비밀번호<span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="정산 정보 확인용 비밀번호 (8자 이상)"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    정산 정보 확인·수정 시 사용할 비밀번호입니다. 꼭 기억해 주세요.
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    비밀번호 확인<span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                    value={passwordConfirm}
+                    onChange={(e) => setPasswordConfirm(e.target.value)}
+                    placeholder="비밀번호를 다시 입력"
                   />
                 </div>
                 <div className="space-y-1.5">

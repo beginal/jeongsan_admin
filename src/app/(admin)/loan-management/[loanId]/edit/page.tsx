@@ -68,10 +68,13 @@ export default async function LoanEditPage({ params }: LoanEditPageProps) {
   const principalAmount = Number(loan.principal_amount || 0);
   const remainingAmount = Math.max(principalAmount - paidAmount, 0);
 
-  const riderName = loan.rider?.name || "";
+  const riderInfo = Array.isArray((loan as any).rider)
+    ? (loan as any).rider[0]
+    : (loan as any).rider;
+  const riderName = riderInfo?.name || "";
   const riderPhoneSuffix =
-    loan.rider?.phone && loan.rider.phone.length >= 4
-      ? loan.rider.phone.slice(-4)
+    riderInfo?.phone && riderInfo.phone.length >= 4
+      ? riderInfo.phone.slice(-4)
       : "";
 
   return (

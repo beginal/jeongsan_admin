@@ -31,6 +31,7 @@ type NavItem = {
   label: string;
   href: string;
   icon?: IconComponent;
+  matchExact?: boolean;
 };
 
 type NavSection = {
@@ -77,9 +78,12 @@ const NAV_SECTIONS: NavSection[] = [
   },
   {
     key: "rider",
-    label: "라이더 목록",
-    href: "/riders",
+    label: "라이더 관리",
     icon: Bike,
+    items: [
+      { label: "라이더 목록", href: "/riders" },
+      { label: "익일정산 목록", href: "/settlement-requests", icon: Bike, matchExact: true },
+    ],
   },
   {
     key: "lease",
@@ -218,9 +222,14 @@ function SidebarSection({
   onToggle,
 }: SidebarSectionProps) {
   const items = section.items ?? [];
-  const isAnyChildActive = items.some((item) =>
-    currentPath.startsWith(item.href)
-  );
+  const isItemActive = (item: NavItem) =>
+    item.matchExact ? currentPath === item.href : currentPath.startsWith(item.href);
+
+  const matchingItems = items
+    .filter(isItemActive)
+    .sort((a, b) => b.href.length - a.href.length);
+  const activeHref = matchingItems[0]?.href ?? null;
+  const isAnyChildActive = Boolean(activeHref);
 
   const SectionIcon = section.icon;
 
@@ -255,9 +264,12 @@ function SidebarSection({
       <div className={cn("space-y-1 pl-3", !isOpen && "hidden")}>
         {items.map((item) => {
           const isActive =
-            item.href === "/"
-              ? currentPath === "/"
-              : currentPath.startsWith(item.href);
+            activeHref === item.href ||
+            (item.matchExact
+              ? currentPath === item.href
+              : item.href === "/"
+                ? currentPath === "/"
+                : currentPath.startsWith(item.href));
 
           return (
             <Link

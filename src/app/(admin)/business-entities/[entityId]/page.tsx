@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { BusinessEntityBranchesTable, BusinessEntityBranchRow } from "@/components/admin-v2/BusinessEntityBranchesTable";
 import { BusinessEntityBranchAssignButton } from "@/components/admin-v2/BusinessEntityBranchAssignButton";
@@ -123,24 +124,24 @@ export default async function BusinessEntityDetailPage({
           </div>
         </div>
         <div className="ml-auto flex flex-wrap items-center gap-2 text-xs">
-          <a
+          <Link
             href="/business-entities"
             className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <span className="mr-1 text-[11px]">←</span>
             사업자 목록
-          </a>
+          </Link>
           <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
             {typeLabel}
           </span>
-          <a
+          <Link
             href={`/business-entities/${encodeURIComponent(
               String(entity.id)
             )}/edit`}
             className="inline-flex h-8 items-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
           >
             사업자 수정
-          </a>
+          </Link>
         </div>
       </div>
 

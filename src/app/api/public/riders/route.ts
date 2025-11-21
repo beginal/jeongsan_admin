@@ -7,6 +7,7 @@ type RiderRegisterBody = {
   name?: string;
   phone?: string;
   baeminId?: string;
+  password?: string;
   residentNumber?: string;
   bankName?: string;
   accountHolder?: string;
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
   const name = (body.name || "").trim();
   const phone = (body.phone || "").trim();
   const baeminId = (body.baeminId || "").trim();
+  const password = (body.password || "").trim();
   const residentNumber = (body.residentNumber || "").trim();
   const bankName = (body.bankName || "").trim();
   const accountHolder = (body.accountHolder || "").trim();
@@ -54,6 +56,7 @@ export async function POST(request: Request) {
     !phone ||
     !branchId ||
     !residentNumber ||
+    !password ||
     !bankName ||
     !accountHolder ||
     !accountNumber ||
@@ -62,6 +65,13 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { error: "필수 정보를 모두 입력해 주세요." },
+      { status: 400 }
+    );
+  }
+
+  if (password.length < 8) {
+    return NextResponse.json(
+      { error: "비밀번호는 8자 이상 입력해 주세요." },
       { status: 400 }
     );
   }
@@ -137,6 +147,7 @@ export async function POST(request: Request) {
           email: null,
           ssn: normalizedResident,
           baeminId: baeminId || null,
+          password,
           bankName,
           accountNumber: accountDigits,
           accountHolder,
@@ -158,6 +169,46 @@ export async function POST(request: Request) {
         { error: regRow?.message || "라이더 신청을 저장하지 못했습니다." },
         { status: 400 }
       );
+    }
+
+    // Supabase Auth 계정 생성 (이미 존재하면 비밀번호 갱신)
+    try {
+      const riderEmail = `rider-${phoneDigits}@riders.local`;
+      const { error: createError } = await supabase.auth.admin.createUser({
+        email: riderEmail,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          role: "rider",
+          rider_id: regRow.rider_id,
+          phone: phoneDigits,
+        },
+      });
+      if (createError) {
+        const msg = String(createError.message || "").toLowerCase();
+        if (msg.includes("already registered")) {
+          const { data: usersPage } = await supabase.auth.admin.listUsers({
+            page: 1,
+            perPage: 1000,
+          });
+          const existing = usersPage?.users?.find((u: any) => u.email === riderEmail);
+          if (existing?.id) {
+            await supabase.auth.admin.updateUserById(existing.id, {
+              password,
+              email_confirm: true,
+              user_metadata: {
+                role: "rider",
+                rider_id: regRow.rider_id,
+                phone: phoneDigits,
+              },
+            });
+          }
+        } else {
+          console.error("[public/riders POST] rider auth create error:", createError);
+        }
+      }
+    } catch (authErr) {
+      console.error("[public/riders POST] rider auth create exception:", authErr);
     }
 
     return NextResponse.json({

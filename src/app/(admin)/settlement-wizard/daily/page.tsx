@@ -218,7 +218,7 @@ export default function WeeklySettlementWizardPage() {
 
         const [branchData, ridersData] = await Promise.all([
           branchRes.json().catch(() => ({})),
-          ridersRes ? ridersRes.json().catch(() => ({})) : {},
+          ridersRes ? ridersRes.json().catch(() => ({} as any)) : {},
         ]);
 
         if (!branchRes.ok || branchData?.error) {
@@ -245,11 +245,11 @@ export default function WeeklySettlementWizardPage() {
         }
         setBranches(branchList);
 
-        if (ridersRes && ridersRes.ok && ridersData?.ridersByBranch) {
+        if (ridersRes && ridersRes.ok && (ridersData as any)?.ridersByBranch) {
           const riderMap: Record<string, BranchRider[]> = {};
           const rentalMap: RentalFeeMap = {};
           const loanMap: Record<string, { weekday: number | null; amount: number | null }> = {};
-          Object.entries(ridersData.ridersByBranch as Record<string, any[]>).forEach(
+          Object.entries((ridersData as any).ridersByBranch as Record<string, any[]>).forEach(
             ([bid, rows]) => {
               riderMap[bid] = rows.map((r: any) => {
                 const rid = String(r.id);

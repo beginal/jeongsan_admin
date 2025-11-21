@@ -18,7 +18,7 @@ async function getAdminId(supabaseUrl: string, serviceRoleKey: string) {
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { rentalId: string } }
+  { params }: { params: Promise<{ rentalId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -40,12 +40,14 @@ export async function GET(
       );
     }
 
+    const { rentalId } = await params;
+
     const { data, error } = await supabase
       .from("vehicles")
       .select(
         "id, plate_number, model, color, contract_type, daily_fee, insurance_company, insurance_age, company_contract_start, company_contract_end, vehicle_assignments(id, rider_id, start_date, end_date, is_active, riders(name, phone))"
       )
-      .eq("id", params.rentalId)
+      .eq("id", rentalId)
       .eq("created_by", adminId)
       .maybeSingle();
 
@@ -97,7 +99,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { rentalId: string } }
+  { params }: { params: Promise<{ rentalId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -135,12 +137,14 @@ export async function PATCH(
       endDate,
     } = body || {};
 
+    const { rentalId } = await params;
+
     const { data: vehicle, error: vehicleError } = await supabase
       .from("vehicles")
       .select(
         "id, plate_number, model, contract_type, daily_fee, vehicle_assignments(id, rider_id, start_date, end_date, is_active)"
       )
-      .eq("id", params.rentalId)
+      .eq("id", rentalId)
       .eq("created_by", adminId)
       .maybeSingle();
 
@@ -163,7 +167,7 @@ export async function PATCH(
         insurance_company: insuranceCompany || null,
         insurance_age: insuranceAge || null,
       })
-      .eq("id", params.rentalId);
+      .eq("id", rentalId);
 
     const assignments: any[] = Array.isArray((vehicle as any).vehicle_assignments)
       ? (vehicle as any).vehicle_assignments
@@ -190,7 +194,7 @@ export async function PATCH(
         .eq("id", active.id);
     } else if (riderId) {
       await supabase.from("vehicle_assignments").insert({
-        vehicle_id: params.rentalId,
+        vehicle_id: rentalId,
         rider_id: riderId,
         start_date: startDate || null,
         end_date: endDate || null,

@@ -4,18 +4,42 @@ import { NextResponse } from "next/server";
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // 로그인/회원가입, API, 정적 리소스는 제외하고
-  // 나머지 모든 경로를 관리자 보호 영역으로 처리
-  const token = request.cookies.get("admin_v2_token")?.value;
+  // 공개 경로: 로그인/회원가입/라이더 등록/정적 파일
+  if (
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/rider") || // 라이더 포털
+    pathname.startsWith("/favicon.ico") ||
+    pathname.startsWith("/_next")
+  ) {
+    return NextResponse.next();
+  }
 
-  if (!token) {
+  const adminToken = request.cookies.get("admin_v2_token")?.value;
+  const riderToken = request.cookies.get("rider_v2_token")?.value;
+
+  // 라이더 전용 경로
+  if (pathname.startsWith("/rider")) {
+    if (riderToken) return NextResponse.next();
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  // 관리자 보호 영역
+  if (!adminToken) {
+    // rider 토큰만 있는 경우 rider 포털로 보냄
+    if (riderToken) {
+      return NextResponse.redirect(new URL("/rider", request.url));
+    }
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
 
   // Supabase access_token 자체가 JWT이므로, 만료 여부만 간단히 확인
-  if (isTokenExpired(token)) {
+  if (isTokenExpired(adminToken)) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     loginUrl.searchParams.set("session", "expired");

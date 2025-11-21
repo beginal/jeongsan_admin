@@ -39,7 +39,7 @@ export async function GET(
       due_date,
         last_payment_date,
         notes,
-        rider:rider_id(name),
+        rider:rider_id(name, phone),
         branch:branch_id(display_name, branch_name, province, district)
       `
       )
@@ -64,15 +64,22 @@ export async function GET(
       0
     );
 
+    const riderInfo = Array.isArray((loan as any).rider)
+      ? (loan as any).rider[0]
+      : (loan as any).rider;
+    const branchInfo = Array.isArray((loan as any).branch)
+      ? (loan as any).branch[0]
+      : (loan as any).branch;
+
     const detail = {
       id: loan.id as string,
       riderId: loan.rider_id as string,
       branchId: loan.branch_id as string | null,
-      riderName: loan.rider?.name || "",
+      riderName: riderInfo?.name || "",
       branchName:
-        loan.branch?.display_name ||
-        loan.branch?.branch_name ||
-        [loan.branch?.province, loan.branch?.district].filter(Boolean).join(" ") ||
+        branchInfo?.display_name ||
+        branchInfo?.branch_name ||
+        [branchInfo?.province, branchInfo?.district].filter(Boolean).join(" ") ||
         "-",
       principalAmount: Number(loan.principal_amount || 0),
       loanDate: (loan.loan_date as string) || "",

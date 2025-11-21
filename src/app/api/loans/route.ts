@@ -22,6 +22,8 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get("q")?.trim().toLowerCase() || "";
+    const riderOnly = searchParams.get("riderOnly") === "true";
+    const riderIdFilter = searchParams.get("riderId")?.trim();
 
     const { data, error: fetchError } = await supabase
       .from("rider_loan_summaries")
@@ -73,34 +75,34 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const loans = (data || [])
-      .map((row: any) => {
-        const riderName = row.rider?.name || "";
-        const branchName =
-          row.branch?.display_name ||
-          row.branch?.branch_name ||
-          [row.branch?.province, row.branch?.district].filter(Boolean).join(" ") ||
-          "-";
+    const loansRaw = (data || []).map((row: any) => {
+      const riderName = row.rider?.name || "";
+      const branchName =
+        row.branch?.display_name ||
+        row.branch?.branch_name ||
+        [row.branch?.province, row.branch?.district].filter(Boolean).join(" ") ||
+        "-";
 
-        return {
-          id: row.id as string,
-          riderId: row.rider_id as string,
-          riderName,
-          branchName,
-          paymentWeekday: scheduleByRider[row.rider_id]?.weekday ?? null,
-          paymentAmount: scheduleByRider[row.rider_id]?.amount ?? null,
-          totalLoan: Number(row.total_loan || 0),
-          paidAmount: Number(row.paid_amount || 0),
-          remainingAmount: Number(row.remaining_amount || 0),
-          loanDate: row.loan_date as string,
-          paymentDate: (row.payment_date as string | null) || null,
-          nextPaymentDate: (row.next_payment_date as string | null) || null,
-          lastPaidAt: (row.last_paid_at as string | null) || null,
-        };
-      })
-      .filter((row) =>
-        q ? row.riderName.toLowerCase().includes(q) : true
-      );
+      return {
+        id: row.id as string,
+        riderId: row.rider_id as string,
+        riderName,
+        branchName,
+        paymentWeekday: scheduleByRider[row.rider_id]?.weekday ?? null,
+        paymentAmount: scheduleByRider[row.rider_id]?.amount ?? null,
+        totalLoan: Number(row.total_loan || 0),
+        paidAmount: Number(row.paid_amount || 0),
+        remainingAmount: Number(row.remaining_amount || 0),
+        loanDate: row.loan_date as string,
+        paymentDate: (row.payment_date as string | null) || null,
+        nextPaymentDate: (row.next_payment_date as string | null) || null,
+        lastPaidAt: (row.last_paid_at as string | null) || null,
+      };
+    });
+
+    const loans = loansRaw
+      .filter((row) => (q ? row.riderName.toLowerCase().includes(q) : true))
+      .filter((row) => (riderOnly && riderIdFilter ? row.riderId === riderIdFilter : true));
 
     return NextResponse.json({ loans });
   } catch (e) {

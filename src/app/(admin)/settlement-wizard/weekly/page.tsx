@@ -324,7 +324,7 @@ export default function WeeklySettlementWizardPage() {
         const [branchData, promoData, ridersData, rentalsData] = await Promise.all([
           branchRes.json().catch(() => ({})),
           promoRes.json().catch(() => ({})),
-          ridersRes ? ridersRes.json().catch(() => ({})) : {},
+          ridersRes ? ridersRes.json().catch(() => ({} as any)) : {},
           rentalsRes ? rentalsRes.json().catch(() => ({})) : {},
         ]);
 
@@ -411,9 +411,9 @@ export default function WeeklySettlementWizardPage() {
 
         setPromotionByBranch(map);
         setPromotionDetail(detailMap);
-        if (ridersRes && ridersRes.ok && ridersData?.ridersByBranch) {
+        if (ridersRes && ridersRes.ok && (ridersData as any)?.ridersByBranch) {
           const riderMap: Record<string, BranchRider[]> = {};
-          Object.entries(ridersData.ridersByBranch as Record<string, any[]>).forEach(
+          Object.entries((ridersData as any).ridersByBranch as Record<string, any[]>).forEach(
             ([bid, rows]) => {
               riderMap[bid] = rows.map((r: any) => ({
                 id: String(r.id),
@@ -425,9 +425,9 @@ export default function WeeklySettlementWizardPage() {
           );
           setBranchRiders(riderMap);
         }
-        if (rentalsRes && rentalsRes.ok && Array.isArray(rentalsData?.rentals)) {
+        if (rentalsRes && rentalsRes.ok && Array.isArray((rentalsData as any)?.rentals)) {
           const feeMap: RentalFeeMap = {};
-          rentalsData.rentals.forEach((r: any) => {
+          (rentalsData as any).rentals.forEach((r: any) => {
             if (r.riderId && r.dailyFee) {
               feeMap[String(r.riderId)] = Number(r.dailyFee) || 0;
             }
@@ -761,10 +761,14 @@ export default function WeeklySettlementWizardPage() {
         cfg.tiers ??
         cfg.levels ??
         [];
-      const arr = Array.isArray(tiers) ? tiers : Array.isArray(tiers?.tiers) ? tiers.tiers : [];
+      const arr = Array.isArray(tiers)
+        ? tiers
+        : tiers && Array.isArray((tiers as any).tiers)
+          ? (tiers as any).tiers
+          : [];
       const achieved = arr.filter((t: any) => orders >= (t.threshold ?? t.targetCount ?? t.target_count ?? 0));
       if (achieved.length > 0) {
-        const best = achieved.reduce((p, c) =>
+        const best = achieved.reduce((p: any, c: any) =>
           (c.threshold ?? c.targetCount ?? c.target_count ?? 0) >
           (p.threshold ?? p.targetCount ?? p.target_count ?? 0)
             ? c
@@ -775,7 +779,11 @@ export default function WeeklySettlementWizardPage() {
     } else if (type === "milestone_per_unit") {
       const tiers: any[] =
         cfg.milestonePerUnit ?? cfg.milestone_per_unit ?? cfg.tiers ?? cfg.levels ?? [];
-      const arr = Array.isArray(tiers) ? tiers : Array.isArray(tiers?.tiers) ? tiers.tiers : [];
+      const arr = Array.isArray(tiers)
+        ? tiers
+        : tiers && Array.isArray((tiers as any).tiers)
+          ? (tiers as any).tiers
+          : [];
       arr.forEach((t: any) => {
         const threshold = t.threshold ?? t.start ?? t.base_count ?? 0;
         const unitSize = t.unitSize ?? t.size ?? t.per ?? 1;

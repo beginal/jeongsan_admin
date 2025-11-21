@@ -244,7 +244,7 @@ export default function RidersPage() {
                 {registerLink}
               </div>
               <div className="text-[11px] text-muted-foreground">
-                라이더에게 공유하면 이 링크로 직접 신청하며 상태는 "대기"로 표시됩니다.
+                라이더에게 공유하면 이 링크로 직접 신청하며 상태는 &quot;대기&quot;로 표시됩니다.
               </div>
             </div>
             <button
