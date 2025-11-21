@@ -8,15 +8,31 @@ import { AdminSidebar, AdminSidebarMobile } from "@/components/admin-v2/AdminSid
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { ToastHost } from "@/components/ui/Toast";
 
-type ThemeMode = "light" | "dark";
+export type ThemeMode = "light" | "dark";
 
 interface AdminLayoutClientProps {
   children: ReactNode;
+  initialTheme?: ThemeMode;
 }
 
-export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
+function getPreferredTheme(fallback: ThemeMode): ThemeMode {
+  if (typeof window === "undefined" || typeof document === "undefined") return fallback;
+
+  const stored = window.localStorage.getItem("admin-v2-theme");
+  if (stored === "dark" || stored === "light") return stored;
+
+  const cookieMatch = document.cookie.match(/(?:^|; )admin-v2-theme=([^;]+)/);
+  const cookieTheme = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
+  if (cookieTheme === "dark" || cookieTheme === "light") return cookieTheme;
+
+  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+  return prefersDark ? "dark" : "light";
+}
+
+export function AdminLayoutClient({ children, initialTheme = "light" }: AdminLayoutClientProps) {
   const router = useRouter();
-  const [theme, setTheme] = useState<ThemeMode>("light");
+  const [theme, setTheme] = useState<ThemeMode>(initialTheme);
+  const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
@@ -27,20 +43,24 @@ export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    const saved = window.localStorage.getItem("admin-v2-theme");
-    if (saved === "dark" || saved === "light") {
-      setTheme(saved);
-    }
-  }, []);
+    const resolvedTheme = getPreferredTheme(initialTheme);
+    setTheme(resolvedTheme);
+    setMounted(true);
+  }, [initialTheme]);
 
   useEffect(() => {
-    if (typeof document === "undefined") return;
-    document.documentElement.classList.toggle("dark", theme === "dark");
+    if (!mounted || typeof document === "undefined") return;
+    const root = document.documentElement;
+    const isDark = theme === "dark";
+    root.classList.toggle("dark", isDark);
+    root.style.colorScheme = theme;
+
     if (typeof window !== "undefined") {
       window.localStorage.setItem("admin-v2-theme", theme);
     }
-  }, [theme]);
+
+    document.cookie = `admin-v2-theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
+  }, [mounted, theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -53,8 +73,14 @@ export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
         }
         if (!res.ok) throw new Error("세션을 확인하지 못했습니다.");
         const data = await res.json().catch(() => ({}));
-        if (!cancelled && typeof data.expiresAt === "number") {
-          setExpiresAt(data.expiresAt);
+        if (!cancelled) {
+          const exp =
+            typeof data.expiresAt === "number"
+              ? data.expiresAt
+              : data.expiresAt != null && !Number.isNaN(Number(data.expiresAt))
+                ? Number(data.expiresAt)
+                : null;
+          if (exp) setExpiresAt(exp);
         }
       } catch (e: any) {
         if (!cancelled) setSessionError(e.message || "세션 확인 실패");
@@ -114,9 +140,17 @@ export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
         throw Object.assign(new Error(data?.error || message), { status: res.status });
       }
       const data = await res.json().catch(() => ({}));
-      if (typeof data.expiresAt === "number") {
-        setExpiresAt(data.expiresAt);
+      const exp =
+        typeof data.expiresAt === "number"
+          ? data.expiresAt
+          : data.expiresAt != null && !Number.isNaN(Number(data.expiresAt))
+            ? Number(data.expiresAt)
+            : null;
+      if (exp) {
+        setExpiresAt(exp);
         setLastRefreshedAt(Date.now());
+      } else {
+        throw new Error("세션 만료 시간을 확인하지 못했습니다.");
       }
     } catch (e: any) {
       setSessionError(e.message || "세션을 갱신하지 못했습니다.");

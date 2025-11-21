@@ -20,9 +20,6 @@ export async function POST() {
   const nowSec = Math.floor(Date.now() / 1000);
 
   if (!refreshToken) {
-    if (accessExp && accessExp > nowSec + 60) {
-      return NextResponse.json({ expiresAt: accessExp });
-    }
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -34,9 +31,17 @@ export async function POST() {
     });
 
     if (error || !data.session?.access_token) {
-      if (accessExp && accessExp > nowSec + 60) {
-        return NextResponse.json({ expiresAt: accessExp });
-      }
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const refreshedAccess = data.session.access_token;
+    const refreshedRefresh = data.session.refresh_token;
+    const refreshedExp =
+      typeof data.session.expires_at === "number"
+        ? data.session.expires_at
+        : decodeExp(refreshedAccess);
+
+    if (!refreshedExp) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -45,10 +50,10 @@ export async function POST() {
         id: data.session.user.id,
         email: data.session.user.email,
       },
-      expiresAt: data.session.expires_at,
+      expiresAt: refreshedExp,
     });
 
-    response.cookies.set("admin_v2_token", data.session.access_token, {
+    response.cookies.set("admin_v2_token", refreshedAccess, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -56,8 +61,8 @@ export async function POST() {
       maxAge: 60 * 60,
     });
 
-    if (data.session.refresh_token) {
-      response.cookies.set("admin_v2_refresh", data.session.refresh_token, {
+    if (refreshedRefresh) {
+      response.cookies.set("admin_v2_refresh", refreshedRefresh, {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",

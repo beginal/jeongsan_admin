@@ -5,6 +5,7 @@ import { RiderStatusActions } from "@/components/admin-v2/RiderStatusActions";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { formatAccountForDisplay, getAccountMaxDigits } from "@/lib/accountFormat";
+import { GlassButton } from "../ui/glass/GlassButton";
 
 interface RiderEditFormProps {
   riderId: string;
@@ -569,20 +570,6 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => router.push(`/riders/${encodeURIComponent(riderId)}`)}
-          disabled={saving}
-        >
-          취소
-        </Button>
-        <Button type="submit" variant="primary" size="sm" disabled={saving}>
-          {saving ? "저장 중..." : "저장"}
-        </Button>
-      </div>
     </form>
   );
 }

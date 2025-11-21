@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Upload, FileSpreadsheet, ShieldCheck, Trash2 } from "lucide-react";
 import { showToast } from "@/components/ui/Toast";
+import SettlementRowDrawer from "@/components/admin-v2/SettlementRowDrawer";
+import { utils, writeFile } from "xlsx";
 
 type BranchOption = {
   id: string;
@@ -303,6 +305,8 @@ export default function WeeklySettlementWizardPage() {
     >;
   } | null>(null);
   const [selectedRider, setSelectedRider] = useState<string | null>(null);
+  const [detailRow, setDetailRow] = useState<Step3Row | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const licenseColWidth = 140;
   const riderColWidth = 100;
 
@@ -928,6 +932,81 @@ export default function WeeklySettlementWizardPage() {
       });
   }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider]);
 
+  const openDetail = (row: Step3Row) => {
+    setDetailRow(row);
+    requestAnimationFrame(() => setDetailOpen(true));
+  };
+
+  const closeDetail = () => setDetailOpen(false);
+
+  const handleExportXlsx = () => {
+    if (!parsed || step3Rows.length === 0) {
+      showToast("내보낼 데이터가 없습니다.", "info");
+      return;
+    }
+
+    const missionHeaders = missionDates.map((d) => formatMissionLabel(d));
+    const headers = [
+      "라이더명",
+      "라이선스 ID",
+      "오더수",
+      "렌트비용",
+      "실제 입금액",
+      "수수료",
+      "지사",
+      "피크 점수",
+      "프모 기준",
+      "프로모션",
+      ...missionHeaders,
+      "정산금액",
+      "총 지원금",
+      "차감내역",
+      "총 정산금액",
+      "전체 총 금액",
+      "고용보험",
+      "산재보험",
+      "시간제보험",
+      "보험료 소급",
+      "원천세",
+    ];
+
+    const data = step3Rows.map((row) => {
+      const missionCols = missionDates.map((d) => {
+        const amt = missionTotals[d]?.[row.licenseId] || 0;
+        return amt ? `${formatCurrency(amt)}원` : "-";
+      });
+      return [
+        row.riderName,
+        row.licenseId,
+        row.orderCount,
+        row.rentCost,
+        row.payout,
+        row.fee ? `${formatCurrency(row.fee)}원` : "-",
+        row.branchName || "-",
+        row.peakScore || "-",
+        row.promoBasis || "-",
+        row.promoAmount ? `${formatCurrency(row.promoAmount)}원` : "-",
+        ...missionCols,
+        row.settlementAmount ? `${formatCurrency(row.settlementAmount)}원` : "-",
+        row.supportTotal ? `${formatCurrency(row.supportTotal)}원` : "-",
+        row.deduction ? `${formatCurrency(row.deduction)}원` : "-",
+        row.totalSettlement ? `${formatCurrency(row.totalSettlement)}원` : "-",
+        row.overallTotal ? `${formatCurrency(row.overallTotal)}원` : "-",
+        row.employment ? `${formatCurrency(row.employment)}원` : "-",
+        row.accident ? `${formatCurrency(row.accident)}원` : "-",
+        row.timeInsurance ? `${formatCurrency(row.timeInsurance)}원` : "-",
+        row.retro ? `${formatCurrency(row.retro)}원` : "-",
+        row.withholding ? `${formatCurrency(row.withholding)}원` : "-",
+      ];
+    });
+
+    const wb = utils.book_new();
+    const ws = utils.aoa_to_sheet([headers, ...data]);
+    utils.book_append_sheet(wb, ws, "Step3");
+    writeFile(wb, "settlement-step3-weekly.xlsx");
+    showToast("Step3 테이블을 XLSX로 저장했습니다.", "success");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 border-b border-border pb-4">
@@ -1396,7 +1475,17 @@ export default function WeeklySettlementWizardPage() {
               라이선스/라이더별 정산 결과를 확인하고 프로모션·공제 내역을 검토합니다.
             </p>
           </div>
-          <div className="ml-auto text-[11px] text-muted-foreground">20행 가량 표시 후 스크롤</div>
+          <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="hidden sm:inline">20행 가량 표시 후 스크롤</span>
+            <button
+              type="button"
+              className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+              onClick={handleExportXlsx}
+              disabled={!parsed || step3Rows.length === 0}
+            >
+              XLSX 내보내기
+            </button>
+          </div>
         </div>
 
         {!parsed && (
@@ -1555,6 +1644,7 @@ export default function WeeklySettlementWizardPage() {
                         <button
                           type="button"
                           className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                          onClick={() => openDetail(row)}
                         >
                           보기
                         </button>
@@ -1568,28 +1658,15 @@ export default function WeeklySettlementWizardPage() {
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-2 text-xs">
-        <div className="flex-1 text-muted-foreground">
-          Step 1 완료 후 다음 단계에서 정산 설정을 이어갈 수 있습니다.
-        </div>
-        <button
-          type="button"
-          className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          onClick={() => router.push("/")}
-        >
-          취소
-        </button>
-        <button
-          type="button"
-        className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
-        disabled={!isStepComplete}
-        onClick={() =>
-          showToast("Step1 데이터 저장 후 다음 스텝으로 이어집니다. (추후 구현)", "info")
-        }
-      >
-        다음 단계
-      </button>
-      </div>
+      <SettlementRowDrawer
+        open={detailOpen}
+        row={detailRow}
+        variant="weekly"
+        missionDates={missionDates}
+        missionTotals={missionTotals}
+        onClose={closeDetail}
+        onClosed={() => setDetailRow(null)}
+      />
     </div>
   );
 }

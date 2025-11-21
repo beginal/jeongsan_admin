@@ -32,6 +32,8 @@ export default async function AdminV2Layout({ children }: { children: ReactNode 
   const cookieStore = await cookies();
   const adminToken = cookieStore.get("admin_v2_token")?.value;
   const riderToken = cookieStore.get("rider_v2_token")?.value;
+  const themeCookie = cookieStore.get("admin-v2-theme")?.value;
+  const initialTheme = themeCookie === "dark" ? "dark" : "light";
 
   if (!adminToken) {
     if (riderToken) {
@@ -44,5 +46,5 @@ export default async function AdminV2Layout({ children }: { children: ReactNode 
     redirect("/login?session=expired&redirect=/");
   }
 
-  return <AdminLayoutClient>{children}</AdminLayoutClient>;
+  return <AdminLayoutClient initialTheme={initialTheme}>{children}</AdminLayoutClient>;
 }
