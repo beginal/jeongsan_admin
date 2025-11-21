@@ -1,31 +1,15 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireRiderAuth } from "@/lib/auth";
 
 export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const cookieStore = await cookies();
-  const riderToken = cookieStore.get("rider_v2_token")?.value;
-
-  if (!riderToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireRiderAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.supabase;
+  const token = auth.token;
 
   try {
-    const decoded = decodeJwt(riderToken);
-    const { data: userData, error: userErr } = await supabase.auth.getUser(riderToken);
-    const user = userErr ? null : userData.user;
+    const decoded = decodeJwt(token);
+    const user = auth.user;
     const meta = (user?.user_metadata as any) || {};
 
     let riderId = meta?.rider_id || user?.id || decoded?.sub || null;

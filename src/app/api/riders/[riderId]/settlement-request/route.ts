@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 type AdminAction = "approve" | "reject";
 
@@ -66,23 +65,16 @@ export async function GET(
   { params }: { params: Promise<{ riderId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl) {
     return NextResponse.json(
       { error: "Supabase 환경 변수가 설정되지 않았습니다." },
       { status: 500 }
     );
   }
 
-  const cookieStore = await cookies();
-  const adminToken = cookieStore.get("admin_v2_token")?.value;
-
-  if (!adminToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
   const { riderId } = await params;
 
   try {
@@ -102,24 +94,17 @@ export async function PATCH(
   { params }: { params: Promise<{ riderId: string }> }
 ) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl) {
     return NextResponse.json(
       { error: "Supabase 환경 변수가 설정되지 않았습니다." },
       { status: 500 }
     );
   }
 
-  const cookieStore = await cookies();
-  const adminToken = cookieStore.get("admin_v2_token")?.value;
-
-  if (!adminToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const adminUserId = await getAdminUserId(supabase, adminToken);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const adminUserId = auth.user.id;
 
   const { riderId } = await params;
   const body = await request.json().catch(() => ({}));

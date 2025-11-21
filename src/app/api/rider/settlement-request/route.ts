@@ -1,6 +1,5 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireRiderAuth } from "@/lib/auth";
 
 type SettlementMode = "daily" | "weekly";
 
@@ -23,11 +22,9 @@ function serializeRequest(row: any) {
 
 async function resolveRiderId(
   supabase: any,
+  user: any,
   token: string
 ) {
-  const { data: userData, error } = await supabase.auth.getUser(token);
-  if (error || !userData?.user) return { riderId: null, phone: null };
-  const user = userData.user;
   const meta = (user?.user_metadata as any) || {};
   let riderId = meta?.rider_id || user?.id || null;
   let phoneDigits: string | null =
@@ -97,25 +94,10 @@ async function getSettlementStatus(
 }
 
 export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const cookieStore = await cookies();
-  const riderToken = cookieStore.get("rider_v2_token")?.value;
-
-  if (!riderToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const { riderId } = await resolveRiderId(supabase, riderToken);
+  const auth = await requireRiderAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.supabase;
+  const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
     return NextResponse.json({ error: "라이더 정보를 찾을 수 없습니다." }, { status: 404 });
@@ -134,22 +116,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const cookieStore = await cookies();
-  const riderToken = cookieStore.get("rider_v2_token")?.value;
-
-  if (!riderToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireRiderAuth();
+  if ("response" in auth) return auth.response;
 
   const body = await request.json().catch(() => ({}));
   const mode = body?.mode;
@@ -161,8 +129,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const { riderId } = await resolveRiderId(supabase, riderToken);
+  const supabase = auth.supabase;
+  const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
     return NextResponse.json({ error: "라이더 정보를 찾을 수 없습니다." }, { status: 404 });
@@ -237,25 +205,10 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const cookieStore = await cookies();
-  const riderToken = cookieStore.get("rider_v2_token")?.value;
-
-  if (!riderToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const { riderId } = await resolveRiderId(supabase, riderToken);
+  const auth = await requireRiderAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.supabase;
+  const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
     return NextResponse.json({ error: "라이더 정보를 찾을 수 없습니다." }, { status: 404 });

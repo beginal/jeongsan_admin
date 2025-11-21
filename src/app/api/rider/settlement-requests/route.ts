@@ -1,27 +1,12 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
-  const cookieStore = await cookies();
-  const adminToken = cookieStore.get("admin_v2_token")?.value;
-
-  if (!adminToken) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
 
   try {
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+    const supabase = auth.serviceSupabase ?? auth.supabase;
     const { data, error } = await supabase
       .from("rider_settlement_requests")
       .select(

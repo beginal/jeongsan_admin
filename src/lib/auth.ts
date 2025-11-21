@@ -13,6 +13,16 @@ type AdminAuthFailure = {
   response: NextResponse;
 };
 
+type RiderAuthSuccess = {
+  supabase: SupabaseClient;
+  user: User;
+  token: string;
+};
+
+type RiderAuthFailure = {
+  response: NextResponse;
+};
+
 function missingEnvResponse() {
   return NextResponse.json(
     { error: "Supabase 환경 변수가 설정되지 않았습니다." },
@@ -55,4 +65,37 @@ export async function requireAdminAuth(): Promise<AdminAuthSuccess | AdminAuthFa
   const serviceSupabase = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
   return { supabase, serviceSupabase, user: data.user, token };
+}
+
+/**
+ * 라이더 세션을 확인하고 Supabase 클라이언트를 제공합니다.
+ * - anon 키 + Authorization 헤더(토큰)로 동작 (RLS 전제)
+ */
+export async function requireRiderAuth(): Promise<RiderAuthSuccess | RiderAuthFailure> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return { response: missingEnvResponse() };
+  }
+
+  const token = (await cookies()).get("rider_v2_token")?.value;
+  if (!token) {
+    return { response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+
+  const { data, error } = await supabase.auth.getUser(token);
+  if (error || !data?.user) {
+    return { response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
+  }
+
+  return { supabase, user: data.user, token };
 }
