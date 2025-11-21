@@ -41,6 +41,9 @@
     --glass-border: rgba(255, 255, 255, 0.5);
     --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
     --surface-100: rgba(255, 255, 255, 0.8);
+
+    /* Connector lines */
+    --connector: rgba(0, 0, 0, 0.08);
   }
 
   .dark {
@@ -77,6 +80,9 @@
     --glass-border: rgba(255, 255, 255, 0.07);
     --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.35);
     --surface-100: rgba(26, 26, 26, 0.8);
+
+    /* Connector lines */
+    --connector: rgba(255, 255, 255, 0.12);
   }
 }
 
@@ -117,11 +123,26 @@
   content: "";
   position: absolute;
   left: 0.9rem;
-  top: 0;
-  bottom: 0;
+  top: -6px;
+  bottom: -6px;
   width: 1px;
-  border-left: 1px solid hsl(220, 10%, 85%);
-  border-radius: 9999px;
+  border-left: 1px solid var(--connector);
+  border-radius: 12px;
+  opacity: 0.6;
+}
+
+/* elbow connector to item */
+.admin-sidebar-subnav::after {
+  content: "";
+  position: absolute;
+  left: 0.9rem;
+  top: 10px;
+  width: 12px;
+  height: 12px;
+  border-left: 1px solid var(--connector);
+  border-top: 1px solid var(--connector);
+  border-radius: 8px 0 0 0;
+  opacity: 0.6;
 }
 
 /* Stacked card connector (left rail + elbow) */
@@ -135,9 +156,8 @@
   left: -16px;
   top: -12px;
   bottom: -12px;
-  border-left: 1px solid hsl(var(--border));
-  border-color: hsl(220, 10%, 60%);
-  opacity: 0.35;
+  border-left: 1px solid var(--connector);
+  opacity: 0.45;
   border-radius: 8px;
 }
 .stacked-card::after {
@@ -146,9 +166,8 @@
   left: -16px;
   top: 18px;
   width: 16px;
-  border-top: 1px solid hsl(var(--border));
-  border-color: hsl(220, 10%, 60%);
-  opacity: 0.35;
+  border-top: 1px solid var(--connector);
+  opacity: 0.45;
   border-radius: 8px 0 0 0;
 }
 .stacked-card-first::before,
