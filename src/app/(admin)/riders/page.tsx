@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatPhone } from "@/lib/phone";
 import { badgeToneClass, getRiderStatusMeta } from "@/lib/status";
+import { Button } from "@/components/ui/Button";
 
 type RiderStatus = "approved" | "pending" | "rejected";
 
@@ -64,18 +65,18 @@ export default function RidersPage() {
         if (cancelled) return;
 
         const list = Array.isArray(data.riders) ? data.riders : [];
-          setRiders(
-            list.map((r: any) => ({
-              id: String(r.id),
-              name: r.name || "-",
-              primaryBranchName:
+        setRiders(
+          list.map((r: any) => ({
+            id: String(r.id),
+            name: r.name || "-",
+            primaryBranchName:
               (Array.isArray(r.branches) &&
                 r.branches.find((b: any) => b.isPrimary)?.branchName) ||
-                (Array.isArray(r.branches) && r.branches[0]?.branchName) ||
-                "-",
-              phone: formatPhone(r.phone),
-              status:
-                r.verificationStatus === "approved" ||
+              (Array.isArray(r.branches) && r.branches[0]?.branchName) ||
+              "-",
+            phone: formatPhone(r.phone),
+            status:
+              r.verificationStatus === "approved" ||
                 r.verificationStatus === "pending" ||
                 r.verificationStatus === "rejected"
                 ? (r.verificationStatus as RiderStatus)
@@ -205,11 +206,11 @@ export default function RidersPage() {
 
       {adminId && registerLink && (
         <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-sm shadow-sm">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                라이더 가입 링크
-              </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  라이더 가입 링크
+                </div>
               <div className="truncate text-sm font-medium text-foreground">
                 {registerLink}
               </div>
@@ -217,9 +218,9 @@ export default function RidersPage() {
                 라이더에게 공유하면 이 링크로 직접 신청하며 상태는 &quot;대기&quot;로 표시됩니다.
               </div>
             </div>
-            <button
-              type="button"
-              className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-[11px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            <Button
+              variant="secondary"
+              size="sm"
               onClick={() => {
                 navigator.clipboard
                   .writeText(registerLink)
@@ -229,7 +230,7 @@ export default function RidersPage() {
               }}
             >
               링크 복사
-            </button>
+            </Button>
             {copyMsg && (
               <span className="text-xs text-muted-foreground">{copyMsg}</span>
             )}
@@ -392,7 +393,7 @@ export default function RidersPage() {
                       )}
                     </td>
                     <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
-                      {rider.phone || "-"}
+                      {formatPhone(rider.phone) || "-"}
                     </td>
                     <td className="px-4 py-3 align-middle text-sm">
                       <span
@@ -409,24 +410,26 @@ export default function RidersPage() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         {rider.status !== "approved" && (
-                          <button
-                            type="button"
-                            className="h-7 rounded-md border border-emerald-200 bg-emerald-50 px-2 font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                          <Button
+                            variant="primary"
+                            size="sm"
                             onClick={() => handleStatusChange(rider.id, "approved")}
                             disabled={actionLoadingId === rider.id}
+                            isLoading={actionLoadingId === rider.id}
                           >
                             승인
-                          </button>
+                          </Button>
                         )}
                         {rider.status !== "approved" && (
-                          <button
-                            type="button"
-                            className="h-7 rounded-md border border-border bg-background px-2 font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-60"
+                          <Button
+                            variant="danger"
+                            size="sm"
                             onClick={() => handleDelete(rider.id)}
                             disabled={actionLoadingId === rider.id}
+                            isLoading={actionLoadingId === rider.id}
                           >
                             삭제
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </td>

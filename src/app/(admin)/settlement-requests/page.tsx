@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatPhone } from "@/lib/phone";
 import { badgeToneClass, getSettlementRequestStatusMeta } from "@/lib/status";
+import { Button } from "@/components/ui/Button";
 
 type SettlementMode = "daily" | "weekly";
 
@@ -103,14 +104,9 @@ export default function RiderSettlementRequestsPage() {
           >
             라이더 목록
           </Link>
-          <button
-            type="button"
-            onClick={load}
-            disabled={loading}
-            className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
-          >
+          <Button onClick={load} disabled={loading} size="sm" variant="primary" isLoading={loading}>
             새로고침
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -183,22 +179,24 @@ export default function RiderSettlementRequestsPage() {
                       <div className="text-[11px] text-muted-foreground">승인 처리 완료</div>
                     ) : (
                       <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
+                        <Button
+                          size="sm"
+                          variant="primary"
                           disabled={actionLoadingId === row.id}
+                          isLoading={actionLoadingId === row.id}
                           onClick={() => handleAction(row, "approve")}
-                          className="inline-flex h-8 items-center rounded-md bg-primary px-3 text-[11px] font-medium text-primary-foreground shadow-sm hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           승인
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
                           disabled={actionLoadingId === row.id}
+                          isLoading={actionLoadingId === row.id}
                           onClick={() => handleAction(row, "reject")}
-                          className="inline-flex h-8 items-center rounded-md border border-red-200 bg-red-50 px-3 text-[11px] font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           반려
-                        </button>
+                        </Button>
                       </div>
                     )}
                   </td>
