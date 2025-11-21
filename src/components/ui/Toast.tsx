@@ -23,8 +23,10 @@ export function showToast(message: string, tone: ToastTone = "info") {
 
 export function ToastHost() {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setMounted(true);
     const handler: Listener = (toast) => {
       setToasts((prev) => [...prev, toast]);
       setTimeout(() => {
@@ -37,7 +39,7 @@ export function ToastHost() {
     };
   }, []);
 
-  if (typeof document === "undefined") return null;
+  if (!mounted || typeof document === "undefined") return null;
 
   return createPortal(
     <div className="fixed right-4 top-4 z-50 flex flex-col gap-2">
