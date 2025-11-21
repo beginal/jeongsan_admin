@@ -2,12 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { RiderStatusActions } from "@/components/admin-v2/RiderStatusActions";
-import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { useRouter } from "next/navigation";
-import {
-  formatAccountForDisplay,
-  getAccountMaxDigits,
-} from "@/lib/accountFormat";
+import { Button } from "@/components/ui/Button";
+import { formatAccountForDisplay, getAccountMaxDigits } from "@/lib/accountFormat";
 
 interface RiderEditFormProps {
   riderId: string;
@@ -259,6 +256,35 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4 text-xs">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">라이더 수정</span>
+          <span className="text-muted-foreground text-xs">{name || riderId}</span>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => router.push(`/riders/${encodeURIComponent(riderId)}`)}
+            disabled={saving}
+          >
+            상세 보기
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => router.push("/riders")}
+            disabled={saving}
+          >
+            취소
+          </Button>
+          <Button type="submit" variant="primary" size="sm" disabled={saving}>
+            {saving ? "저장 중..." : "저장"}
+          </Button>
+        </div>
+      </div>
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           {error}
@@ -544,25 +570,18 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
       </div>
 
       <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-        <GlassButton
+        <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="sm"
-          onClick={() =>
-            router.push(`/riders/${encodeURIComponent(riderId)}`)
-          }
+          onClick={() => router.push(`/riders/${encodeURIComponent(riderId)}`)}
           disabled={saving}
         >
           취소
-        </GlassButton>
-        <GlassButton
-          type="submit"
-          variant="primary"
-          size="sm"
-          disabled={saving}
-        >
+        </Button>
+        <Button type="submit" variant="primary" size="sm" disabled={saving}>
           {saving ? "저장 중..." : "저장"}
-        </GlassButton>
+        </Button>
       </div>
     </form>
   );
