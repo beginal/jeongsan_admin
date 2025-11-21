@@ -1,13 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
+  const searchParams = new URL(request.url).searchParams;
+  const adminIdParam = (searchParams.get("adminId") || "").trim();
+
   const auth = await requireAdminAuth();
-  if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const hasAuth = !("response" in auth);
+  const supabase =
+    hasAuth && auth.supabase
+      ? auth.supabase
+      : (() => {
+          // fallback for public registration page (no admin session)
+          const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+          if (!supabaseUrl || !serviceRoleKey || !adminIdParam) {
+            return null;
+          }
+          return createClient(supabaseUrl, serviceRoleKey);
+        })();
+
+  if (!supabase) {
+    return "response" in auth
+      ? auth.response
+      : NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
-    const effectiveAdminId = auth.user.id;
+    const effectiveAdminId = hasAuth ? auth.user.id : adminIdParam;
 
     const { data: ownedBranches, error: ownedError } = await supabase
       .from("new_branches")
@@ -15,6 +36,10 @@ export async function GET(request: NextRequest) {
       .eq("created_by", effectiveAdminId);
 
     if (ownedError) {
+      const msg = String(ownedError.message || "");
+      if (msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by"))) {
+        return NextResponse.json({ branches: [], total: 0 });
+      }
       console.error(
         "[admin-v2/branches] owned branches load error:",
         ownedError
@@ -80,10 +105,21 @@ export async function GET(request: NextRequest) {
       );
 
       if (entityIds.length > 0) {
-        const { data: ents } = await supabase
+        let entitiesQuery = supabase
           .from("business_entities")
           .select("id, name")
           .in("id", entityIds);
+
+        entitiesQuery = entitiesQuery.eq("created_by", effectiveAdminId);
+
+        const { data: ents, error: entsError } = await entitiesQuery;
+
+        if (entsError) {
+          const msg = String(entsError.message || "");
+          if (!(msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by")))) {
+            console.error("[admin-v2/branches] entity load error:", entsError);
+          }
+        }
 
         entityNameById = Object.fromEntries(
           (ents || []).map((e: any) => [
@@ -200,11 +236,36 @@ export async function POST(request: Request) {
 
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
 
   try {
     // 현재 로그인한 사용자 (created_by / 정책용)
     const userId: string | null = auth.user.id || null;
+
+    // 선택된 사업자 소속이 있는 경우, 본인 소유인지 검증
+    const businessEntityIds = [
+      body.corporateEntityId,
+      body.personalEntityId,
+    ].filter(Boolean) as string[];
+    if (businessEntityIds.length > 0) {
+      const { data: ownedEntities, error: entityCheckError } = await supabase
+        .from("business_entities")
+        .select("id")
+        .in("id", businessEntityIds)
+        .eq("created_by", userId);
+
+      if (entityCheckError) {
+        const msg = String(entityCheckError.message || "");
+        if (!(msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by")))) {
+          console.error("[admin-v2/branches POST] entity check error:", entityCheckError);
+        }
+      } else if ((ownedEntities || []).length !== businessEntityIds.length) {
+        return NextResponse.json(
+          { error: "선택한 사업자가 계정에 소속되어 있지 않습니다." },
+          { status: 403 }
+        );
+      }
+    }
 
     const regionValue =
       (body.province && body.district
@@ -230,6 +291,13 @@ export async function POST(request: Request) {
         "[admin-v2/branches POST] new_branches insert error:",
         insertError
       );
+      const msg = String(insertError?.message || "");
+      if (msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by"))) {
+        return NextResponse.json(
+          { error: "지사를 생성하지 못했습니다. created_by 컬럼/권한을 확인해주세요." },
+          { status: 400 }
+        );
+      }
       return NextResponse.json(
         { error: "새 지사를 생성하지 못했습니다." },
         { status: 500 }

@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   const taxName = (body.taxName || "").trim();
   const taxResidentNumber = (body.taxResidentNumber || "").trim();
   const branchId = (body.branchId || "").trim();
-  const adminId = (body.adminId || "").trim();
+  const adminIdReq = (body.adminId || "").trim();
 
   if (
     !name ||
@@ -95,28 +95,60 @@ export async function POST(request: Request) {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    let linkCode: string | null = adminId || null;
+    // 로그인된 관리자 아이디가 없을 수 있어 기본 소유자(beginal)로 fallback
+    const DEFAULT_ADMIN_ID = "dba00257-538c-4a5a-830b-e092099fa0b6";
+    const targetAdminId = adminIdReq || DEFAULT_ADMIN_ID;
 
-    // adminId가 넘어오면 해당 관리자의 활성 링크 코드 조회
-    if (adminId) {
-      const { data: links, error: linkError } = await supabase
-        .from("registration_links")
-        .select("link_code")
-        .eq("admin_id", adminId)
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
-        .limit(1);
+    let linkCode: string | null = targetAdminId;
+    // admin이 전달되면 활성 링크 조회, 없으면 자동 생성 (필수)
+    if (targetAdminId) {
+      // 1) 우선 타겟 admin 기준 조회
+      let links: any[] | null = null;
+      let linkError: any = null;
+      try {
+        const res = await supabase
+          .from("registration_links")
+          .select("link_code")
+          .eq("admin_id", targetAdminId)
+          .eq("is_active", true)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        links = res.data || [];
+        linkError = res.error;
+      } catch (e) {
+        linkError = e;
+      }
 
       if (linkError) {
         console.error("[public/riders POST] registration_links error:", linkError);
-        return NextResponse.json(
-          { error: "등록 링크를 확인하지 못했습니다." },
-          { status: 400 }
-        );
       }
 
       if (links && links.length > 0) {
         linkCode = String(links[0].link_code);
+      } else {
+        // 2) 타겟 admin 기준 활성 링크가 없으면 auto 생성
+        const code = `auto-${Math.random().toString(36).slice(2, 10)}`;
+        const { data: newLink, error: createLinkError } = await supabase
+          .from("registration_links")
+          .insert({
+            admin_id: targetAdminId,
+            link_code: code,
+            is_active: true,
+            new_branch_id: branchId || null,
+            name: "자동 생성 링크",
+          })
+          .select("link_code")
+          .maybeSingle();
+
+        if (createLinkError || !newLink) {
+          console.error("[public/riders POST] auto link create error:", createLinkError);
+          return NextResponse.json(
+            { error: "등록 링크를 확인하지 못했습니다." },
+            { status: 400 }
+          );
+        } else {
+          linkCode = String(newLink.link_code);
+        }
       }
     }
 
@@ -138,9 +170,9 @@ export async function POST(request: Request) {
     const phoneDigits = phone.replace(/\D/g, "");
     const accountDigits = accountNumber.replace(/\D/g, "");
 
-    const { data: registrationResult, error: registrationError } = await supabase
-      .rpc("register_rider_with_new_branches", {
-        link_code_param: linkCode,
+    const doRegister = async (codeParam: string | null) =>
+      supabase.rpc("register_rider_with_new_branches", {
+        link_code_param: codeParam,
         rider_data: {
           name,
           phone: phoneDigits,
@@ -159,14 +191,35 @@ export async function POST(request: Request) {
         client_ip: request.headers.get("x-forwarded-for") || null,
       });
 
+    let { data: registrationResult, error: registrationError } = await doRegister(linkCode);
+
     const regRow = Array.isArray(registrationResult)
       ? (registrationResult as any[])[0]
       : null;
 
     if (registrationError || !regRow?.success) {
-      console.error("[public/riders POST] registration error:", registrationError, regRow);
+      const msg = String(regRow?.message || registrationError?.message || "");
+      const shouldRetryWithoutLink =
+        linkCode != null &&
+        (msg.toLowerCase().includes("link") ||
+          msg.includes("링크") ||
+          msg.toLowerCase().includes("expired"));
+
+      if (shouldRetryWithoutLink) {
+        const retry = await doRegister(null);
+        registrationResult = retry.data;
+        registrationError = retry.error;
+      }
+    }
+
+    const finalRow = Array.isArray(registrationResult)
+      ? (registrationResult as any[])[0]
+      : null;
+
+    if (registrationError || !finalRow?.success) {
+      console.error("[public/riders POST] registration error:", registrationError, registrationResult);
       return NextResponse.json(
-        { error: regRow?.message || "라이더 신청을 저장하지 못했습니다." },
+        { error: finalRow?.message || "라이더 신청을 저장하지 못했습니다." },
         { status: 400 }
       );
     }
@@ -180,7 +233,7 @@ export async function POST(request: Request) {
         email_confirm: true,
         user_metadata: {
           role: "rider",
-          rider_id: regRow.rider_id,
+          rider_id: finalRow.rider_id,
           phone: phoneDigits,
         },
       });
@@ -198,7 +251,7 @@ export async function POST(request: Request) {
               email_confirm: true,
               user_metadata: {
                 role: "rider",
-                rider_id: regRow.rider_id,
+                rider_id: finalRow.rider_id,
                 phone: phoneDigits,
               },
             });

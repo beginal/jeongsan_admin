@@ -14,16 +14,22 @@ export async function GET() {
 
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
 
   try {
     // 1) 기본 사업자 목록
     const { data: entities, error: entitiesError } = await supabase
       .from("business_entities")
       .select("id, name, type, parent_entity_id, registration_number_enc")
+      .eq("created_by", userId)
       .order("name", { ascending: true });
 
     if (entitiesError) {
+      const msg = String(entitiesError.message || "");
+      if (msg.includes("created_by") || msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by")) {
+        return NextResponse.json({ entities: [], total: 0 });
+      }
       console.error(
         "[admin-v2/business-entities] entities error:",
         entitiesError
@@ -108,9 +114,30 @@ export async function GET() {
         branchCountByEntity[entityId] = set.size;
       });
 
-      // 3) 각 지사에 연결된 활성 라이더 목록
+      // 지사 소유자 필터링 (다른 관리자의 지사가 섞이는 것 방지)
+      let ownedBranchIds: Set<string> = new Set();
       if (allBranchIds.size > 0) {
         const branchIdList = Array.from(allBranchIds);
+        const { data: ownedBranches } = await supabase
+          .from("new_branches")
+          .select("id")
+          .in("id", branchIdList)
+          .eq("created_by", userId);
+        ownedBranchIds = new Set((ownedBranches || []).map((b: any) => String(b.id)));
+
+        // 소유하지 않은 지사는 제외
+        Object.keys(branchIdsByEntity).forEach((entityId) => {
+          const filtered = Array.from(branchIdsByEntity[entityId]).filter((id) =>
+            ownedBranchIds.has(id)
+          );
+          branchIdsByEntity[entityId] = new Set(filtered);
+          branchCountByEntity[entityId] = filtered.length;
+        });
+      }
+
+      // 3) 각 지사에 연결된 활성 라이더 목록 (소유 지사만)
+      if (ownedBranchIds.size > 0) {
+        const branchIdList = Array.from(ownedBranchIds);
         const { data: rnb, error: rnbError } = await supabase
           .from("rider_new_branches")
           .select("new_branch_id, rider_id, status")
@@ -200,7 +227,8 @@ export async function POST(request: NextRequest) {
 
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
 
   let body: any = {};
   try {
@@ -238,6 +266,7 @@ export async function POST(request: NextRequest) {
     type,
     parent_entity_id: type === "PERSONAL" ? parentEntityId : null,
     registration_number_enc: registrationNumber || null,
+    created_by: userId,
   };
 
   try {

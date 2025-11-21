@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Menu, Moon, Sun } from "lucide-react";
 import { AdminSidebar, AdminSidebarMobile } from "@/components/admin-v2/AdminSidebar";
@@ -62,6 +62,15 @@ export function AdminLayoutClient({ children, initialTheme = "light" }: AdminLay
     document.cookie = `admin-v2-theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
   }, [mounted, theme]);
 
+  const redirectToLogin = useCallback(() => {
+    if (logoutRedirectRef.current) return;
+    logoutRedirectRef.current = true;
+    const path =
+      typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
+    const search = new URLSearchParams({ redirect: path }).toString();
+    router.replace(`/login?${search}`);
+  }, [router]);
+
   useEffect(() => {
     let cancelled = false;
     const fetchSession = async () => {
@@ -90,7 +99,7 @@ export function AdminLayoutClient({ children, initialTheme = "light" }: AdminLay
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [redirectToLogin]);
 
   useEffect(() => {
     if (!expiresAt) {
@@ -109,15 +118,6 @@ export function AdminLayoutClient({ children, initialTheme = "light" }: AdminLay
       router.push("/login?session=expired");
     }
   }, [remainingMs, router]);
-
-  const redirectToLogin = () => {
-    if (logoutRedirectRef.current) return;
-    logoutRedirectRef.current = true;
-    const path =
-      typeof window !== "undefined" ? window.location.pathname + window.location.search : "/";
-    const search = new URLSearchParams({ redirect: path }).toString();
-    router.replace(`/login?${search}`);
-  };
 
   const refreshSession = async () => {
     if (refreshingRef.current) return;

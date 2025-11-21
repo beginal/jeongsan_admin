@@ -16,6 +16,8 @@ type RiderProfile = {
   bankName?: string | null;
   accountNumber?: string | null;
   accountHolder?: string | null;
+  taxName?: string | null;
+  taxResidentNumber?: string | null;
   verificationStatus?: RiderStatus;
   rejectionReason?: string | null;
   branch?: {
@@ -171,6 +173,15 @@ export default function RiderLandingPage() {
     return `${digits.slice(0, Math.max(1, digits.length - 4))}****`;
   }, [profile?.accountNumber]);
 
+  const maskedTaxSsn = useMemo(() => {
+    const raw = profile?.taxResidentNumber || "";
+    const digits = raw.replace(/\D/g, "");
+    if (!digits) return "-";
+    if (digits.length <= 6) return `${digits}${digits.length > 0 ? "-" : ""}${"*".repeat(Math.max(1, digits.length - 6))}`;
+    const after = digits.slice(6);
+    return `${digits.slice(0, 6)}-${"*".repeat(Math.max(1, after.length))}`;
+  }, [profile?.taxResidentNumber]);
+
   const refreshSettlement = async () => {
     try {
       const res = await fetch("/api/rider/settlement-request", { credentials: "include" });
@@ -182,6 +193,21 @@ export default function RiderLandingPage() {
       setSettlementError(null);
     } catch (e: any) {
       setSettlementError(e.message || "정산 상태를 불러오지 못했습니다.");
+    }
+  };
+
+  const handleLogout = async () => {
+    setActionLoading(true);
+    try {
+      await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch {
+      // ignore fetch errors; we'll still redirect
+    } finally {
+      setActionLoading(false);
+      window.location.href = "/login";
     }
   };
 
@@ -304,6 +330,8 @@ export default function RiderLandingPage() {
             variant="outline"
             size="sm"
             className="border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800"
+            onClick={handleLogout}
+            disabled={actionLoading}
           >
             로그아웃
           </GlassButton>
@@ -410,6 +438,20 @@ export default function RiderLandingPage() {
               </div>
               <p className="text-[11px] text-muted-foreground">
                 계좌 정보 수정은 담당 지사에 문의해 주세요.
+              </p>
+            </GlassCard>
+
+            <GlassCard title="원천세 신고 정보" className="space-y-3">
+              <div className="flex items-center justify-between text-sm pt-2">
+                <span className="text-muted-foreground">신고 이름</span>
+                <span className="font-medium text-foreground">{profile.taxName || "-"}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">주민등록번호</span>
+                <span className="font-medium text-foreground">{maskedTaxSsn}</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                신고 정보 변경이 필요한 경우 담당 지사에 문의해 주세요.
               </p>
             </GlassCard>
           </section>

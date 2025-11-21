@@ -99,8 +99,8 @@ export function BusinessEntityCreateForm({
                   size="sm"
                   onClick={() => setType("CORPORATE")}
                   className={`h-auto rounded-full px-2.5 py-0.5 text-[11px] hover:bg-transparent ${type === "CORPORATE"
-                    ? "bg-sky-500 text-white shadow-sm hover:bg-sky-600 hover:text-white"
-                    : "hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/25 hover:bg-primary/90"
+                    : "bg-white text-foreground hover:bg-muted"
                     }`}
                   disabled={saving}
                 >
@@ -112,8 +112,8 @@ export function BusinessEntityCreateForm({
                   size="sm"
                   onClick={() => setType("PERSONAL")}
                   className={`h-auto rounded-full px-2.5 py-0.5 text-[11px] hover:bg-transparent ${type === "PERSONAL"
-                    ? "bg-emerald-500 text-white shadow-sm hover:bg-emerald-600 hover:text-white"
-                    : "hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/25 hover:bg-primary/90"
+                    : "bg-white text-foreground hover:bg-muted"
                     }`}
                   disabled={saving}
                 >

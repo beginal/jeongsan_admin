@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 type RentalStatus = "active" | "inactive";
@@ -79,6 +80,12 @@ export default function LeaseRentalListPage() {
             차량번호, 라이더, 계약 방식, 일 요금, 상태, 계약 기간을 확인하고 수정 페이지로 이동할 수 있습니다.
           </p>
         </div>
+        <Link
+          href="/lease-rentals/new"
+          className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+        >
+          + 리스렌탈 추가
+        </Link>
       </div>
 
       <div className="rounded-xl border border-border bg-card shadow-sm">

@@ -4,7 +4,7 @@ import { requireAdminAuth } from "@/lib/auth";
 export async function GET() {
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
 
   try {
     const adminId = auth.user.id;

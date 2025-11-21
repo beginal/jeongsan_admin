@@ -12,13 +12,13 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
             primary:
                 "bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 border-transparent",
             secondary:
-                "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm border-transparent",
+                "border border-border/80 bg-card text-foreground shadow-sm hover:bg-muted/80 hover:text-foreground dark:border-white/10 dark:bg-slate-900/60 dark:hover:bg-slate-900/80",
             outline:
-                "border border-border bg-white/50 text-foreground hover:bg-white/80 hover:text-foreground hover:shadow-sm dark:bg-slate-800/50 dark:hover:bg-slate-800/80",
+                "border border-border/80 bg-card/80 text-foreground shadow-sm hover:bg-muted/60 hover:text-foreground dark:border-white/20 dark:bg-transparent dark:text-foreground dark:hover:bg-white/5",
             ghost:
-                "bg-transparent text-muted-foreground hover:bg-muted/50 hover:text-foreground border-transparent",
+                "border border-transparent bg-transparent text-foreground hover:bg-muted/60 hover:text-foreground dark:text-foreground dark:hover:bg-white/5",
             destructive:
-                "bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 hover:shadow-sm dark:bg-red-900/20 dark:text-red-400 dark:border-red-900/50",
+                "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 hover:shadow-sm dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/30",
         };
 
         const sizes = {

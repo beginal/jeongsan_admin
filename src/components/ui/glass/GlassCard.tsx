@@ -19,7 +19,7 @@ export function GlassCard({
     return (
         <div
             className={cn(
-                "rounded-2xl border border-white/40 bg-surface-100/50 px-6 py-6 shadow-glass backdrop-blur-sm transition-all duration-200 dark:border-white/10 dark:bg-slate-900/40",
+                "rounded-2xl border border-[color:var(--glass-border)] bg-[color:var(--glass-bg)] px-6 py-6 shadow-glass backdrop-blur-sm transition-all duration-200",
                 className
             )}
         >

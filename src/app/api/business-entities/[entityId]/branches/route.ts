@@ -19,7 +19,8 @@ export async function POST(
   const { entityId } = await params;
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
 
   let body: any = {};
   try {
@@ -42,14 +43,47 @@ export async function POST(
     );
   }
 
+  // 지사 소유 확인
+  const { data: branchRow, error: branchError } = await supabase
+    .from("new_branches")
+    .select("id, created_by")
+    .eq("id", branchId)
+    .eq("created_by", userId)
+    .maybeSingle();
+
+  if (branchError) {
+    const msg = String(branchError.message || "");
+    if (!(msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by")))) {
+      console.error(
+        "[admin-v2/business-entities branches POST] branch load error:",
+        branchError
+      );
+    }
+  }
+
+  if (!branchRow) {
+    return NextResponse.json(
+      { error: "해당 지사를 찾을 수 없거나 소유하지 않았습니다." },
+      { status: 404 }
+    );
+  }
+
   // 대상 사업자 유형 조회
   const { data: entity, error: entityError } = await supabase
     .from("business_entities")
     .select("id, name, type")
     .eq("id", entityId)
+    .eq("created_by", userId)
     .maybeSingle();
 
   if (entityError) {
+    const msg = String(entityError.message || "");
+    if (msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by"))) {
+      return NextResponse.json(
+        { error: "해당 사업자를 찾을 수 없습니다." },
+        { status: 404 }
+      );
+    }
     console.error(
       "[admin-v2/business-entities branches POST] entity load error:",
       entityError

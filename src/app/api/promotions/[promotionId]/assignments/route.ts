@@ -17,7 +17,8 @@ export async function PATCH(
   const { promotionId } = await params;
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
 
   let payload: any;
   try {
@@ -43,6 +44,7 @@ export async function PATCH(
     start_date: x.start_date ?? null,
     end_date: x.end_date ?? null,
     priority_order: x.priority_order ?? null,
+    created_by: userId,
   }));
 
   try {
@@ -93,7 +95,8 @@ export async function DELETE(
   const { promotionId } = await params;
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
 
   let body: any = {};
   try {
@@ -118,6 +121,7 @@ export async function DELETE(
       .from("promotion_branch_assignments")
       .delete()
       .eq("promotion_id", promotionId)
+      .eq("created_by", userId)
       .in("branch_id", ids);
 
     if (error) {

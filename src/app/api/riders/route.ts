@@ -1,34 +1,12 @@
-import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("[admin-v2/riders] Supabase env not set");
-    return NextResponse.json(
-      { error: "Supabase 환경 변수가 설정되지 않았습니다." },
-      { status: 500 }
-    );
-  }
-
   try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("admin_v2_token")?.value;
-
-    if (!token) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    });
+    const auth = await requireAdminAuth();
+    if ("response" in auth) return auth.response;
+    const supabase = auth.supabase;
+    const adminId = auth.user.id;
 
     const { searchParams } = new URL(request.url);
 
@@ -36,9 +14,20 @@ export async function GET(request: NextRequest) {
     const verificationStatus = searchParams.get("verificationStatus");
     const search = searchParams.get("search");
 
-    const { data: ridersData, error: ridersError } = await supabase.rpc(
-      "get_riders_for_admin"
-    );
+    // 소유 지사 목록
+    const { data: ownedBranches } = await supabase
+      .from("new_branches")
+      .select("id, display_name, branch_name, province, district, platform")
+      .eq("created_by", adminId);
+    const ownedBranchIds = new Set((ownedBranches || []).map((b: any) => String(b.id)));
+
+    // 라이더 기본 정보 (소유자 기준)
+    const { data: ridersData, error: ridersError } = await supabase
+      .from("riders")
+      .select(
+        "id, name, phone, email, baemin_id, bank_name, account_holder, verification_status, registration_completed_at, approved_at, rejected_at, rejection_reason, created_by"
+      )
+      .eq("created_by", adminId);
 
     if (ridersError) {
       console.error("[admin-v2/riders] Riders fetch error:", ridersError);
@@ -66,76 +55,57 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const riderIds = filteredRiders.map((r: any) => r.id);
+    let branchData: any[] = [];
+    if (riderIds.length > 0 && ownedBranchIds.size > 0) {
+      const { data: rnb } = await supabase
+        .from("rider_new_branches")
+        .select(
+          `
+          rider_id,
+          new_branch_id,
+          is_primary,
+          status,
+          new_branches:new_branch_id (
+            id,
+            display_name,
+            branch_name,
+            province,
+            district,
+            platform
+          )
+        `
+        )
+        .in("rider_id", riderIds)
+        .in("new_branch_id", Array.from(ownedBranchIds))
+        .eq("status", "active");
+      branchData = rnb || [];
+    }
+
+    const branchByRider: Record<string, any[]> = {};
+    branchData.forEach((rb: any) => {
+      const rid = String(rb.rider_id);
+      branchByRider[rid] = branchByRider[rid] || [];
+      branchByRider[rid].push(rb);
+    });
+
     const ridersWithBranches = await Promise.all(
       filteredRiders.map(async (rider: any) => {
-        const { data: branchData } = await supabase
-          .from("rider_new_branches")
-          .select(
-            `
-            new_branch_id,
-            is_primary,
-            status,
-            new_branches:new_branch_id (
-              id,
-              display_name,
-              platform,
-              region,
-              branch_name
-            )
-          `
-          )
-          .eq("rider_id", rider.id)
-          .eq("status", "active");
-
-        const branches =
-          (branchData || []).map((rb: any) => ({
+        const rbList = branchByRider[String(rider.id)] || [];
+        const branches = rbList.map((rb: any) => {
+          const nb = rb.new_branches || {};
+          const branchName = nb.display_name || nb.branch_name || "";
+          return {
             branchId: rb.new_branch_id,
-            branchName: rb.new_branches?.display_name,
+            branchName,
             isPrimary: rb.is_primary,
-            platform: rb.new_branches?.platform,
-          })) ?? [];
-
-        const { data: assignmentData } = await supabase
-          .from("vehicle_assignments")
-          .select(
-            `
-            id,
-            start_date,
-            end_date,
-            vehicle:vehicles (
-              id,
-              plate_number,
-              model,
-              daily_fee,
-              weekly_fee,
-              color
-            )
-          `
-          )
-          .eq("rider_id", rider.id)
-          .eq("is_active", true)
-          .single();
-
-        const vehicleData: any =
-          assignmentData && Array.isArray(assignmentData.vehicle)
-            ? assignmentData.vehicle[0]
-            : assignmentData?.vehicle;
-
-        const currentAssignment = assignmentData
-          ? {
-              assignmentId: assignmentData.id,
-              startDate: assignmentData.start_date,
-              endDate: assignmentData.end_date,
-              vehicle: {
-                id: vehicleData?.id,
-                plateNumber: vehicleData?.plate_number,
-                model: vehicleData?.model,
-                dailyFee: vehicleData?.daily_fee,
-                weeklyFee: vehicleData?.weekly_fee,
-                color: vehicleData?.color,
-              },
-            }
-          : null;
+            platform: nb.platform,
+          };
+        });
+        if (branchId && branchId !== "all") {
+          const has = branches.some((b: any) => String(b.branchId) === String(branchId));
+          if (!has) return null;
+        }
 
         return {
           id: rider.id,
@@ -150,7 +120,7 @@ export async function GET(request: NextRequest) {
           taxName: rider.tax_name,
           taxResidentNumber: rider.tax_resident_number,
           branches,
-          currentAssignment,
+          currentAssignment: null,
           verificationStatus: rider.verification_status,
           registrationCompletedAt: rider.registration_completed_at,
           approvedAt: rider.approved_at,
@@ -160,14 +130,7 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    const finalFilteredRiders =
-      branchId && branchId !== "all"
-        ? ridersWithBranches.filter((rider: any) =>
-            rider.branches.some(
-              (branch: any) => String(branch.branchId) === String(branchId)
-            )
-          )
-        : ridersWithBranches;
+    const finalFilteredRiders = (ridersWithBranches.filter(Boolean) as any[]) || [];
 
     return NextResponse.json({
       riders: finalFilteredRiders,

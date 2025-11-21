@@ -1,22 +1,34 @@
 import { createClient } from "@supabase/supabase-js";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
+import { requireAdminAuth } from "@/lib/auth";
 import { BranchEditForm } from "@/components/admin-v2/BranchEditForm";
 
 export default async function BranchNewPage() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     console.error("[branch new] Supabase env not set");
-    notFound();
+    redirect("/login");
   }
 
-  const supabase = createClient(supabaseUrl!, serviceRoleKey!);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) redirect("/login");
+
+  const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+    },
+  });
+  const adminId = auth.user.id;
 
   // 법인/개인 엔티티 목록
   const { data: businessEntities } = await supabase
     .from("business_entities")
     .select("id, name, type, parent_entity_id")
+    .eq("created_by", adminId)
     .order("name", { ascending: true });
 
   const corporateOptions =

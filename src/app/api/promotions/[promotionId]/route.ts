@@ -32,13 +32,15 @@ export async function GET(
   const { promotionId } = await params;
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
 
   try {
     const { data, error } = await supabase
       .from("promotions")
       .select("*")
       .eq("id", promotionId)
+      .eq("created_by", userId)
       .maybeSingle();
 
     if (error) {

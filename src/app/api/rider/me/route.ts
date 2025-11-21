@@ -4,7 +4,7 @@ import { requireRiderAuth } from "@/lib/auth";
 export async function GET() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.supabase;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
   const token = auth.token;
 
   try {
@@ -12,21 +12,34 @@ export async function GET() {
     const user = auth.user;
     const meta = (user?.user_metadata as any) || {};
 
-    let riderId = meta?.rider_id || user?.id || decoded?.sub || null;
+    // rider_id 메타가 없으면 전화번호로 rider 찾기 → 마지막에 auth user id를 후보로 사용
+    let riderId: string | null = meta?.rider_id || null;
     let phoneDigits: string | null =
       meta?.phone || decoded?.phone || decoded?.phone_number || null;
-    if (!phoneDigits && decoded?.email && decoded.email.startsWith("rider-")) {
-      const m = decoded.email.match(/^rider-(\d{8,11})@/);
+    const tokenEmail = decoded?.email || user?.email;
+    if (!phoneDigits && tokenEmail && tokenEmail.startsWith("rider-")) {
+      const m = tokenEmail.match(/^rider-(\d{8,11})@/);
       if (m) phoneDigits = m[1];
     }
 
-    if (!riderId && phoneDigits) {
+    if ((!riderId || riderId === user?.id || riderId === decoded?.sub) && phoneDigits) {
       const { data: riderByPhone } = await supabase
         .from("riders")
         .select("id")
         .eq("phone", phoneDigits)
         .maybeSingle();
       riderId = riderByPhone?.id || null;
+
+      if (!riderId && phoneDigits.length >= 6) {
+        const fuzzyPattern = `%${phoneDigits.split("").join("%")}%`;
+        const { data: riderByFuzzy } = await supabase
+          .from("riders")
+          .select("id")
+          .ilike("phone", fuzzyPattern)
+          .limit(1)
+          .maybeSingle();
+        riderId = riderByFuzzy?.id || riderId;
+      }
 
       if (!riderId && phoneDigits.length >= 4) {
         const suffix = phoneDigits.slice(-4);
@@ -39,6 +52,17 @@ export async function GET() {
           .maybeSingle();
         riderId = riderByLike?.id || null;
       }
+    }
+
+    // 전화번호로도 찾지 못했을 때만 auth user id를 최후 후보로 시도
+    if (!riderId && (user?.id || decoded?.sub)) {
+      const candidate = user?.id || decoded?.sub;
+      const { data: riderByUserId } = await supabase
+        .from("riders")
+        .select("id")
+        .eq("id", candidate)
+        .maybeSingle();
+      riderId = riderByUserId?.id || null;
     }
 
     if (!riderId) {
@@ -90,15 +114,34 @@ export async function GET() {
         ? riderRow.verification_status
         : "pending";
 
+    let privateInfo: {
+      bank_name: string | null;
+      account_holder: string | null;
+      account_number: string | null;
+      tax_name: string | null;
+      tax_ssn: string | null;
+    } | null = null;
+
+    try {
+      const { data: priv } = await supabase
+        .rpc("get_rider_private_info", { rider_id_param: riderId })
+        .maybeSingle();
+      privateInfo = priv as any;
+    } catch (privErr) {
+      console.error("[rider/me] private info load error:", privErr);
+    }
+
     return NextResponse.json({
       rider: {
         id: riderRow.id,
         name: riderRow.name,
         phone: riderRow.phone,
         baeminId: riderRow.baemin_id,
-        bankName: riderRow.bank_name,
-        accountNumber: null,
-        accountHolder: riderRow.account_holder,
+        bankName: privateInfo?.bank_name ?? riderRow.bank_name,
+        accountHolder: privateInfo?.account_holder ?? riderRow.account_holder,
+        accountNumber: privateInfo?.account_number ?? null,
+        taxName: privateInfo?.tax_name ?? null,
+        taxResidentNumber: privateInfo?.tax_ssn ?? null,
         verificationStatus,
         rejectionReason: riderRow.rejection_reason,
         approvedAt: riderRow.approved_at,

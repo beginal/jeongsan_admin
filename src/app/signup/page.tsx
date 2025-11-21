@@ -6,7 +6,6 @@ import { GlassButton } from "@/components/ui/glass/GlassButton";
 
 type SignupFormState = {
   name: string;
-  username: string;
   email: string;
   companyName: string;
   businessNumber: string;
@@ -20,7 +19,6 @@ type SignupFormState = {
 
 const initialForm: SignupFormState = {
   name: "",
-  username: "",
   email: "",
   companyName: "",
   businessNumber: "",
@@ -145,20 +143,6 @@ export default function SignupPage() {
 
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-muted-foreground">
-                  아이디
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={form.username}
-                  onChange={(e) => updateField("username", e.target.value)}
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                  placeholder="jeongsan_admin"
-                />
-              </div>
-
-              <div className="space-y-1">
-                <label className="block text-xs font-medium text-muted-foreground">
                   이메일
                 </label>
                 <input
@@ -170,6 +154,9 @@ export default function SignupPage() {
                   className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
                   placeholder="admin@example.com"
                 />
+                <p className="text-[11px] text-muted-foreground">
+                  로그인에 사용하는 이메일입니다.
+                </p>
               </div>
 
               <div className="space-y-1">

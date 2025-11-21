@@ -745,64 +745,67 @@ export default function WeeklySettlementWizardPage() {
     [branchRiders, resolveBranchId]
   );
 
-  const calcPromoAmount = (promo: PromotionOption, orders: number, branchId: string) => {
-    const detail = promotionDetail[promo.id];
-    const type = detail?.type || promo.config?.type || promo.status;
-    const cfg = promo.config || {};
-    let amount = 0;
+  const calcPromoAmount = useCallback(
+    (promo: PromotionOption, orders: number, branchId: string) => {
+      const detail = promotionDetail[promo.id];
+      const type = detail?.type || promo.config?.type || promo.status;
+      const cfg = promo.config || {};
+      let amount = 0;
 
-    if (type === "excess") {
-      const src = cfg.excess ?? cfg;
-      const threshold =
-        src.threshold ?? src.targetCount ?? src.base_count ?? src.count ?? 0;
-      const per = src.amountPerExcess ?? src.amount ?? src.amount_per_excess ?? src.excess_amount ?? 0;
-      if (orders > threshold) {
-        amount = (orders - threshold) * per;
-      }
-    } else if (type === "milestone") {
-      const tiers: any[] =
-        cfg.milestones ??
-        cfg.milestone ??
-        cfg.tiers ??
-        cfg.levels ??
-        [];
-      const arr = Array.isArray(tiers)
-        ? tiers
-        : tiers && Array.isArray((tiers as any).tiers)
-          ? (tiers as any).tiers
-          : [];
-      const achieved = arr.filter((t: any) => orders >= (t.threshold ?? t.targetCount ?? t.target_count ?? 0));
-      if (achieved.length > 0) {
-        const best = achieved.reduce((p: any, c: any) =>
-          (c.threshold ?? c.targetCount ?? c.target_count ?? 0) >
-          (p.threshold ?? p.targetCount ?? p.target_count ?? 0)
-            ? c
-            : p
-        );
-        amount = best.amount ?? best.rewardAmount ?? best.reward_amount ?? best.value ?? 0;
-      }
-    } else if (type === "milestone_per_unit") {
-      const tiers: any[] =
-        cfg.milestonePerUnit ?? cfg.milestone_per_unit ?? cfg.tiers ?? cfg.levels ?? [];
-      const arr = Array.isArray(tiers)
-        ? tiers
-        : tiers && Array.isArray((tiers as any).tiers)
-          ? (tiers as any).tiers
-          : [];
-      arr.forEach((t: any) => {
-        const threshold = t.threshold ?? t.start ?? t.base_count ?? 0;
-        const unitSize = t.unitSize ?? t.size ?? t.per ?? 1;
-        const unitAmount = t.unitAmount ?? t.amount ?? t.unit_amount ?? 0;
+      if (type === "excess") {
+        const src = cfg.excess ?? cfg;
+        const threshold =
+          src.threshold ?? src.targetCount ?? src.base_count ?? src.count ?? 0;
+        const per = src.amountPerExcess ?? src.amount ?? src.amount_per_excess ?? src.excess_amount ?? 0;
         if (orders > threshold) {
-          const steps = Math.floor((orders - threshold) / unitSize) + 1;
-          amount += steps * unitAmount;
+          amount = (orders - threshold) * per;
         }
-      });
-    }
+      } else if (type === "milestone") {
+        const tiers: any[] =
+          cfg.milestones ??
+          cfg.milestone ??
+          cfg.tiers ??
+          cfg.levels ??
+          [];
+        const arr = Array.isArray(tiers)
+          ? tiers
+          : tiers && Array.isArray((tiers as any).tiers)
+            ? (tiers as any).tiers
+            : [];
+        const achieved = arr.filter((t: any) => orders >= (t.threshold ?? t.targetCount ?? t.target_count ?? 0));
+        if (achieved.length > 0) {
+          const best = achieved.reduce((p: any, c: any) =>
+            (c.threshold ?? c.targetCount ?? c.target_count ?? 0) >
+            (p.threshold ?? p.targetCount ?? p.target_count ?? 0)
+              ? c
+              : p
+          );
+          amount = best.amount ?? best.rewardAmount ?? best.reward_amount ?? best.value ?? 0;
+        }
+      } else if (type === "milestone_per_unit") {
+        const tiers: any[] =
+          cfg.milestonePerUnit ?? cfg.milestone_per_unit ?? cfg.tiers ?? cfg.levels ?? [];
+        const arr = Array.isArray(tiers)
+          ? tiers
+          : tiers && Array.isArray((tiers as any).tiers)
+            ? (tiers as any).tiers
+            : [];
+        arr.forEach((t: any) => {
+          const threshold = t.threshold ?? t.start ?? t.base_count ?? 0;
+          const unitSize = t.unitSize ?? t.size ?? t.per ?? 1;
+          const unitAmount = t.unitAmount ?? t.amount ?? t.unit_amount ?? 0;
+          if (orders > threshold) {
+            const steps = Math.floor((orders - threshold) / unitSize) + 1;
+            amount += steps * unitAmount;
+          }
+        });
+      }
 
-    const typeLabel = detail?.typeLabel || "";
-    return { amount, typeLabel };
-  };
+      const typeLabel = detail?.typeLabel || "";
+      return { amount, typeLabel };
+    },
+    [promotionDetail]
+  );
 
   const missionTotals = useMemo(() => {
     if (!parsed) return {} as Record<string, Record<string, number>>;
@@ -930,7 +933,7 @@ export default function WeeklySettlementWizardPage() {
           rentCostValue: rentCostWeekly,
         };
       });
-  }, [parsed, branchIdByLabel, promotionByBranch, promotionDetail, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider]);
+  }, [parsed, branchIdByLabel, promotionByBranch, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider, calcPromoAmount]);
 
   const openDetail = (row: Step3Row) => {
     setDetailRow(row);

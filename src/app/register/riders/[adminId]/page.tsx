@@ -170,7 +170,7 @@ export default function RiderPublicRegisterPage() {
     const digits = accountNumber.replace(/\D/g, "");
     const limited = digits.slice(0, getAccountMaxDigits(bankName));
     setAccountNumber(formatAccountForDisplay(limited, bankName));
-  }, [bankName]);
+  }, [bankName, accountNumber]);
 
   const validate = () => {
     if (

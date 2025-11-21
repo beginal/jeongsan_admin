@@ -11,13 +11,15 @@ export async function GET() {
     const user = auth.user;
 
     const { id, email, user_metadata } = user;
+    const contactEmail =
+      (user_metadata?.contact_email as string | undefined) || email;
     const name =
       (user_metadata?.name as string | undefined) ||
-      (email ? email.split("@")[0] : "관리자");
+      (contactEmail ? contactEmail.split("@")[0] : "관리자");
 
     return NextResponse.json({
       id,
-      email,
+      email: contactEmail,
       name,
       expiresAt,
     });

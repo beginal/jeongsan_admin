@@ -6,41 +6,41 @@
 
 @layer base {
   :root {
-    --background: 220 14% 96%;
-    --foreground: 220 10% 20%;
+    --background: 214 32% 97%;
+    --foreground: 222 35% 16%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 10% 20%;
+    --card-foreground: 222 35% 16%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 10% 20%;
+    --popover-foreground: 222 35% 16%;
 
-    --primary: 239 84% 67%;
+    --primary: 234 78% 58%;
     --primary-foreground: 210 40% 98%;
 
-    --secondary: 210 40% 96.1%;
+    --secondary: 216 33% 94%;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
-    --muted: 220 14% 93%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 220 16% 94%;
+    --muted-foreground: 222 18% 38%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 214 30% 95%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 220 13% 91%;
-    --input: 220 13% 91%;
+    --border: 220 15% 85%;
+    --input: 220 15% 85%;
     --ring: 239 84% 67%;
 
     --radius: 0.75rem;
 
     /* Glassmorphism Variables - Light */
-    --glass-bg: rgba(255, 255, 255, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.5);
-    --glass-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-    --surface-100: rgba(255, 255, 255, 0.8);
+    --glass-bg: rgba(255, 255, 255, 0.92);
+    --glass-border: rgba(15, 23, 42, 0.08);
+    --glass-shadow: 0 8px 30px rgba(15, 23, 42, 0.08);
+    --surface-100: rgba(255, 255, 255, 0.94);
   }
 
   .dark {
@@ -87,6 +87,18 @@
 
   body {
     @apply bg-background text-foreground font-sans text-sm antialiased;
+  }
+
+  select,
+  select option {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--card));
+  }
+
+  select option:checked,
+  select option:focus {
+    color: hsl(var(--foreground));
+    background-color: hsl(var(--primary) / 0.18);
   }
 
   /* Light mode background override */

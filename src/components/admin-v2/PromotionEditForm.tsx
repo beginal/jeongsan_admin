@@ -38,11 +38,12 @@ type SelectedBranch = {
 };
 
 type PromotionEditFormProps = {
-  promotionId: string;
+  promotionId?: string;
 };
 
 export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
   const router = useRouter();
+  const isCreate = !promotionId;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -85,18 +86,47 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      if (isCreate) {
+        // create 모드: 지사 목록만 불러오고 나머지는 비워둠
+        setLoading(true);
+        try {
+          const res = await fetch("/api/branches", { credentials: "include" });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data?.error) throw new Error(data?.error || "지사 목록을 불러오지 못했습니다.");
+          if (!cancelled) {
+            const branches = Array.isArray(data.branches) ? data.branches : [];
+            setAvailableBranches(
+              branches.map((b: any) => ({
+                id: String(b.id),
+                name: b.display_name || b.branch_name || b.name || String(b.id),
+                province: b.province || "",
+                district: b.district || "",
+                platform: b.platform || "",
+              }))
+            );
+            setSelectedBranches([]);
+            setInitialAssignedIds([]);
+          }
+        } catch (e: any) {
+          if (!cancelled) setError(e.message || "지사 목록을 불러오지 못했습니다.");
+        } finally {
+          if (!cancelled) setLoading(false);
+        }
+        return;
+      }
+
       setError(null);
       setLoading(true);
       try {
-        const res = await fetch(
-          `/api/promotions/${encodeURIComponent(promotionId)}`
+      const res = await fetch(
+        `/api/promotions/${encodeURIComponent(promotionId!)}`
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          data?.error || "프로모션 정보를 불러오지 못했습니다."
         );
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(
-            data?.error || "프로모션 정보를 불러오지 못했습니다."
-          );
-        }
+      }
         if (cancelled) return;
 
         const p = data.promotion as any;
@@ -236,7 +266,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
     return () => {
       cancelled = true;
     };
-  }, [promotionId]);
+  }, [promotionId, isCreate]);
 
   const filteredAvailableBranches = useMemo(() => {
     const q = branchSearch.trim().toLowerCase();
@@ -321,10 +351,9 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
         };
       }
 
-      const patchRes = await fetch(
-        `/api/promotions/${encodeURIComponent(promotionId)}`,
-        {
-          method: "PATCH",
+      if (isCreate) {
+        const res = await fetch("/api/promotions", {
+          method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: name.trim(),
@@ -333,62 +362,89 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
             config: baseConfig,
             start_date: startDate || null,
             end_date: endDate || null,
+            assignments: selectedBranches.map((b) => ({
+              branch_id: b.id,
+              is_active: b.active,
+              start_date: null,
+              end_date: null,
+              priority_order: null,
+            })),
           }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.error) {
+          throw new Error(data?.error || "프로모션을 생성하지 못했습니다.");
         }
-      );
-      const patchData = await patchRes.json().catch(() => ({}));
-      if (!patchRes.ok || patchData?.error) {
-        throw new Error(
-          patchData?.error || "프로모션 정보를 저장하지 못했습니다."
-        );
-      }
-
-      const upserts = selectedBranches.map((b) => ({
-        branch_id: b.id,
-        is_active: b.active,
-        start_date: null as string | null,
-        end_date: null as string | null,
-        priority_order: null as number | null,
-      }));
-
-      if (upserts.length > 0) {
-        const assignRes = await fetch(
-          `/api/promotions/${encodeURIComponent(
-            promotionId
-          )}/assignments`,
+      } else {
+        const patchRes = await fetch(
+          `/api/promotions/${encodeURIComponent(promotionId!)}`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(upserts),
+            body: JSON.stringify({
+              name: name.trim(),
+              type,
+              status,
+              config: baseConfig,
+              start_date: startDate || null,
+              end_date: endDate || null,
+            }),
           }
         );
-        const assignData = await assignRes.json().catch(() => ({}));
-        if (!assignRes.ok || assignData?.error) {
+        const patchData = await patchRes.json().catch(() => ({}));
+        if (!patchRes.ok || patchData?.error) {
           throw new Error(
-            assignData?.error || "프로모션 지사 배정을 저장하지 못했습니다."
+            patchData?.error || "프로모션 정보를 저장하지 못했습니다."
           );
         }
-      }
 
-      const removed = initialAssignedIds.filter(
-        (id) => !selectedBranches.some((b) => b.id === id)
-      );
-      if (removed.length > 0) {
-        const delRes = await fetch(
-          `/api/promotions/${encodeURIComponent(
-            promotionId
-          )}/assignments`,
-          {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ branch_ids: removed }),
-          }
-        );
-        const delData = await delRes.json().catch(() => ({}));
-        if (!delRes.ok || delData?.error) {
-          throw new Error(
-            delData?.error || "프로모션 지사 배정을 삭제하지 못했습니다."
+        const upserts = selectedBranches.map((b) => ({
+          branch_id: b.id,
+          is_active: b.active,
+          start_date: null as string | null,
+          end_date: null as string | null,
+          priority_order: null as number | null,
+        }));
+
+        if (upserts.length > 0) {
+          const assignRes = await fetch(
+            `/api/promotions/${encodeURIComponent(
+              promotionId!
+            )}/assignments`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(upserts),
+            }
           );
+          const assignData = await assignRes.json().catch(() => ({}));
+          if (!assignRes.ok || assignData?.error) {
+            throw new Error(
+              assignData?.error || "프로모션 지사 배정을 저장하지 못했습니다."
+            );
+          }
+        }
+
+        const removed = initialAssignedIds.filter(
+          (id) => !selectedBranches.some((b) => b.id === id)
+        );
+        if (removed.length > 0) {
+          const delRes = await fetch(
+            `/api/promotions/${encodeURIComponent(
+              promotionId!
+            )}/assignments`,
+            {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ branch_ids: removed }),
+            }
+          );
+          const delData = await delRes.json().catch(() => ({}));
+          if (!delRes.ok || delData?.error) {
+            throw new Error(
+              delData?.error || "프로모션 지사 배정을 삭제하지 못했습니다."
+            );
+          }
         }
       }
 
@@ -402,6 +458,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
   };
 
   const handleDelete = async () => {
+    if (isCreate || !promotionId) return;
     setError(null);
     setDeleting(true);
     try {
@@ -438,20 +495,24 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4 text-xs">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-          <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">프로모션 수정</span>
-          <span className="text-muted-foreground text-xs">{name || "제목 없음"}</span>
+            <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">
+              {isCreate ? "프로모션 생성" : "프로모션 수정"}
+            </span>
+            <span className="text-muted-foreground text-xs">{name || "제목 없음"}</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            type="button"
-            variant="danger"
-            size="sm"
-            onClick={() => setShowDeleteModal(true)}
-            disabled={saving || deleting}
-            isLoading={deleting}
-          >
-            삭제
-          </Button>
+          {!isCreate && (
+            <Button
+              type="button"
+              variant="danger"
+              size="sm"
+              onClick={() => setShowDeleteModal(true)}
+              disabled={saving || deleting}
+              isLoading={deleting}
+            >
+              삭제
+            </Button>
+          )}
           <Button
             type="button"
             variant="secondary"
@@ -474,7 +535,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
       )}
 
       {/* Delete confirmation modal */}
-      {showDeleteModal && (
+      {!isCreate && showDeleteModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40">
           <div className="w-full max-w-sm rounded-xl border border-border bg-card p-5 text-sm shadow-lg">
             <div className="mb-3 flex items-start gap-3">

@@ -33,7 +33,8 @@ type AssignmentRow = {
 export async function GET() {
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
 
   try {
     // 프로모션 + 배정 지사를 한 번에 조회 (테이블 기준)
@@ -64,9 +65,14 @@ export async function GET() {
         )
       `
       )
+      .eq("created_by", userId)
       .order("updated_at", { ascending: false });
 
     if (promotionsError) {
+      const msg = String(promotionsError.message || "");
+      if (msg.includes("created_by") || msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by")) {
+        return NextResponse.json({ promotions: [] });
+      }
       console.error("[admin-v2/promotions] promotions fetch error:", promotionsError);
       return NextResponse.json(
         { error: "프로모션 데이터를 불러오지 못했습니다." },
@@ -153,6 +159,89 @@ export async function GET() {
     console.error("[admin-v2/promotions] Unexpected error:", e);
     return NextResponse.json(
       { error: "프로모션 데이터를 불러오는 중 서버 오류가 발생했습니다." },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  const auth = await requireAdminAuth();
+  if ("response" in auth) return auth.response;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
+
+  const body = await request.json().catch(() => ({}));
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const type = body.type as string | undefined;
+  const status = body.status === "INACTIVE" ? "INACTIVE" : "ACTIVE";
+  const config = body.config ?? {};
+  const startDate = body.start_date || null;
+  const endDate = body.end_date || null;
+  const assignments = Array.isArray(body.assignments) ? body.assignments : [];
+
+  if (!name) {
+    return NextResponse.json({ error: "프로모션명을 입력해 주세요." }, { status: 400 });
+  }
+  if (!["excess", "milestone", "milestone_per_unit"].includes(type || "")) {
+    return NextResponse.json({ error: "유효한 프로모션 유형이 아닙니다." }, { status: 400 });
+  }
+
+  try {
+    const payload = {
+      name,
+      type,
+      status,
+      config,
+      start_date: startDate,
+      end_date: endDate,
+      created_by: userId,
+    };
+
+    // created_by가 누락된 정책 오류 방지
+    if (!payload.created_by) {
+      return NextResponse.json({ error: "인증 정보를 확인할 수 없습니다." }, { status: 401 });
+    }
+
+    const { data, error } = await supabase
+      .from("promotions")
+      .insert(payload)
+      .select("id")
+      .maybeSingle();
+
+    if (error || !data) {
+      console.error("[admin-v2/promotions POST] insert error:", error);
+      return NextResponse.json({ error: "프로모션을 생성하지 못했습니다." }, { status: 500 });
+    }
+
+    const promotionId = data.id as string;
+
+    if (assignments.length > 0) {
+      const rows = assignments.map((x: any) => ({
+        promotion_id: promotionId,
+        branch_id: x.branch_id,
+        is_active: x.is_active ?? true,
+        start_date: x.start_date ?? null,
+        end_date: x.end_date ?? null,
+        priority_order: x.priority_order ?? null,
+        created_by: userId,
+      }));
+      const { error: assignError } = await supabase
+        .from("promotion_branch_assignments")
+        .upsert(rows, { onConflict: "promotion_id,branch_id" });
+      if (assignError) {
+        console.error("[admin-v2/promotions POST] assignment error:", assignError);
+        return NextResponse.json(
+          { error: "프로모션을 생성했지만 지사 배정 저장에 실패했습니다." },
+          { status: 500 }
+        );
+      }
+    }
+
+    return NextResponse.json({ id: promotionId });
+  } catch (e) {
+    console.error("[admin-v2/promotions POST] unexpected error:", e);
+    return NextResponse.json(
+      { error: "프로모션 생성 중 오류가 발생했습니다." },
       { status: 500 }
     );
   }

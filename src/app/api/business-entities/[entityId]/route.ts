@@ -8,7 +8,8 @@ export async function PATCH(
   const { entityId } = await params;
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.serviceSupabase ?? auth.supabase;
+  const supabase = auth.supabase;
+  const userId = auth.user.id;
   let body: any = {};
 
   try {
@@ -46,9 +47,17 @@ export async function PATCH(
     const { error } = await supabase
       .from("business_entities")
       .update(updates)
-      .eq("id", entityId);
+      .eq("id", entityId)
+      .eq("created_by", userId);
 
     if (error) {
+      const msg = String(error.message || "");
+      if (msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by"))) {
+        return NextResponse.json(
+          { error: "해당 사업자를 찾을 수 없거나 수정 권한이 없습니다." },
+          { status: 404 }
+        );
+      }
       console.error(
         "[admin-v2/business-entities PATCH] Supabase error:",
         error

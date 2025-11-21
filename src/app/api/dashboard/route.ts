@@ -14,10 +14,19 @@ type VehicleRow = { id: string; vehicle_assignments?: { is_active?: boolean | nu
 type LoanRow = { id: string; total_loan?: number | null; remaining_amount?: number | null; next_payment_date?: string | null };
 type PromotionRow = { id: string; status?: string | null; end_date?: string | null; start_date?: string | null };
 
+const EMPTY_DASHBOARD = {
+  riders: { total: 0, approved: 0, pending: 0, rejected: 0, newThisWeek: 0 },
+  settlement: { pendingDaily: 0, totalDaily: 0, approvedDaily: 0, avgSlaDays: null },
+  branches: { total: 0, missingPolicy: 0 },
+  vehicles: { total: 0, active: 0, activeAssignments: 0, unassigned: 0, expiringSoon: 0 },
+  loans: { totalLoan: 0, remaining: 0, overdue: 0, dueToday: 0 },
+  promotions: { active: 0, scheduled: 0, endingSoon: 0, total: 0 },
+  risks: { missingPolicy: 0, unassignedVehicles: 0, overdueLoans: 0 },
+};
+
 export async function GET() {
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-
   const supabase = auth.serviceSupabase ?? auth.supabase;
   const userId = auth.user.id;
   const now = new Date();
@@ -28,21 +37,76 @@ export async function GET() {
   const todayStr = now.toISOString().slice(0, 10);
 
   try {
-    const [ridersRes, settlementRes, branchesRes, vehiclesRes, loansRes] = await Promise.all([
-      supabase.from("riders").select("id, verification_status, created_at"),
-      supabase.from("rider_settlement_requests").select("id, status, requested_mode, created_at, decided_at"),
-      supabase.from("new_branches").select("id").eq("created_by", userId),
+    // 소유 지사
+    const { data: branchesResRaw, error: branchErr } = await supabase
+      .from("new_branches")
+      .select("id")
+      .eq("created_by", userId);
+    if (branchErr) {
+      console.error("[dashboard] branches error:", branchErr);
+      return NextResponse.json({ error: "대시보드 데이터를 불러오지 못했습니다." }, { status: 500 });
+    }
+    const branchIds = (branchesResRaw || []).map((b: any) => String(b.id));
+
+    // 소유 라이더 + 소속 지사를 통한 라이더
+    const riderIdSet = new Set<string>();
+    const { data: ownedRiders } = await supabase
+      .from("riders")
+      .select("id")
+      .eq("created_by", userId);
+    (ownedRiders || []).forEach((r: any) => riderIdSet.add(String(r.id)));
+    if (branchIds.length > 0) {
+      const { data: rnbRows } = await supabase
+        .from("rider_new_branches")
+        .select("rider_id")
+        .in("new_branch_id", branchIds);
+      (rnbRows || []).forEach((row: any) => {
+        if (row.rider_id) riderIdSet.add(String(row.rider_id));
+      });
+    }
+    const riderIds = Array.from(riderIdSet);
+
+    const [ridersRes, settlementRes, vehiclesRes, loansRes] = await Promise.all([
+      riderIds.length > 0
+        ? supabase
+            .from("riders")
+            .select("id, verification_status, created_at")
+            .in("id", riderIds)
+        : Promise.resolve({ data: [], error: null } as any),
+      riderIds.length > 0
+        ? supabase
+            .from("rider_settlement_requests")
+            .select("id, status, requested_mode, created_at, decided_at, rider_id")
+            .in("rider_id", riderIds)
+        : Promise.resolve({ data: [], error: null } as any),
       supabase.from("vehicles").select("id, vehicle_assignments(is_active, end_date)").eq("created_by", userId),
-      supabase.from("rider_loan_summaries").select("id, total_loan, remaining_amount, next_payment_date"),
+      branchIds.length > 0 || riderIds.length > 0
+        ? supabase
+            .from("rider_loan_summaries")
+            .select("id, rider_id, branch_id, total_loan, remaining_amount, next_payment_date")
+            .or(
+              [
+                branchIds.length ? `branch_id.in.(${branchIds.join(",")})` : null,
+                riderIds.length ? `rider_id.in.(${riderIds.join(",")})` : null,
+              ]
+                .filter(Boolean)
+                .join(",")
+            )
+        : Promise.resolve({ data: [], error: null } as any),
     ]);
 
-    if (ridersRes.error || settlementRes.error || branchesRes.error || vehiclesRes.error || loansRes.error) {
+    if (ridersRes.error || settlementRes.error || vehiclesRes.error || loansRes.error) {
       const err =
         ridersRes.error ||
         settlementRes.error ||
-        branchesRes.error ||
         vehiclesRes.error ||
         loansRes.error;
+      const msg = String(err?.message || "");
+      if (msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by"))) {
+        // Return a fully shaped empty payload to avoid client-side runtime errors when new environments
+        // are missing the created_by column (e.g. during migrations). Kept for backward compatibility.
+        return NextResponse.json(EMPTY_DASHBOARD);
+      }
       console.error("[dashboard] query error:", err);
       return NextResponse.json({ error: "대시보드 데이터를 불러오지 못했습니다." }, { status: 500 });
     }
@@ -73,8 +137,7 @@ export async function GET() {
       });
     const avgSlaDays = slaDays.length ? Number((slaDays.reduce((a, b) => a + b, 0) / slaDays.length).toFixed(1)) : null;
 
-    const branches = (branchesRes.data || []) as BranchRow[];
-    const branchIds = branches.map((b) => b.id);
+    const branches = (branchesResRaw || []) as BranchRow[];
     let missingPolicy = 0;
     if (branchIds.length > 0) {
       const { data: policies } = await supabase

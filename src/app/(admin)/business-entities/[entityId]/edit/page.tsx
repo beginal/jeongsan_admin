@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 import { BusinessEntityEditForm } from "@/components/admin-v2/BusinessEntityEditForm";
 
 interface BusinessEntityEditPageProps {
@@ -21,14 +22,22 @@ export default async function BusinessEntityEditPage({
   const { entityId } = await params;
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     console.error("[business-entity edit] Supabase env not set");
     notFound();
   }
 
-  const supabase = createClient(supabaseUrl!, serviceRoleKey!);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) redirect("/login");
+
+  const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
+    global: {
+      headers: { Authorization: `Bearer ${auth.token}` },
+    },
+  });
+  const adminId = auth.user.id;
 
   const { data: entity, error } = await supabase
     .from("business_entities")
@@ -36,6 +45,7 @@ export default async function BusinessEntityEditPage({
       "id, name, type, parent_entity_id, registration_number_enc"
     )
     .eq("id", entityId)
+    .eq("created_by", adminId)
     .maybeSingle();
 
   if (error) {
@@ -59,6 +69,7 @@ export default async function BusinessEntityEditPage({
     const { data: corps } = await supabase
       .from("business_entities")
       .select("id, name, registration_number_enc")
+      .eq("created_by", adminId)
       .eq("type", "CORPORATE")
       .order("name", { ascending: true });
 

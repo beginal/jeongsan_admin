@@ -9,7 +9,6 @@ export function middleware(request: NextRequest) {
     pathname.startsWith("/login") ||
     pathname.startsWith("/signup") ||
     pathname.startsWith("/register") ||
-    pathname.startsWith("/rider") || // 라이더 포털
     pathname.startsWith("/api/auth") || // 인증 엔드포인트
     pathname.startsWith("/api/public") || // 공개 API
     pathname.startsWith("/favicon.ico") ||
@@ -20,10 +19,30 @@ export function middleware(request: NextRequest) {
 
   const adminToken = request.cookies.get("admin_v2_token")?.value;
   const riderToken = request.cookies.get("rider_v2_token")?.value;
+  const searchParams = request.nextUrl.searchParams;
+
+  // 라이더 API는 rider 토큰만 확인하고, 없으면 401 반환
+  if (pathname.startsWith("/api/rider")) {
+    if (riderToken && !isTokenExpired(riderToken)) {
+      return NextResponse.next();
+    }
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const riderOnlyLoans =
+    pathname.startsWith("/api/loans") && searchParams.get("riderOnly") === "true";
+  if (riderOnlyLoans) {
+    const hasValidRider = riderToken && !isTokenExpired(riderToken);
+    const hasValidAdmin = adminToken && !isTokenExpired(adminToken);
+    if (hasValidRider || hasValidAdmin) {
+      return NextResponse.next();
+    }
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   // 라이더 전용 경로
   if (pathname.startsWith("/rider")) {
-    if (riderToken) return NextResponse.next();
+    if (riderToken && !isTokenExpired(riderToken)) return NextResponse.next();
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);

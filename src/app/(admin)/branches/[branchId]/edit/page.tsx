@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import { requireAdminAuth } from "@/lib/auth";
 import { BranchEditForm } from "@/components/admin-v2/BranchEditForm";
 
 interface BranchEditPageProps {
@@ -9,19 +10,30 @@ interface BranchEditPageProps {
 export default async function BranchEditPage({ params }: BranchEditPageProps) {
   const { branchId } = await params;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     console.error("[branch edit] Supabase env not set");
     notFound();
   }
 
-  const supabase = createClient(supabaseUrl!, serviceRoleKey!);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) redirect("/login");
+
+  const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+    },
+  });
+  const adminId = auth.user.id;
 
   // 기본 지사 정보
   const { data: branch, error: branchError } = await supabase
     .from("new_branches")
     .select("id, platform, province, district, branch_name, display_name")
+    .eq("created_by", adminId)
     .eq("id", branchId)
     .maybeSingle();
 
@@ -44,6 +56,7 @@ export default async function BranchEditPage({ params }: BranchEditPageProps) {
   const { data: businessEntities } = await supabase
     .from("business_entities")
     .select("id, name, type, parent_entity_id")
+    .eq("created_by", adminId)
     .order("name", { ascending: true });
 
   const corporateOptions =

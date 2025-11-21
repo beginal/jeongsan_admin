@@ -26,14 +26,14 @@ async function resolveRiderId(
   token: string
 ) {
   const meta = (user?.user_metadata as any) || {};
-  let riderId = meta?.rider_id || user?.id || null;
+  let riderId = meta?.rider_id || null;
   let phoneDigits: string | null =
     meta?.phone || meta?.phone_number || user?.phone || null;
   if (!phoneDigits && user.email && user.email.startsWith("rider-")) {
     const m = user.email.match(/^rider-(\d{8,11})@/);
     if (m) phoneDigits = m[1];
   }
-  if (!riderId && phoneDigits) {
+  if ((!riderId || riderId === user?.id) && phoneDigits) {
     const { data: riderByPhone } = await supabase
       .from("riders")
       .select("id")
@@ -41,6 +41,17 @@ async function resolveRiderId(
       .maybeSingle();
 
     riderId = (riderByPhone as any)?.id || riderId;
+
+    if (!riderId && phoneDigits.length >= 6) {
+      const fuzzyPattern = `%${phoneDigits.split("").join("%")}%`;
+      const { data: riderByFuzzy } = await supabase
+        .from("riders")
+        .select("id")
+        .ilike("phone", fuzzyPattern)
+        .limit(1)
+        .maybeSingle();
+      riderId = (riderByFuzzy as any)?.id || riderId;
+    }
 
     if (!riderId && phoneDigits.length >= 4) {
       const suffix = phoneDigits.slice(-4);
@@ -53,6 +64,14 @@ async function resolveRiderId(
         .maybeSingle();
       riderId = (riderByLike as any)?.id || riderId;
     }
+  }
+  if (!riderId && user?.id) {
+    const { data: riderByUserId } = await supabase
+      .from("riders")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+    riderId = (riderByUserId as any)?.id || riderId;
   }
   return { riderId, phone: phoneDigits };
 }
@@ -96,7 +115,7 @@ async function getSettlementStatus(
 export async function GET() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.supabase;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
@@ -129,7 +148,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = auth.supabase;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
@@ -139,7 +158,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data: riderRow } = await supabase
       .from("riders")
-      .select("verification_status")
+      .select("verification_status, created_by")
       .eq("id", riderId)
       .maybeSingle();
 
@@ -179,6 +198,7 @@ export async function POST(request: NextRequest) {
       decided_at: null,
       decided_by: null,
       updated_at: new Date().toISOString(),
+      created_by: riderRow.created_by ?? null,
     };
 
     const { error: insertErr } = await supabase
@@ -207,7 +227,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.supabase;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {

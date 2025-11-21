@@ -5,13 +5,21 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 type LoginMode = "admin" | "rider";
 
+function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+}
+
 export function LoginPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
   const sessionStatus = searchParams.get("session");
 
-  const [email, setEmail] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [riderPhone, setRiderPhone] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<LoginMode>("admin");
   const [loading, setLoading] = useState(false);
@@ -27,8 +35,8 @@ export function LoginPageClient() {
         mode === "admin" ? "/api/auth/login" : "/api/auth/login-rider";
       const payload =
         mode === "admin"
-          ? { email, password }
-          : { phone: email, password };
+          ? { email: adminEmail.trim(), password }
+          : { phone: riderPhone.replace(/\D/g, ""), password };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -108,22 +116,24 @@ export function LoginPageClient() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1">
                   <label
-                    htmlFor="email"
+                    htmlFor="admin-email"
                     className="block text-xs font-medium text-muted-foreground"
                   >
                     이메일
                   </label>
                   <input
-                    id="email"
+                    id="admin-email"
                     type="email"
                     autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="admin@example.com"
-              />
-            </div>
+                    required
+                    value={adminEmail}
+                    onChange={(e) => {
+                      setAdminEmail(e.target.value);
+                    }}
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="admin@example.com"
+                  />
+                </div>
 
                 <div className="space-y-1">
                   <label
@@ -171,41 +181,32 @@ export function LoginPageClient() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1">
                   <label
-                    htmlFor="email"
+                    htmlFor="phone"
                     className="block text-xs font-medium text-muted-foreground"
                   >
-                  휴대폰 번호
-                </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  autoComplete="tel"
-                  required
-                  value={email}
-                  onChange={(e) => {
-                    const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
-                    if (digits.length <= 3) {
-                      setEmail(digits);
-                    } else if (digits.length <= 7) {
-                      setEmail(`${digits.slice(0, 3)}-${digits.slice(3)}`);
-                    } else {
-                      setEmail(`${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`);
-                    }
-                  }}
-                  className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                  placeholder="010-0000-0000"
-                />
-              </div>
+                    휴대폰 번호
+                  </label>
+                  <input
+                    id="phone"
+                    type="tel"
+                    autoComplete="tel"
+                    required
+                    value={riderPhone}
+                    onChange={(e) => setRiderPhone(formatPhone(e.target.value))}
+                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                    placeholder="010-0000-0000"
+                  />
+                </div>
 
                 <div className="space-y-1">
                   <label
-                    htmlFor="password"
+                    htmlFor="password-rider"
                     className="block text-xs font-medium text-muted-foreground"
                   >
                     비밀번호
                   </label>
                   <input
-                    id="password"
+                    id="password-rider"
                     type="password"
                     autoComplete="current-password"
                     required

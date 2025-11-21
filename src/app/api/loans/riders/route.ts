@@ -5,9 +5,50 @@ export async function GET() {
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
   const supabase = auth.serviceSupabase ?? auth.supabase;
+  const adminId = auth.user.id;
 
   try {
-    const { data, error } = await supabase
+    const { data: ownedBranches } = await supabase
+      .from("new_branches")
+      .select("id")
+      .eq("created_by", adminId);
+    const branchIds = new Set((ownedBranches || []).map((b: any) => String(b.id)));
+
+    // riders created_by admin or assigned to owned branches
+    const { data: ridersBasic, error } = await supabase
+      .from("riders")
+      .select("id, name, phone, verification_status, created_by")
+      .eq("verification_status", "approved");
+
+    if (error) {
+      return NextResponse.json(
+        { error: "라이더 정보를 불러오지 못했습니다." },
+        { status: 500 }
+      );
+    }
+
+    const riderIds = new Set(
+      (ridersBasic || [])
+        .filter((r: any) => String(r.created_by) === adminId)
+        .map((r: any) => String(r.id))
+    );
+
+    if (branchIds.size > 0) {
+      const { data: rnbRows } = await supabase
+        .from("rider_new_branches")
+        .select("rider_id, new_branch_id, status")
+        .eq("status", "active")
+        .in("new_branch_id", Array.from(branchIds));
+      (rnbRows || []).forEach((row: any) => {
+        if (row.rider_id) riderIds.add(String(row.rider_id));
+      });
+    }
+
+    if (riderIds.size === 0) {
+      return NextResponse.json({ riders: [] });
+    }
+
+    const { data, error: detailError } = await supabase
       .from("riders")
       .select(
         `
@@ -28,30 +69,31 @@ export async function GET() {
         )
       `
       )
+      .in("id", Array.from(riderIds))
       .eq("verification_status", "approved")
       .order("name", { ascending: true })
       .range(0, 4999);
 
-    if (error) {
+    if (detailError) {
       return NextResponse.json(
         { error: "라이더 정보를 불러오지 못했습니다." },
         { status: 500 }
       );
     }
 
-    const branchIds: string[] = [];
+    const branchIdList: string[] = [];
 
     (data || []).forEach((r: any) => {
       const activeBranch = Array.isArray(r.branches)
         ? r.branches.find((b: any) => b.status === "active")
         : null;
       if (activeBranch?.new_branch_id) {
-        branchIds.push(String(activeBranch.new_branch_id));
+        branchIdList.push(String(activeBranch.new_branch_id));
       }
     });
 
     let businessByBranch: Record<string, string> = {};
-    if (branchIds.length > 0) {
+    if (branchIdList.length > 0) {
       const { data: affRows } = await supabase
         .from("branch_affiliations")
         .select(
@@ -61,7 +103,7 @@ export async function GET() {
           personal:personal_entity_id (name)
         `
         )
-        .in("branch_id", branchIds);
+        .in("branch_id", branchIdList);
 
       (affRows || []).forEach((row: any) => {
         const corp = row.corporate?.name || "";

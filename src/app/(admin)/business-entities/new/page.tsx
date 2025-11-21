@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
-import { notFound } from "next/navigation";
+import { redirect } from "next/navigation";
+import { requireAdminAuth } from "@/lib/auth";
 import Link from "next/link";
 import { BusinessEntityCreateForm } from "@/components/admin-v2/BusinessEntityCreateForm";
 
@@ -12,18 +13,29 @@ function formatBusinessRegNo(raw?: string | null) {
 
 export default async function BusinessEntityNewPage() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     console.error("[business-entity new] Supabase env not set");
-    notFound();
+    redirect("/login");
   }
 
-  const supabase = createClient(supabaseUrl!, serviceRoleKey!);
+  const auth = await requireAdminAuth();
+  if ("response" in auth) redirect("/login");
+
+  const supabase = createClient(supabaseUrl!, supabaseAnonKey!, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+      },
+    },
+  });
+  const adminId = auth.user.id;
 
   const { data: corps, error } = await supabase
     .from("business_entities")
     .select("id, name, registration_number_enc")
+    .eq("created_by", adminId)
     .eq("type", "CORPORATE")
     .order("name", { ascending: true });
 

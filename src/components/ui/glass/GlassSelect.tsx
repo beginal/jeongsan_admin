@@ -21,8 +21,8 @@ export const GlassSelect = forwardRef<HTMLSelectElement, GlassSelectProps>(
                     <select
                         ref={ref}
                         className={cn(
-                            "h-11 w-full appearance-none rounded-xl border-0 bg-muted/50 px-4 text-sm text-foreground ring-1 ring-inset ring-border/50 focus:bg-white focus:ring-2 focus:ring-primary/50 transition-all duration-200 dark:bg-slate-800/50 dark:focus:bg-slate-800",
-                            error ? "ring-red-500/50 focus:ring-red-500" : "",
+                            "h-11 w-full appearance-none rounded-xl border border-border/70 bg-card px-4 text-sm text-foreground shadow-sm ring-0 focus:border-primary focus:bg-white focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all duration-200 dark:border-white/10 dark:bg-slate-900/40 dark:text-foreground",
+                            error ? "border-red-300 focus:border-red-400 focus:ring-red-300/60" : "",
                             className
                         )}
                         {...props}

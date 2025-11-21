@@ -1,30 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { showToast } from "@/components/ui/Toast";
 
 type RentalStatus = "active" | "inactive";
+type RiderOption = { id: string; name: string; phone: string; suffix: string };
 
-type LeaseRental = {
-  id: string;
-  plate: string;
-  riderId: string | null;
-  riderName: string;
-  riderPhone?: string;
-  vehicleType: string;
-  color?: string;
-  contractType: string;
-  dailyFee: number | string;
-  status: RentalStatus;
-  startDate: string;
-  endDate: string;
-  assignmentId?: string | null;
-  insuranceCompany?: string;
-  insuranceAge?: string;
-};
+const CONTRACT_OPTIONS = [
+  { label: "렌트", value: "rent" },
+  { label: "리스", value: "lease" },
+] as const;
 
-const contractOptions = ["렌트", "리스"] as const;
 const INSURANCE_OPTIONS = [
   "삼성화재",
   "현대해상",
@@ -37,18 +24,42 @@ const INSURANCE_OPTIONS = [
   "AXA손해보험",
   "캐롯손해보험",
 ];
-const INSURANCE_AGE_OPTIONS = ["21", "26", "30", "35"] as const;
-type RiderOption = { id: string; name: string; suffix: string; phone: string };
 
-export default function LeaseRentalEditPage() {
+const INSURANCE_AGE_OPTIONS = ["21", "26", "30", "35"] as const;
+
+type LeaseRentalForm = {
+  plate: string;
+  riderId: string;
+  vehicleType: string;
+  color: string;
+  contractType: string;
+  dailyFee: number | string;
+  insuranceCompany: string;
+  insuranceAge: string;
+  status: RentalStatus;
+  startDate: string;
+  endDate: string;
+};
+
+export default function LeaseRentalCreatePage() {
   const router = useRouter();
-  const params = useParams();
-  const rentalId = params?.rentalId as string;
-  const [form, setForm] = useState<LeaseRental | null>(null);
+  const [form, setForm] = useState<LeaseRentalForm>({
+    plate: "",
+    riderId: "",
+    vehicleType: "",
+    color: "",
+    contractType: CONTRACT_OPTIONS[0].value,
+    dailyFee: "",
+    insuranceCompany: "",
+    insuranceAge: "",
+    status: "active",
+    startDate: "",
+    endDate: "",
+  });
+  const [riderOptions, setRiderOptions] = useState<RiderOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [riderOptions, setRiderOptions] = useState<RiderOption[]>([]);
 
   useEffect(() => {
     let mounted = true;
@@ -56,29 +67,15 @@ export default function LeaseRentalEditPage() {
       setLoading(true);
       setError(null);
       try {
-        const [rentalRes, riderRes] = await Promise.all([
-          fetch(`/api/lease-rentals/${encodeURIComponent(rentalId)}`, {
-            credentials: "include",
-          }),
-          fetch("/api/lease-rentals/riders", { credentials: "include" }),
-        ]);
-
-        const rentalData = await rentalRes.json().catch(() => ({}));
+        const riderRes = await fetch("/api/lease-rentals/riders", {
+          credentials: "include",
+        });
         const riderData = await riderRes.json().catch(() => ({}));
-
-        if (!rentalRes.ok || rentalData?.error) {
-          throw new Error(rentalData?.error || "리스렌탈 정보를 불러오지 못했습니다.");
-        }
         if (!riderRes.ok || riderData?.error) {
           throw new Error(riderData?.error || "라이더 목록을 불러오지 못했습니다.");
         }
+
         if (mounted) {
-          setForm({
-            ...rentalData.rental,
-            dailyFee: rentalData.rental?.dailyFee != null ? String(rentalData.rental.dailyFee) : "",
-            insuranceAge: rentalData.rental?.insuranceAge || "",
-            insuranceCompany: rentalData.rental?.insuranceCompany || "",
-          });
           setRiderOptions(
             (riderData.riders || []).map((r: any) => ({
               id: r.id,
@@ -98,48 +95,48 @@ export default function LeaseRentalEditPage() {
     return () => {
       mounted = false;
     };
-  }, [rentalId]);
+  }, []);
 
-  const handleChange = (key: keyof LeaseRental, value: any) => {
-    setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
+  const handleChange = (key: keyof LeaseRentalForm, value: any) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleSave = () => {
-    if (!form) return;
+  const handleSave = async () => {
     setSaving(true);
     setError(null);
-    fetch(`/api/lease-rentals/${encodeURIComponent(rentalId)}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        plate: form.plate,
-        riderId: form.riderId,
-        vehicleType: form.vehicleType,
-        color: form.color,
-        contractType: form.contractType,
-        dailyFee: Number(String(form.dailyFee || "").replace(/,/g, "")) || 0,
-        insuranceCompany: form.insuranceCompany,
-        insuranceAge: form.insuranceAge,
-        status: form.status,
-        startDate: form.startDate,
-        endDate: form.endDate,
-      }),
-    })
-      .then(async (res) => {
+    try {
+        const res = await fetch("/api/lease-rentals", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            plate: form.plate,
+            riderId: form.riderId || null,
+            vehicleType: form.vehicleType,
+            color: form.color || null,
+            contractType: form.contractType,
+            dailyFee: Number(String(form.dailyFee || "").replace(/,/g, "")) || 0,
+            insuranceCompany: form.insuranceCompany || null,
+            insuranceAge: form.insuranceAge || null,
+            status: form.status,
+            startDate: form.startDate || null,
+            endDate: form.endDate || null,
+          }),
+        });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data?.error) {
-          throw new Error(data?.error || "저장에 실패했습니다.");
+          throw new Error(data?.error || "리스렌탈을 생성하지 못했습니다.");
         }
-        showToast("저장되었습니다.", "success");
+        showToast("리스렌탈을 생성했습니다.", "success");
         router.push("/lease-rentals");
-      })
-      .catch((e: any) => {
-        const msg = e.message || "저장에 실패했습니다.";
+        router.refresh();
+      } catch (e: any) {
+        const msg = e.message || "리스렌탈을 생성하지 못했습니다.";
         setError(msg);
         showToast(msg, "error");
-      })
-      .finally(() => setSaving(false));
+      } finally {
+        setSaving(false);
+      }
   };
 
   return (
@@ -147,16 +144,16 @@ export default function LeaseRentalEditPage() {
       <div className="flex items-center justify-between border-b border-border pb-3">
         <div>
           <div className="text-[11px] text-muted-foreground">리스·렌탈 관리</div>
-          <h1 className="text-lg font-semibold text-foreground">리스렌탈 수정</h1>
+          <h1 className="text-lg font-semibold text-foreground">리스렌탈 추가</h1>
           <p className="text-xs text-muted-foreground">
-            차량번호, 라이더, 차종, 계약 방식, 일 요금, 상태, 계약 기간을 수정합니다.
+            차량번호, 라이더, 차종, 계약 방식, 일 요금, 상태, 계약 기간을 입력해 새 리스·렌탈을 등록합니다.
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs">
           <button
             type="button"
             className="h-9 rounded-md border border-border px-3 text-muted-foreground hover:bg-muted"
-            onClick={() => router.back()}
+            onClick={() => router.push("/lease-rentals")}
           >
             목록으로
           </button>
@@ -164,7 +161,7 @@ export default function LeaseRentalEditPage() {
             type="button"
             className="h-9 rounded-md bg-primary px-4 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
             onClick={handleSave}
-            disabled={saving || loading || !form}
+            disabled={saving || loading}
           >
             {saving ? "저장 중..." : "저장"}
           </button>
@@ -177,7 +174,7 @@ export default function LeaseRentalEditPage() {
         </div>
       )}
 
-      {loading || !form ? (
+      {loading ? (
         <div className="rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
           불러오는 중...
         </div>
@@ -193,12 +190,14 @@ export default function LeaseRentalEditPage() {
               <SelectField
                 label="차종"
                 value={form.vehicleType}
-                options={["젠트로피", "PCX"].map((c) => ({ label: c, value: c }))}
+                options={[{ label: "젠트로피", value: "젠트로피" }, { label: "PCX", value: "PCX" }]}
                 onChange={(v) => handleChange("vehicleType", v)}
+                placeholder="차종을 선택하거나 직접 입력"
+                allowCustom
               />
               <Field
                 label="색상"
-                value={form.color || ""}
+                value={form.color}
                 onChange={(v) => handleChange("color", v)}
               />
             </div>
@@ -208,18 +207,20 @@ export default function LeaseRentalEditPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <SelectField
                 label="라이더"
-                value={form.riderId || ""}
-                options={riderOptions.map((r) => ({
-                  label: `${r.name}${r.suffix ? ` (${r.suffix})` : ""}`,
-                  value: r.id,
-                }))}
+                value={form.riderId}
+                options={[
+                  { label: "배정 안 함", value: "" },
+                  ...riderOptions.map((r) => ({
+                    label: `${r.name}${r.suffix ? ` (${r.suffix})` : r.phone ? ` (${r.phone})` : ""}`,
+                    value: r.id,
+                  })),
+                ]}
                 onChange={(v) => handleChange("riderId", v)}
-                placeholder="라이더 선택"
               />
               <SelectField
                 label="계약 방식"
                 value={form.contractType}
-                options={contractOptions.map((c) => ({ label: c, value: c }))}
+                options={CONTRACT_OPTIONS.map((c) => ({ label: c.label, value: c.value }))}
                 onChange={(v) => handleChange("contractType", v)}
               />
               <CurrencyField
@@ -254,16 +255,17 @@ export default function LeaseRentalEditPage() {
             <div className="grid gap-3 md:grid-cols-2">
               <SelectField
                 label="보험사"
-                value={form.insuranceCompany || ""}
-                onChange={(v) => handleChange("insuranceCompany", v)}
+                value={form.insuranceCompany}
                 options={INSURANCE_OPTIONS.map((c) => ({ label: c, value: c }))}
+                onChange={(v) => handleChange("insuranceCompany", v)}
                 placeholder="보험사 선택"
+                allowCustom
               />
               <SelectField
                 label="보험 연령"
-                value={form.insuranceAge || ""}
-                onChange={(v) => handleChange("insuranceAge", v)}
+                value={form.insuranceAge}
                 options={INSURANCE_AGE_OPTIONS.map((c) => ({ label: c, value: c }))}
+                onChange={(v) => handleChange("insuranceAge", v)}
                 placeholder="연령 선택"
               />
             </div>
@@ -312,13 +314,16 @@ function SelectField({
   options,
   onChange,
   placeholder,
+  allowCustom = false,
 }: {
   label: string;
   value: string;
   options: { label: string; value: string }[];
   onChange: (v: string) => void;
   placeholder?: string;
+  allowCustom?: boolean;
 }) {
+  const hasValue = value && options.some((opt) => opt.value === value);
   return (
     <label className="flex flex-col gap-1 text-sm">
       <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
@@ -337,6 +342,9 @@ function SelectField({
             {opt.label}
           </option>
         ))}
+        {allowCustom && value && !hasValue && (
+          <option value={value}>{value}</option>
+        )}
       </select>
     </label>
   );

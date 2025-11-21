@@ -15,6 +15,7 @@ type AdminAuthFailure = {
 
 type RiderAuthSuccess = {
   supabase: SupabaseClient;
+  serviceSupabase: SupabaseClient | null;
   user: User;
   token: string;
 };
@@ -74,6 +75,7 @@ export async function requireAdminAuth(): Promise<AdminAuthSuccess | AdminAuthFa
 export async function requireRiderAuth(): Promise<RiderAuthSuccess | RiderAuthFailure> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
     return { response: missingEnvResponse() };
@@ -97,5 +99,7 @@ export async function requireRiderAuth(): Promise<RiderAuthSuccess | RiderAuthFa
     return { response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  return { supabase, user: data.user, token };
+  const serviceSupabase = serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
+
+  return { supabase, serviceSupabase, user: data.user, token };
 }

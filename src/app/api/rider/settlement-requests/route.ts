@@ -4,17 +4,22 @@ import { requireAdminAuth } from "@/lib/auth";
 export async function GET() {
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
+  const userId = auth.user.id;
 
   try {
-    const supabase = auth.serviceSupabase ?? auth.supabase;
+    const supabase = auth.supabase;
     const { data, error } = await supabase
       .from("rider_settlement_requests")
       .select(
-        "id, rider_id, requested_mode, status, rejection_reason, created_at, decided_at, riders:rider_id (id, name, phone, verification_status)"
+        "id, rider_id, requested_mode, status, rejection_reason, created_at, decided_at, created_by, riders:rider_id (id, name, phone, verification_status, created_by)"
       )
       .order("created_at", { ascending: false });
 
     if (error) {
+      const msg = String(error.message || "");
+      if (msg.includes("created_by") || msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by")) {
+        return NextResponse.json({ requests: [] });
+      }
       console.error("[admin settlement requests] query error:", error);
       return NextResponse.json(
         { error: "정산 신청 목록을 불러오지 못했습니다." },
@@ -27,6 +32,9 @@ export async function GET() {
     for (const row of data || []) {
       const riderId = row.rider_id;
       if (!riderId) continue;
+
+      const ownerId = (row as any).created_by || (row as any).riders?.created_by;
+      if (ownerId !== userId) continue;
       grouped[riderId] = grouped[riderId] || [];
       grouped[riderId].push(row);
     }

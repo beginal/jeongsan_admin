@@ -274,8 +274,8 @@ export function BranchEditForm({
                   variant="ghost"
                   onClick={() => setPlatform("coupang")}
                   className={`flex-1 rounded-lg px-3 py-2 font-medium h-auto ${platform === "coupang"
-                    ? "bg-sky-500 text-white shadow-md shadow-sky-500/20 hover:bg-sky-600 hover:text-white"
-                    : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/25 hover:bg-primary/90"
+                    : "bg-white text-foreground hover:bg-muted"
                     }`}
                 >
                   쿠팡
@@ -285,8 +285,8 @@ export function BranchEditForm({
                   variant="ghost"
                   onClick={() => setPlatform("baemin")}
                   className={`flex-1 rounded-lg px-3 py-2 font-medium h-auto ${platform === "baemin"
-                    ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600 hover:text-white"
-                    : "text-muted-foreground hover:bg-white/50 hover:text-foreground"
+                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/25 hover:bg-primary/90"
+                    : "bg-white text-foreground hover:bg-muted"
                     }`}
                 >
                   배민
@@ -398,8 +398,8 @@ export function BranchEditForm({
                   variant="ghost"
                   onClick={() => setFeeType("per_case")}
                   className={`flex-1 rounded-xl border px-4 py-2.5 text-xs font-medium h-auto ${feeType === "per_case"
-                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90 hover:text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/25 hover:bg-primary/90"
+                    : "border-border bg-white text-foreground hover:bg-muted"
                     }`}
                 >
                   건당 수수료
@@ -409,8 +409,8 @@ export function BranchEditForm({
                   variant="ghost"
                   onClick={() => setFeeType("percentage")}
                   className={`flex-1 rounded-xl border px-4 py-2.5 text-xs font-medium h-auto ${feeType === "percentage"
-                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90 hover:text-primary-foreground"
-                    : "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/25 hover:bg-primary/90"
+                    : "border-border bg-white text-foreground hover:bg-muted"
                     }`}
                 >
                   % 수수료
