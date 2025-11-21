@@ -2,22 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-
-const formatPhone = (raw?: string | null) => {
-  const digits = (raw || "").replace(/\D/g, "").slice(0, 11);
-  if (!digits) return "";
-  if (digits.startsWith("02")) {
-    if (digits.length <= 2) return digits;
-    if (digits.length <= 5) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
-    if (digits.length <= 9) {
-      return `${digits.slice(0, 2)}-${digits.slice(2, digits.length - 2)}-${digits.slice(-2)}`;
-    }
-    return `${digits.slice(0, 2)}-${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
-  }
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  return `${digits.slice(0, 3)}-${digits.slice(3, digits.length - 4)}-${digits.slice(-4)}`;
-};
+import { formatPhone } from "@/lib/phone";
+import { badgeToneClass, getRiderStatusMeta } from "@/lib/status";
 
 type RiderStatus = "approved" | "pending" | "rejected";
 
@@ -147,22 +133,6 @@ export default function RidersPage() {
 
     return { duplicateCount, groupCount };
   }, [riders]);
-
-  const statusLabel = (status: RiderStatus) => {
-    if (status === "approved") return "승인됨";
-    if (status === "pending") return "대기";
-    return "반려됨";
-  };
-
-  const statusClass = (status: RiderStatus) => {
-    if (status === "approved") {
-      return "bg-emerald-100 text-emerald-700 border-emerald-200";
-    }
-    if (status === "pending") {
-      return "bg-amber-100 text-amber-700 border-amber-200";
-    }
-    return "bg-red-100 text-red-700 border-red-200";
-  };
 
   const handleStatusChange = async (
     riderId: string,
@@ -426,11 +396,11 @@ export default function RidersPage() {
                     </td>
                     <td className="px-4 py-3 align-middle text-sm">
                       <span
-                        className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusClass(
-                          rider.status
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeToneClass(
+                          getRiderStatusMeta(rider.status).tone
                         )}`}
                       >
-                        {statusLabel(rider.status)}
+                        {getRiderStatusMeta(rider.status).label}
                       </span>
                     </td>
                     <td className="px-4 py-3 align-middle text-right text-[11px]">
