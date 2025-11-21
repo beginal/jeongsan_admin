@@ -3,6 +3,8 @@
 import type { FormEvent } from "react";
 import { useState } from "react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { Button } from "@/components/ui/Button";
+import { showToast } from "@/components/ui/Toast";
 
 interface LoanEditFormProps {
   loanId: string;
@@ -97,8 +99,12 @@ export function LoanEditForm({
         throw new Error(data.error || "수정에 실패했습니다.");
       }
       setMessage("대여금 정보가 저장되었습니다.");
+      showToast("대여금 정보를 저장했습니다.", "success");
+      window.location.href = "/loan-management";
     } catch (e: any) {
-      setError(e.message || "저장에 실패했습니다.");
+      const msg = e.message || "저장에 실패했습니다.";
+      setError(msg);
+      showToast(msg, "error");
     } finally {
       setSaving(false);
     }
@@ -320,15 +326,16 @@ export function LoanEditForm({
         </div>
 
         <div className="flex items-center justify-end gap-2">
-          <GlassButton
+          <Button
             type="button"
             disabled={addingPayment}
             onClick={addPayment}
             variant="primary"
             size="sm"
+            isLoading={addingPayment}
           >
-            {addingPayment ? "추가 중..." : "입금 추가"}
-          </GlassButton>
+            입금 추가
+          </Button>
         </div>
 
         <div className="overflow-auto rounded-md border border-border bg-card">
