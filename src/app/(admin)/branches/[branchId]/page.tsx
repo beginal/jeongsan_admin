@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import { BranchDeleteButton } from "@/components/admin-v2/BranchDeleteButton";
 import { BranchPromotionActions } from "@/components/admin-v2/BranchPromotionActions";
+import { formatPhone } from "@/lib/phone";
+import { badgeToneClass, getRiderStatusMeta } from "@/lib/status";
 
 interface BranchDetailPageProps {
   params: Promise<{ branchId: string }>;
@@ -31,22 +33,6 @@ const promotionStatusClass = (status: BranchPromotionStatus) => {
     return "border-amber-200 bg-amber-50 text-amber-700";
   }
   return "border-slate-200 bg-slate-50 text-slate-700";
-};
-
-const riderStatusLabel = (status: string | null | undefined) => {
-  if (status === "approved") return "승인됨";
-  if (status === "rejected") return "반려됨";
-  return "대기";
-};
-
-const riderStatusClass = (status: string | null | undefined) => {
-  if (status === "approved") {
-    return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  }
-  if (status === "rejected") {
-    return "border-red-200 bg-red-50 text-red-700";
-  }
-  return "border-amber-200 bg-amber-50 text-amber-700";
 };
 
 export default async function BranchDetailPage({
@@ -597,15 +583,15 @@ export default async function BranchDetailPage({
                       />
                     </td>
                     <td className="px-3 py-2 align-middle text-xs text-muted-foreground">
-                      {r.phone || "-"}
+                      {formatPhone(r.phone) || "-"}
                     </td>
                     <td className="px-3 py-2 align-middle text-xs">
                       <span
-                        className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${riderStatusClass(
-                          r.verificationStatus
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-[11px] font-medium ${badgeToneClass(
+                          getRiderStatusMeta(r.verificationStatus).tone
                         )}`}
                       >
-                        {riderStatusLabel(r.verificationStatus)}
+                        {getRiderStatusMeta(r.verificationStatus).label}
                       </span>
                     </td>
                   </tr>
