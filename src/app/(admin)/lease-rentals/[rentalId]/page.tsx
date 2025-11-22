@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { showToast } from "@/components/ui/Toast";
 import { DateField } from "@/components/ui/DateField";
+import { Switch } from "@/components/ui/Switch";
 
 type RentalStatus = "active" | "inactive";
 
@@ -242,10 +243,13 @@ export default function LeaseRentalEditPage() {
                 min={form.startDate || undefined}
               />
               <div className="md:col-span-2">
-                <StatusSwitch
+                <Switch
                   label="상태"
-                  value={form.status === "active"}
+                  description="활성 시 대여 가능 상태로 표시됩니다."
+                  checked={form.status === "active"}
                   onChange={(v) => handleChange("status", v ? "active" : "inactive")}
+                  onLabel="활성"
+                  offLabel="비활성"
                 />
               </div>
             </div>
@@ -386,44 +390,6 @@ function SectionCard({ title, children }: { title: string; children: React.React
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
       </div>
       {children}
-    </div>
-  );
-}
-
-function StatusSwitch({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-1 text-sm">
-      <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
-      <button
-        type="button"
-        onClick={() => onChange(!value)}
-        className={`flex h-10 w-full items-center justify-between rounded-md border px-3 transition ${
-          value
-            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-            : "border-border bg-background text-muted-foreground"
-        }`}
-      >
-        <span className="text-xs font-medium">{value ? "활성" : "비활성"}</span>
-        <span
-          className={`inline-flex h-5 w-10 items-center rounded-full border transition ${
-            value ? "border-emerald-400 bg-emerald-300/70" : "border-border bg-muted"
-          }`}
-        >
-          <span
-            className={`ml-1 h-4 w-4 rounded-full bg-white shadow transition ${
-              value ? "translate-x-4" : ""
-            }`}
-          />
-        </span>
-      </button>
     </div>
   );
 }

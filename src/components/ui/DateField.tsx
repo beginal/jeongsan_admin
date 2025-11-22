@@ -78,9 +78,10 @@ export function DateField({
   for (let i = 0; i < startDay; i++) current.push({ day: null });
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(Date.UTC(viewYear, viewMonth, d));
-    const disabled =
+    const disabled = Boolean(
       (minDate && date < minDate) ||
-      (maxDate && date > maxDate);
+      (maxDate && date > maxDate)
+    ) || undefined;
     current.push({ day: d, date, disabled });
     if (current.length === 7) {
       weeks.push(current);

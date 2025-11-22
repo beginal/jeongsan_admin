@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Wallet } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type LoanRow = {
   id: string;
@@ -139,7 +140,20 @@ export default function LoanManagementPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {filtered.map((loan) => (
+            {loading
+              ? Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={`loan-skel-${idx}`} className="animate-pulse">
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+                    <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                    <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                    <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                    <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-16 mx-auto" /></td>
+                    <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-16 mx-auto" /></td>
+                    <td className="px-4 py-3 text-center"><Skeleton className="h-4 w-20 mx-auto" /></td>
+                  </tr>
+                ))
+              : filtered.map((loan) => (
               <tr
                 key={loan.id}
                 className="hover:bg-muted/40 cursor-pointer"
@@ -163,7 +177,7 @@ export default function LoanManagementPage() {
                 </td>
               </tr>
             ))}
-            {filtered.length === 0 && (
+            {filtered.length === 0 && !loading && (
               <tr>
                 <td colSpan={7} className="px-4 py-6">
                   <EmptyState

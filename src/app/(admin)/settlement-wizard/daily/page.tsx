@@ -852,7 +852,7 @@ export default function WeeklySettlementWizardPage() {
     <div className="space-y-6">
       <div className="flex items-center gap-3 border-b border-border pb-4">
         <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <span className="text-lg font-semibold">S1</span>
+          <Upload className="h-5 w-5" />
         </div>
         <div>
           <div className="text-[11px] text-muted-foreground">정산 마법사 / Step 1</div>
@@ -1048,7 +1048,7 @@ export default function WeeklySettlementWizardPage() {
       <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center gap-3 border-b border-border pb-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <span className="text-lg font-semibold">S2</span>
+            <FileSpreadsheet className="h-5 w-5" />
           </div>
           <div>
             <div className="text-[11px] text-muted-foreground">정산 마법사 / Step 2</div>
@@ -1248,7 +1248,7 @@ export default function WeeklySettlementWizardPage() {
       <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="flex items-center gap-3 border-b border-border pb-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <span className="text-lg font-semibold">S3</span>
+            <ShieldCheck className="h-5 w-5" />
           </div>
           <div>
             <div className="text-[11px] text-muted-foreground">정산 마법사 / Step 3</div>

@@ -5,7 +5,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "정산봇 - 배달 정산 플랫폼",
-  description: "배달 정산 관련 - 나중에 수정 예정"
+  description: "배달 정산 관련 - 나중에 수정 예정",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

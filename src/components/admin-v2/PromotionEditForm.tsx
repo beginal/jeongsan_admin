@@ -3,8 +3,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
-import { Button } from "@/components/ui/Button";
+import { GlassInput } from "@/components/ui/glass/GlassInput";
+import { GlassSelect } from "@/components/ui/glass/GlassSelect";
+import { GlassTextarea } from "@/components/ui/glass/GlassTextarea";
+import { PageHeader } from "@/components/ui/glass/PageHeader";
+import { Section } from "@/components/ui/glass/Section";
 import { DateField } from "@/components/ui/DateField";
+import { Switch } from "@/components/ui/Switch";
 
 type PromotionType = "excess" | "milestone" | "milestone_per_unit";
 type PromotionStatusDb = "ACTIVE" | "INACTIVE";
@@ -119,15 +124,15 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
       setError(null);
       setLoading(true);
       try {
-      const res = await fetch(
-        `/api/promotions/${encodeURIComponent(promotionId!)}`
-      );
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(
-          data?.error || "프로모션 정보를 불러오지 못했습니다."
+        const res = await fetch(
+          `/api/promotions/${encodeURIComponent(promotionId!)}`
         );
-      }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(
+            data?.error || "프로모션 정보를 불러오지 못했습니다."
+          );
+        }
         if (cancelled) return;
 
         const p = data.promotion as any;
@@ -494,40 +499,37 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4 text-xs">
-        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-            <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">
-              {isCreate ? "프로모션 생성" : "프로모션 수정"}
-            </span>
-            <span className="text-muted-foreground text-xs">{name || "제목 없음"}</span>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          {!isCreate && (
-            <Button
+      <PageHeader
+        title={isCreate ? "프로모션 생성" : "프로모션 수정"}
+        description={name || "제목 없음"}
+        actions={
+          <div className="flex items-center gap-2">
+            {!isCreate && (
+              <GlassButton
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => setShowDeleteModal(true)}
+                disabled={saving || deleting}
+              >
+                삭제
+              </GlassButton>
+            )}
+            <GlassButton
               type="button"
-              variant="danger"
+              variant="secondary"
               size="sm"
-              onClick={() => setShowDeleteModal(true)}
+              onClick={() => router.push("/promotions")}
               disabled={saving || deleting}
-              isLoading={deleting}
             >
-              삭제
-            </Button>
-          )}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => router.push("/promotions")}
-            disabled={saving || deleting}
-          >
-            취소
-          </Button>
-          <Button type="submit" variant="primary" size="sm" disabled={saving || deleting} isLoading={saving}>
-            저장
-          </Button>
-        </div>
-      </div>
+              취소
+            </GlassButton>
+            <GlassButton type="submit" variant="primary" size="sm" disabled={saving || deleting}>
+              {saving ? "저장 중..." : "저장"}
+            </GlassButton>
+          </div>
+        }
+      />
 
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
@@ -582,17 +584,11 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
 
       <div className="space-y-4">
         <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              기본 정보
-            </h2>
+          <Section title="기본 정보">
             <div className="mt-3 space-y-3">
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  프로모션명
-                </label>
-                <input
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                <GlassInput
+                  label="프로모션명"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="예: 7월 피크 보너스"
@@ -600,45 +596,26 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-muted-foreground">
-                    유형
-                  </label>
-                  <select
-                    className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                  <GlassSelect
+                    label="유형"
                     value={type}
-                    onChange={(e) =>
-                      setType(e.target.value as PromotionType)
-                    }
-                  >
-                    <option value="excess">건수 초과 보상</option>
-                    <option value="milestone">목표 달성 보상</option>
-                    <option value="milestone_per_unit">단위당 보상</option>
-                  </select>
+                    onChange={(e) => setType(e.target.value as PromotionType)}
+                    options={[
+                      { label: "건수 초과 보상", value: "excess" },
+                      { label: "목표 달성 보상", value: "milestone" },
+                      { label: "단위당 보상", value: "milestone_per_unit" },
+                    ]}
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="block text-xs font-medium text-muted-foreground">
-                    활성 상태
-                  </label>
-                  <div className="mt-1 inline-flex rounded-full border border-border bg-background/60 p-0.5 text-[11px] text-muted-foreground">
-                    <GlassButton
-                      type="button"
-                      variant={status === "ACTIVE" ? "primary" : "ghost"}
-                      size="sm"
-                      className={`h-6 rounded-full px-2.5 text-[11px] ${status !== "ACTIVE" ? "hover:bg-transparent" : ""}`}
-                      onClick={() => setStatus("ACTIVE")}
-                    >
-                      활성
-                    </GlassButton>
-                    <GlassButton
-                      type="button"
-                      variant={status === "INACTIVE" ? "primary" : "ghost"}
-                      size="sm"
-                      className={`h-6 rounded-full px-2.5 text-[11px] ${status !== "INACTIVE" ? "hover:bg-transparent" : ""}`}
-                      onClick={() => setStatus("INACTIVE")}
-                    >
-                      비활성
-                    </GlassButton>
-                  </div>
+                  <Switch
+                    label="활성 상태"
+                    description="활성 시 즉시 적용되며, 비활성 시 노출/지급이 중단됩니다."
+                    checked={status === "ACTIVE"}
+                    onChange={(v) => setStatus(v ? "ACTIVE" : "INACTIVE")}
+                    onLabel="활성"
+                    offLabel="비활성"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -657,79 +634,58 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                 />
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  프로모션 설명
-                </label>
-                <textarea
-                  className="min-h-[72px] w-full rounded-md border border-border bg-background px-2 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                <GlassTextarea
+                  label="프로모션 설명"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="프로모션 설명 (선택 사항)"
                 />
               </div>
             </div>
-          </div>
+          </Section>
 
-          <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              프로모션 설정
-            </h2>
+          <Section title="프로모션 설정">
             <div className="mt-3 space-y-3">
               {type === "excess" && (
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      임계치(건수)
-                    </label>
-                    <input
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value={configExcess.threshold}
-                      onChange={(e) =>
-                        setConfigExcess((prev) => ({
-                          ...prev,
-                          threshold: e.target.value,
-                        }))
-                      }
-                      placeholder="예: 100"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      초과 1건당 금액(+원)
-                    </label>
-                    <input
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value={configExcess.amountPerExcess}
-                      onChange={(e) =>
-                        setConfigExcess((prev) => ({
-                          ...prev,
-                          amountPerExcess: e.target.value,
-                        }))
-                      }
-                      placeholder="예: 1000"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      상한(옵션)
-                    </label>
-                    <input
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value={configExcess.cap || ""}
-                      onChange={(e) =>
-                        setConfigExcess((prev) => ({
-                          ...prev,
-                          cap: e.target.value,
-                        }))
-                      }
-                      placeholder="예: 50000"
-                    />
-                  </div>
+                  <GlassInput
+                    label="임계치(건수)"
+                    value={configExcess.threshold}
+                    onChange={(e) =>
+                      setConfigExcess((prev) => ({
+                        ...prev,
+                        threshold: e.target.value,
+                      }))
+                    }
+                    placeholder="예: 100"
+                  />
+                  <GlassInput
+                    label="초과 1건당 금액(+원)"
+                    value={configExcess.amountPerExcess}
+                    onChange={(e) =>
+                      setConfigExcess((prev) => ({
+                        ...prev,
+                        amountPerExcess: e.target.value,
+                      }))
+                    }
+                    placeholder="예: 1000"
+                  />
+                  <GlassInput
+                    label="상한(옵션)"
+                    value={configExcess.cap || ""}
+                    onChange={(e) =>
+                      setConfigExcess((prev) => ({
+                        ...prev,
+                        cap: e.target.value,
+                      }))
+                    }
+                    placeholder="예: 50000"
+                  />
                 </div>
               )}
               {type === "milestone" && (
                 <div className="space-y-2">
-                  <span className="text-xs font-medium text-muted-foreground">
+                  <span className="text-xs font-medium text-muted-foreground ml-1">
                     마일스톤 구간
                   </span>
                   {configMilestone.tiers.map((t, idx) => (
@@ -737,50 +693,40 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                       key={idx}
                       className="grid grid-cols-1 gap-2 md:grid-cols-[1fr,1fr,auto]"
                     >
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">
-                          도달 건수
-                        </label>
-                        <input
-                          className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                          value={t.threshold}
-                          onChange={(e) =>
-                            setConfigMilestone((prev) => ({
-                              tiers: prev.tiers.map((x, i) =>
-                                i === idx
-                                  ? { ...x, threshold: e.target.value }
-                                  : x
-                              ),
-                            }))
-                          }
-                          placeholder="예: 120"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium text-muted-foreground">
-                          지급 금액(+원)
-                        </label>
-                        <input
-                          className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                          value={t.amount}
-                          onChange={(e) =>
-                            setConfigMilestone((prev) => ({
-                              tiers: prev.tiers.map((x, i) =>
-                                i === idx
-                                  ? { ...x, amount: e.target.value }
-                                  : x
-                              ),
-                            }))
-                          }
-                          placeholder="예: 5000"
-                        />
-                      </div>
-                      <div className="flex items-end">
+                      <GlassInput
+                        label="도달 건수"
+                        value={t.threshold}
+                        onChange={(e) =>
+                          setConfigMilestone((prev) => ({
+                            tiers: prev.tiers.map((x, i) =>
+                              i === idx
+                                ? { ...x, threshold: e.target.value }
+                                : x
+                            ),
+                          }))
+                        }
+                        placeholder="예: 120"
+                      />
+                      <GlassInput
+                        label="지급 금액(+원)"
+                        value={t.amount}
+                        onChange={(e) =>
+                          setConfigMilestone((prev) => ({
+                            tiers: prev.tiers.map((x, i) =>
+                              i === idx
+                                ? { ...x, amount: e.target.value }
+                                : x
+                            ),
+                          }))
+                        }
+                        placeholder="예: 5000"
+                      />
+                      <div className="flex items-end pb-0.5">
                         <GlassButton
                           type="button"
                           variant="destructive"
                           size="sm"
-                          className="h-8 px-3 text-[11px]"
+                          className="h-11 px-3 text-[11px]"
                           onClick={() =>
                             setConfigMilestone((prev) => ({
                               tiers: prev.tiers.filter((_, i) => i !== idx),
@@ -810,326 +756,237 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
               )}
               {type === "milestone_per_unit" && (
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      시작 임계치
-                    </label>
-                    <input
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value={configPerUnit.threshold}
-                      onChange={(e) =>
-                        setConfigPerUnit((prev) => ({
-                          ...prev,
-                          threshold: e.target.value,
-                        }))
-                      }
-                      placeholder="예: 100"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      단위 크기
-                    </label>
-                    <input
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value={configPerUnit.unitSize}
-                      onChange={(e) =>
-                        setConfigPerUnit((prev) => ({
-                          ...prev,
-                          unitSize: e.target.value,
-                        }))
-                      }
-                      placeholder="예: 10"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground">
-                      단위 금액(+원)
-                    </label>
-                    <input
-                      className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                      value={configPerUnit.unitAmount}
-                      onChange={(e) =>
-                        setConfigPerUnit((prev) => ({
-                          ...prev,
-                          unitAmount: e.target.value,
-                        }))
-                      }
-                      placeholder="예: 100"
-                    />
-                  </div>
+                  <GlassInput
+                    label="시작 건수(임계치)"
+                    value={configPerUnit.threshold}
+                    onChange={(e) =>
+                      setConfigPerUnit((prev) => ({
+                        ...prev,
+                        threshold: e.target.value,
+                      }))
+                    }
+                    placeholder="예: 100"
+                  />
+                  <GlassInput
+                    label="단위(건)"
+                    value={configPerUnit.unitSize}
+                    onChange={(e) =>
+                      setConfigPerUnit((prev) => ({
+                        ...prev,
+                        unitSize: e.target.value,
+                      }))
+                    }
+                    placeholder="예: 10"
+                  />
+                  <GlassInput
+                    label="단위당 금액(+원)"
+                    value={configPerUnit.unitAmount}
+                    onChange={(e) =>
+                      setConfigPerUnit((prev) => ({
+                        ...prev,
+                        unitAmount: e.target.value,
+                      }))
+                    }
+                    placeholder="예: 5000"
+                  />
                 </div>
               )}
             </div>
-          </div>
+          </Section>
 
-          <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              피크타임 선행 조건
-            </h2>
-            <div className="mt-3 space-y-3 text-xs">
-              <p className="text-[11px] text-muted-foreground">
-                선택된 피크타임 구간에서 최소 건수를 충족했을 때만 프로모션이
-                적용되도록 설정합니다.
-              </p>
-
-              <div className="space-y-1.5">
-                <label className="block text-xs font-medium text-muted-foreground">
-                  조건 결합 방식
-                </label>
-                <div className="mt-1 inline-flex rounded-full border border-border bg-background/60 p-0.5 text-[11px] text-muted-foreground">
-                  <GlassButton
+          <Section
+            title="피크타임 선행 조건 (옵션)"
+            action={
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">조건 결합:</span>
+                <div className="inline-flex rounded-lg border border-border bg-background/50 p-0.5">
+                  <button
                     type="button"
-                    variant={peakMode === "AND" ? "primary" : "ghost"}
-                    size="sm"
-                    className={`h-6 rounded-full px-2.5 text-[11px] ${peakMode !== "AND" ? "hover:bg-transparent" : ""}`}
                     onClick={() => setPeakMode("AND")}
+                    className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${peakMode === "AND"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
-                    AND (모든 조건 충족)
-                  </GlassButton>
-                  <GlassButton
+                    AND (모두 만족)
+                  </button>
+                  <button
                     type="button"
-                    variant={peakMode === "OR" ? "primary" : "ghost"}
-                    size="sm"
-                    className={`h-6 rounded-full px-2.5 text-[11px] ${peakMode !== "OR" ? "hover:bg-transparent" : ""}`}
                     onClick={() => setPeakMode("OR")}
+                    className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${peakMode === "OR"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                      }`}
                   >
-                    OR (하나라도 충족)
-                  </GlassButton>
+                    OR (하나라도)
+                  </button>
                 </div>
+              </div>
+            }
+          >
+            <div className="mt-3 space-y-3">
+              {peakConditions.map((cond, idx) => (
+                <div
+                  key={idx}
+                  className="grid grid-cols-1 gap-2 md:grid-cols-[1fr,1fr,auto]"
+                >
+                  <GlassSelect
+                    label="시간대"
+                    value={cond.slot}
+                    onChange={(e) =>
+                      setPeakConditions((prev) =>
+                        prev.map((c, i) =>
+                          i === idx ? { ...c, slot: e.target.value as PeakSlot } : c
+                        )
+                      )
+                    }
+                    options={[
+                      { label: "아침 피크 (Breakfast)", value: "Breakfast" },
+                      { label: "점심 피크 (Lunch_Peak)", value: "Lunch_Peak" },
+                      { label: "저녁 피크 (Dinner_Peak)", value: "Dinner_Peak" },
+                      { label: "점심 이후 (Post_Lunch)", value: "Post_Lunch" },
+                      { label: "저녁 이후 (Post_Dinner)", value: "Post_Dinner" },
+                    ]}
+                  />
+                  <GlassInput
+                    label="최소 수행 건수"
+                    value={cond.minCount}
+                    onChange={(e) =>
+                      setPeakConditions((prev) =>
+                        prev.map((c, i) =>
+                          i === idx ? { ...c, minCount: e.target.value } : c
+                        )
+                      )
+                    }
+                    placeholder="예: 5"
+                  />
+                  <div className="flex items-end pb-0.5">
+                    <GlassButton
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="h-11 px-3 text-[11px]"
+                      onClick={() =>
+                        setPeakConditions((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                    >
+                      삭제
+                    </GlassButton>
+                  </div>
+                </div>
+              ))}
+              <GlassButton
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full border-dashed border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+                onClick={() =>
+                  setPeakConditions((prev) => [
+                    ...prev,
+                    { slot: "Lunch_Peak", minCount: "" },
+                  ])
+                }
+              >
+                + 피크타임 조건 추가
+              </GlassButton>
+            </div>
+          </Section>
+
+          <Section title="지사 배정">
+            <div className="mt-3 space-y-4">
+              <div className="space-y-2">
+                <GlassInput
+                  placeholder="지사명 검색..."
+                  value={branchSearch}
+                  onChange={(e) => setBranchSearch(e.target.value)}
+                />
+                {branchSearch && (
+                  <div className="max-h-[160px] overflow-y-auto rounded-md border border-border bg-muted/30 p-2">
+                    {filteredAvailableBranches.length === 0 ? (
+                      <div className="py-2 text-center text-xs text-muted-foreground">
+                        검색 결과가 없습니다.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+                        {filteredAvailableBranches.map((b) => (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => handleAddBranch(b)}
+                            className="flex items-center justify-between rounded-md border border-transparent bg-background px-3 py-2 text-left text-xs shadow-sm hover:border-primary/30 hover:bg-primary/5"
+                          >
+                            <span className="font-medium text-foreground">
+                              {b.name}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {b.province} {b.district}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">
-                {peakConditions.map((cond, idx) => (
-                  <div
-                    key={idx}
-                    className="grid grid-cols-[minmax(0,2fr)_minmax(0,2fr)_auto] items-end gap-2"
-                  >
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        피크타임
-                      </label>
-                      <select
-                        className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                        value={cond.slot}
-                        onChange={(e) =>
-                          setPeakConditions((prev) =>
-                            prev.map((c, i) =>
-                              i === idx
-                                ? {
-                                  ...c,
-                                  slot: e.target.value as PeakSlot,
-                                }
-                                : c
-                            )
-                          )
-                        }
-                      >
-                        <option value="Breakfast">Breakfast</option>
-                        <option value="Lunch_Peak">Lunch_Peak</option>
-                        <option value="Dinner_Peak">Dinner_Peak</option>
-                        <option value="Post_Lunch">Post_Lunch</option>
-                        <option value="Post_Dinner">Post_Dinner</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium text-muted-foreground">
-                        최소 건수
-                      </label>
-                      <input
-                        className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                        value={cond.minCount}
-                        onChange={(e) =>
-                          setPeakConditions((prev) =>
-                            prev.map((c, i) =>
-                              i === idx
-                                ? { ...c, minCount: e.target.value }
-                                : c
-                            )
-                          )
-                        }
-                        placeholder="예: 10"
-                      />
-                    </div>
-                    <div className="flex items-end">
-                      <GlassButton
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="h-8 px-3 text-[11px]"
-                        onClick={() =>
-                          setPeakConditions((prev) =>
-                            prev.filter((_, i) => i !== idx)
-                          )
-                        }
-                      >
-                        삭제
-                      </GlassButton>
-                    </div>
-                  </div>
-                ))}
-                <GlassButton
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="w-full border-dashed border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
-                  onClick={() =>
-                    setPeakConditions((prev) => [
-                      ...prev,
-                      { slot: "Breakfast", minCount: "" },
-                    ])
-                  }
-                >
-                  조건 추가
-                </GlassButton>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              지사 배정
-            </h2>
-            <div className="mt-3 space-y-3 text-xs">
-              <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">
-                  지사 검색
-                </label>
-                <div className="relative">
-                  <input
-                    className="h-8 w-full rounded-md border border-border bg-background pl-7 pr-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                    placeholder="지사명, 지역 검색"
-                    value={branchSearch}
-                    onChange={(e) => setBranchSearch(e.target.value)}
-                  />
-                  <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
-                    🔍
-                  </span>
+                <div className="text-xs font-medium text-muted-foreground">
+                  배정된 지사 ({selectedBranches.length})
                 </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-muted-foreground">
-                      지사 목록
-                    </span>
+                {selectedBranches.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border bg-muted/20 py-6 text-center text-xs text-muted-foreground">
+                    배정된 지사가 없습니다.
                   </div>
-                  <div className="mt-1 max-h-64 overflow-auto rounded-md border border-border bg-muted/40">
-                    {filteredAvailableBranches.length === 0 ? (
-                      <div className="px-3 py-4 text-center text-[11px] text-muted-foreground">
-                        조건에 맞는 지사가 없습니다.
-                      </div>
-                    ) : (
-                      filteredAvailableBranches.map((b) => (
-                        <div
-                          key={b.id}
-                          className="flex items-center justify-between border-b border-border/40 px-3 py-2 last:border-b-0"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-xs font-medium text-foreground">
-                              {b.name}
-                            </div>
-                            <div className="truncate text-[11px] text-muted-foreground">
-                              {[b.province, b.district]
-                                .filter(Boolean)
-                                .join(" ")}
-                            </div>
-                            {(b.corporateName || b.personalName) && (
-                              <div className="truncate text-[11px] text-muted-foreground">
-                                {b.corporateName && b.personalName
-                                  ? `${b.corporateName} > ${b.personalName}`
-                                  : b.corporateName || b.personalName}
-                              </div>
-                            )}
-                          </div>
-                          <GlassButton
-                            type="button"
-                            variant="primary"
-                            size="sm"
-                            className="ml-2 h-7 px-2 text-[11px]"
-                            onClick={() => handleAddBranch(b)}
-                          >
-                            추가
-                          </GlassButton>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                    {selectedBranches.map((b) => (
+                      <div
+                        key={b.id}
+                        className={`group relative flex items-center justify-between rounded-lg border px-3 py-2 text-xs transition-all ${b.active
+                          ? "border-emerald-200 bg-emerald-50/50 text-emerald-900"
+                          : "border-slate-200 bg-slate-50 text-slate-500"
+                          }`}
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-medium">{b.name}</span>
+                          <span className="text-[10px] opacity-70">
+                            {b.active ? "적용 중" : "미적용"}
+                          </span>
                         </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-medium text-muted-foreground">
-                      선택된 지사
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {selectedBranches.length}개
-                    </span>
-                  </div>
-                  <div className="mt-1 max-h-64 overflow-auto rounded-md border border-border bg-muted/40">
-                    {selectedBranches.length === 0 ? (
-                      <div className="px-3 py-4 text-center text-[11px] text-muted-foreground">
-                        선택된 지사가 없습니다.
-                      </div>
-                    ) : (
-                      selectedBranches.map((s) => (
-                        <div
-                          key={s.id}
-                          className="flex items-center justify-between border-b border-border/40 px-3 py-2 last:border-b-0"
-                        >
-                          <GlassButton
-                            type="button"
-                            variant="ghost"
-                            className="h-auto justify-start p-0 text-xs font-medium text-foreground hover:bg-transparent hover:underline"
-                            onClick={() => router.push(`/branches/${s.id}`)}
-                          >
-                            {s.name}
-                          </GlassButton>
-                          <div className="flex items-center gap-2">
-                            <GlassButton
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className={`h-7 px-2 text-[11px] ${s.active
-                                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:text-emerald-800"
-                                : "border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-600"
-                                }`}
-                              onClick={() =>
+                        <div className="flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="w-28">
+                            <Switch
+                              label="적용 여부"
+                              checked={b.active}
+                              onChange={(v) =>
                                 setSelectedBranches((prev) =>
                                   prev.map((x) =>
-                                    x.id === s.id
-                                      ? { ...x, active: !x.active }
-                                      : x
+                                    x.id === b.id ? { ...x, active: v } : x
                                   )
                                 )
                               }
-                            >
-                              {s.active ? "●" : "○"}
-                            </GlassButton>
-                            <GlassButton
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              className="h-7 px-2 text-[11px]"
-                              onClick={() => handleRemoveBranch(s.id)}
-                            >
-                              제거
-                            </GlassButton>
+                              onLabel="ON"
+                              offLabel="OFF"
+                            />
                           </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveBranch(b.id)}
+                            className="rounded bg-white/50 p-2 hover:bg-white hover:text-red-600"
+                            title="배정 해제"
+                          >
+                            ✕
+                          </button>
                         </div>
-                      ))
-                    )}
+                      </div>
+                    ))}
                   </div>
-                </div>
+                )}
               </div>
             </div>
-          </div>
+          </Section>
         </div>
       </div>
-
     </form>
   );
 }

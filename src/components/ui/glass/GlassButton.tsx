@@ -4,10 +4,11 @@ import { ButtonHTMLAttributes, forwardRef } from "react";
 interface GlassButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     variant?: "primary" | "secondary" | "outline" | "ghost" | "destructive";
     size?: "sm" | "md" | "lg" | "icon";
+    isLoading?: boolean;
 }
 
 export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
-    ({ className, variant = "primary", size = "md", ...props }, ref) => {
+    ({ className, variant = "primary", size = "md", isLoading, children, ...props }, ref) => {
         const variants = {
             primary:
                 "bg-primary text-primary-foreground shadow-md shadow-primary/25 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30 hover:-translate-y-0.5 border-transparent",
@@ -28,17 +29,26 @@ export const GlassButton = forwardRef<HTMLButtonElement, GlassButtonProps>(
             icon: "h-10 w-10 p-0 rounded-xl flex items-center justify-center",
         };
 
+        // strip isLoading from spread props
+        const { isLoading: _omit, ...rest } = props as Omit<GlassButtonProps, "isLoading"> & { isLoading?: boolean };
+
         return (
             <button
                 ref={ref}
                 className={cn(
-                    "inline-flex items-center justify-center font-medium transition-all duration-200 disabled:opacity-60 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                    "!rounded-2xl inline-flex items-center justify-center font-medium transition-all duration-200 disabled:opacity-60 disabled:pointer-events-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
                     variants[variant],
                     sizes[size],
                     className
                 )}
-                {...props}
-            />
+                disabled={props.disabled || isLoading}
+                {...rest}
+            >
+                {isLoading && (
+                    <span className="mr-2 h-3 w-3 animate-spin rounded-full border border-white/70 border-t-transparent" />
+                )}
+                {children}
+            </button>
         );
     }
 );

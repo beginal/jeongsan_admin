@@ -5,6 +5,9 @@ import { BranchDeleteButton } from "@/components/admin-v2/BranchDeleteButton";
 import { BranchPromotionActions } from "@/components/admin-v2/BranchPromotionActions";
 import { formatPhone } from "@/lib/phone";
 import { badgeToneClass, getRiderStatusMeta } from "@/lib/status";
+import { PageHeader } from "@/components/ui/glass/PageHeader";
+import { Section } from "@/components/ui/glass/Section";
+import { Building2 } from "lucide-react";
 
 interface BranchDetailPageProps {
   params: Promise<{ branchId: string }>;
@@ -333,60 +336,49 @@ export default async function BranchDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-wrap items-center gap-4 border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-xs font-semibold text-primary">
-            {branch.shortName}
-          </div>
-          <div className="space-y-1">
-            <div className="text-[11px] text-muted-foreground">
-              지사 관리 / {branch.code}
+      <PageHeader
+        title={branch.name}
+        description={`지사 목록 / ${branch.code}`}
+        breadcrumbs={[
+          { label: "홈", href: "/" },
+          { label: "지사 목록", href: "/branches" },
+          { label: branch.shortName, href: "#" },
+        ]}
+        icon={<Building2 className="h-5 w-5" />}
+        actions={
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 text-[11px] mr-2">
+              <span
+                className={
+                  branch.status === "활성"
+                    ? "inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700"
+                    : "inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-700"
+                }
+              >
+                {branch.status}
+              </span>
+              <span className="text-muted-foreground">
+                · 마지막 수정 {branch.updatedAt}
+              </span>
             </div>
-            <h1 className="text-lg font-semibold text-foreground">
-              {branch.name}
-            </h1>
-          </div>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2 text-xs">
-          <Link
-            href="/branches"
-            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            <span className="mr-1 text-[11px]">←</span>
-            지사 목록
-          </Link>
-          <div className="flex items-center gap-2 text-[11px]">
-            <span
-              className={
-                branch.status === "활성"
-                  ? "inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-700"
-                  : "inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700"
-              }
+            <BranchDeleteButton branchId={String(data.id)} />
+            <Link
+              href={`/branches/${data.id}/edit`}
+              className="inline-flex h-9 items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
             >
-              {branch.status}
-            </span>
-            <span className="text-muted-foreground">
-              · 마지막 수정 {branch.updatedAt}
-            </span>
+              지사 수정
+            </Link>
           </div>
-          <BranchDeleteButton branchId={String(data.id)} />
-          <a
-            href={`/branches/${data.id}/edit`}
-            className="inline-flex h-8 items-center rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-          >
-            지사 수정
-          </a>
-        </div>
-      </div>
+        }
+      />
 
       {/* Summary cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-sm">
+        <div className="rounded-xl border border-border bg-card px-4 py-4 shadow-sm">
           <div className="text-xs font-medium text-muted-foreground">
             등록 라이더 수
           </div>
-          <div className="mt-2 text-xl font-semibold text-foreground">
+          <div className="mt-2 text-2xl font-semibold text-foreground">
             {branch.riderCount.toLocaleString()}명
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -394,11 +386,11 @@ export default async function BranchDetailPage({
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-sm">
+        <div className="rounded-xl border border-border bg-card px-4 py-4 shadow-sm">
           <div className="text-xs font-medium text-muted-foreground">
             진행 중 프로모션
           </div>
-          <div className="mt-2 text-xl font-semibold text-foreground">
+          <div className="mt-2 text-2xl font-semibold text-foreground">
             {branch.promotionCount}건
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -406,11 +398,11 @@ export default async function BranchDetailPage({
           </p>
         </div>
 
-        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm shadow-sm">
+        <div className="rounded-xl border border-border bg-card px-4 py-4 shadow-sm">
           <div className="text-xs font-medium text-muted-foreground">
             최근 정산 완료
           </div>
-          <div className="mt-2 text-xl font-semibold text-foreground">
+          <div className="mt-2 text-2xl font-semibold text-foreground">
             {branch.lastSettlement}
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
@@ -422,25 +414,19 @@ export default async function BranchDetailPage({
       {/* Detail grid */}
       <div className="space-y-4">
         {/* Branch basic information */}
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            지사 정보
-          </h2>
-          <div className="mt-3 space-y-2">
+        <Section title="지사 정보">
+          <div className="space-y-2">
             <DetailRow label="플랫폼" value={branch.platform} />
             <DetailRow label="시/도" value={branch.province || "-"} />
             <DetailRow label="구/시/군" value={branch.district || "-"} />
             <DetailRow label="지사명" value={data.branch_name || ""} />
             <DetailRow label="최종 지사명" value={data.display_name || ""} />
           </div>
-        </div>
+        </Section>
 
         {/* Affiliation information */}
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            소속 정보
-          </h2>
-          <div className="mt-3 space-y-2">
+        <Section title="소속 정보">
+          <div className="space-y-2">
             <DetailRow
               label="소속(법인)"
               value={branch.corporateName || "-"}
@@ -450,35 +436,31 @@ export default async function BranchDetailPage({
               value={branch.personalName || "-"}
             />
           </div>
-        </div>
+        </Section>
 
         {/* Settlement information */}
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            정산 정보
-          </h2>
-          <div className="mt-3 space-y-2">
+        <Section title="정산 정보">
+          <div className="space-y-2">
             <DetailRow
               label="설정된 정산 수수료"
               value={branch.settlementFee}
             />
           </div>
-        </div>
+        </Section>
       </div>
 
       {/* Promotions and Riders */}
       <div className="space-y-4">
         {/* Branch promotions */}
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              설정된 프로모션
-            </h2>
+        <Section
+          title="설정된 프로모션"
+          action={
             <span className="text-[11px] text-muted-foreground">
               총 {branchPromotions.length}건
             </span>
-          </div>
-          <div className="mt-3 max-h-64 overflow-x-auto overflow-y-auto rounded-md border border-border bg-muted/40 text-xs">
+          }
+        >
+          <div className="max-h-64 overflow-x-auto overflow-y-auto rounded-md border border-border bg-muted/40 text-xs">
             <table className="w-full min-w-[520px] text-left">
               <thead className="sticky top-0 z-10 border-b border-border bg-muted text-[11px] uppercase text-muted-foreground">
                 <tr>
@@ -537,19 +519,18 @@ export default async function BranchDetailPage({
               </tbody>
             </table>
           </div>
-        </div>
+        </Section>
 
         {/* Branch riders */}
-        <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              소속 라이더
-            </h2>
+        <Section
+          title="소속 라이더"
+          action={
             <span className="text-[11px] text-muted-foreground">
               총 {branchRiders.length}명
             </span>
-          </div>
-          <div className="mt-3 max-h-64 overflow-x-auto overflow-y-auto rounded-md border border-border bg-muted/40 text-xs">
+          }
+        >
+          <div className="max-h-64 overflow-x-auto overflow-y-auto rounded-md border border-border bg-muted/40 text-xs">
             <table className="w-full min-w-[520px] text-left">
               <thead className="sticky top-0 z-10 border-b border-border bg-muted text-[11px] uppercase text-muted-foreground">
                 <tr>
@@ -599,7 +580,7 @@ export default async function BranchDetailPage({
               </tbody>
             </table>
           </div>
-        </div>
+        </Section>
       </div>
     </div>
   );

@@ -64,7 +64,7 @@ export function LoginPageClient() {
   return (
     <div className="flex min-h-screen bg-background">
       <div className="flex flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-lg">
           <div className="mb-6 text-center">
             <h1 className="text-2xl font-semibold tracking-tight">
               정산봇 로그인
@@ -80,16 +80,17 @@ export function LoginPageClient() {
             </div>
           )}
 
-          <div className="mb-3 flex rounded-full bg-muted p-1 text-xs">
+          <div className="mb-4 flex rounded-full bg-muted/70 p-1 text-xs shadow-sm">
             <button
               type="button"
+              aria-pressed={mode === "admin"}
               onClick={() => {
                 setMode("admin");
                 setError(null);
               }}
-              className={`flex-1 rounded-full px-3 py-1.5 font-medium transition-colors ${
+              className={`flex-1 rounded-full px-3 py-2 font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
                 mode === "admin"
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -97,13 +98,14 @@ export function LoginPageClient() {
             </button>
             <button
               type="button"
+              aria-pressed={mode === "rider"}
               onClick={() => {
                 setMode("rider");
                 setError(null);
               }}
-              className={`flex-1 rounded-full px-3 py-1.5 font-medium transition-colors ${
+              className={`flex-1 rounded-full px-3 py-2 font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${
                 mode === "rider"
-                  ? "bg-background text-foreground shadow-sm"
+                  ? "bg-primary text-primary-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
@@ -111,9 +113,18 @@ export function LoginPageClient() {
             </button>
           </div>
 
-          <div className="rounded-xl border border-border bg-card px-4 py-5 shadow-sm sm:px-6">
+          <div className="rounded-xl border border-border bg-card px-4 py-5 shadow-md sm:px-6">
+            {error && (
+              <div
+                className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+                role="alert"
+              >
+                {error}
+              </div>
+            )}
+
             {mode === "admin" ? (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div className="space-y-1">
                   <label
                     htmlFor="admin-email"
@@ -124,13 +135,15 @@ export function LoginPageClient() {
                   <input
                     id="admin-email"
                     type="email"
-                    autoComplete="email"
+                    inputMode="email"
+                    autoComplete="username"
                     required
                     value={adminEmail}
+                    aria-invalid={Boolean(error)}
                     onChange={(e) => {
                       setAdminEmail(e.target.value);
                     }}
-                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30"
                     placeholder="admin@example.com"
                   />
                 </div>
@@ -148,37 +161,35 @@ export function LoginPageClient() {
                     autoComplete="current-password"
                     required
                     value={password}
+                    aria-invalid={Boolean(error)}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                    placeholder="••••••••"
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30"
+                    placeholder="8자 이상, 문자/숫자 포함"
                   />
-                </div>
-
-                {error && (
-                  <p className="text-xs text-red-600" role="alert">
-                    {error}
+                  <p className="text-[11px] text-muted-foreground">
+                    8자 이상, 숫자/문자 포함 비밀번호를 입력해 주세요.
                   </p>
-                )}
+                </div>
 
                 <div className="flex gap-2">
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex h-9 flex-1 items-center justify-center rounded-md bg-primary text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                    className="flex h-10 flex-1 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
                   >
                     {loading ? "로그인 중..." : "관리자 로그인"}
                   </button>
                   <button
                     type="button"
                     onClick={() => router.push("/signup")}
-                    className="flex h-9 flex-1 items-center justify-center rounded-md border border-primary bg-background text-xs font-medium text-primary transition-colors hover:bg-primary/5"
+                    className="flex h-10 flex-1 items-center justify-center rounded-md border border-primary/70 bg-background text-sm font-semibold text-primary transition-colors hover:bg-primary/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
                   >
                     관리자 회원가입
                   </button>
                 </div>
               </form>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                 <div className="space-y-1">
                   <label
                     htmlFor="phone"
@@ -189,12 +200,15 @@ export function LoginPageClient() {
                   <input
                     id="phone"
                     type="tel"
-                    autoComplete="tel"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
                     required
                     value={riderPhone}
+                    aria-invalid={Boolean(error)}
                     onChange={(e) => setRiderPhone(formatPhone(e.target.value))}
-                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30"
                     placeholder="010-0000-0000"
+                    maxLength={13}
                   />
                 </div>
 
@@ -211,22 +225,20 @@ export function LoginPageClient() {
                     autoComplete="current-password"
                     required
                     value={password}
+                    aria-invalid={Boolean(error)}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                    placeholder="••••••••"
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none ring-0 placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/30"
+                    placeholder="8자 이상, 문자/숫자 포함"
                   />
-                </div>
-
-                {error && (
-                  <p className="text-xs text-red-600" role="alert">
-                    {error}
+                  <p className="text-[11px] text-muted-foreground">
+                    가입 시 설정한 비밀번호를 입력해 주세요.
                   </p>
-                )}
+                </div>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex h-9 w-full items-center justify-center rounded-md bg-primary text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex h-10 w-full items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {loading ? "로그인 중..." : "라이더 로그인"}
                 </button>

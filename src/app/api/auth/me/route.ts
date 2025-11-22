@@ -9,18 +9,28 @@ export async function GET() {
 
   try {
     const user = auth.user;
-
     const { id, email, user_metadata } = user;
     const contactEmail =
       (user_metadata?.contact_email as string | undefined) || email;
     const name =
       (user_metadata?.name as string | undefined) ||
       (contactEmail ? contactEmail.split("@")[0] : "관리자");
+    const phone =
+      (user_metadata?.phone_number as string | undefined) ||
+      (user_metadata?.phone as string | undefined) ||
+      null;
+    const company =
+      (user_metadata?.company_name as string | undefined) || null;
+    const businessNumber =
+      (user_metadata?.business_number as string | undefined) || null;
 
     return NextResponse.json({
       id,
       email: contactEmail,
       name,
+      phone,
+      company,
+      businessNumber,
       expiresAt,
     });
   } catch (e) {

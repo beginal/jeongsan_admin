@@ -3,6 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { PageHeader } from "@/components/ui/glass/PageHeader";
+import { Section } from "@/components/ui/glass/Section";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Building2 } from "lucide-react";
 
 type BranchRow = {
   id: string;
@@ -125,265 +130,245 @@ export default function BranchesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-wrap items-center gap-4 border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <span className="text-lg font-semibold">지사</span>
-          </div>
-          <div>
-            <div className="text-[11px] text-muted-foreground">
-              지사 관리 / Branches
-            </div>
-            <h1 className="text-lg font-semibold text-foreground">
-              지사 관리
-            </h1>
-          </div>
-        </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2 text-sm">
+      <PageHeader
+        title="지사 목록"
+        description="지사 목록 및 상세 정보"
+        breadcrumbs={[
+          { label: "홈", href: "/" },
+          { label: "지사 목록", href: "/branches" },
+        ]}
+        icon={<Building2 className="h-5 w-5" />}
+        actions={
           <GlassButton
-            type="button"
             variant="primary"
             size="sm"
             onClick={() => router.push("/branches/new")}
           >
             + 새 지사 추가
           </GlassButton>
-        </div>
-      </div>
+        }
+      />
 
-      {/* Filters card - dashbrd style */}
-      <div className="rounded-xl border border-border bg-muted/40 px-4 py-4 text-sm text-muted-foreground">
-        <div className="space-y-3">
-          {/* Summary row (full width) */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-card px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-              전체 지사{" "}
-              <span className="ml-1 text-foreground">
-                {filteredAndSortedBranches.length}개
-              </span>
+      {/* Filters */}
+      <Section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Summary */}
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-foreground">
+              전체 {filteredAndSortedBranches.length}개
             </span>
-            <span className="text-[11px] text-muted-foreground">·</span>
-            <span className="text-[11px] text-muted-foreground">
-              총 라이더{" "}
-              {filteredAndSortedBranches
-                .reduce((sum, b) => sum + b.riderCount, 0)
-                .toLocaleString()}
-              명
+            <span>·</span>
+            <span className="text-xs">
+              총 라이더 {filteredAndSortedBranches.reduce((sum, b) => sum + b.riderCount, 0).toLocaleString()}명
             </span>
           </div>
 
-          {/* Controls row */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {/* Search */}
-            <div className="relative w-full max-w-[200px]">
+          {/* Controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Platform Filter */}
+            <div className="flex items-center rounded-lg border border-border bg-muted/30 p-1">
+              <button
+                type="button"
+                onClick={() => setPlatformFilter("all")}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${platformFilter === "all"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  }`}
+              >
+                전체
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlatformFilter("coupang")}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${platformFilter === "coupang"
+                  ? "bg-background text-blue-600 shadow-sm"
+                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  }`}
+              >
+                쿠팡
+              </button>
+              <button
+                type="button"
+                onClick={() => setPlatformFilter("baemin")}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${platformFilter === "baemin"
+                  ? "bg-background text-teal-600 shadow-sm"
+                  : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+                  }`}
+              >
+                배민
+              </button>
+            </div>
+
+            <div className="h-4 w-px bg-border mx-1" />
+
+            <div className="relative">
               <input
-                className="h-8 w-full rounded-md border border-border bg-background pl-8 pr-2 text-xs outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="지사명, 지역 검색"
+                className="h-9 w-[180px] rounded-xl border border-border bg-background/50 pl-9 pr-3 text-sm outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                placeholder="검색어 입력..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
-              <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-[13px] text-muted-foreground">
+              <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 🔍
               </span>
             </div>
 
-            {/* Platform filter pills */}
-            <div className="hidden rounded-full border border-border bg-background/60 p-0.5 text-[11px] text-muted-foreground sm:flex">
-              <GlassButton
-                type="button"
-                variant={platformFilter === "all" ? "primary" : "ghost"}
-                size="sm"
-                className={`h-6 rounded-full px-2.5 text-[11px] ${platformFilter !== "all" ? "hover:bg-transparent" : ""}`}
-                onClick={() => setPlatformFilter("all")}
-              >
-                전체
-              </GlassButton>
-              <GlassButton
-                type="button"
-                variant={platformFilter === "coupang" ? "primary" : "ghost"}
-                size="sm"
-                className={`h-6 rounded-full px-2.5 text-[11px] ${platformFilter !== "coupang" ? "hover:bg-transparent" : ""}`}
-                onClick={() => setPlatformFilter("coupang")}
-              >
-                쿠팡
-              </GlassButton>
-              <GlassButton
-                type="button"
-                variant={platformFilter === "baemin" ? "primary" : "ghost"}
-                size="sm"
-                className={`h-6 rounded-full px-2.5 text-[11px] ${platformFilter !== "baemin" ? "hover:bg-transparent" : ""}`}
-                onClick={() => setPlatformFilter("baemin")}
-              >
-                배민
-              </GlassButton>
-            </div>
+            <select
+              className="h-9 rounded-xl border border-border bg-background/50 px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              value={provinceFilter}
+              onChange={(e) => {
+                setProvinceFilter(e.target.value);
+                setDistrictFilter("");
+              }}
+            >
+              <option value="">전체 시/도</option>
+              {provinceOptions.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {/* Province / District selects */}
-              <select
-                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                value={provinceFilter}
-                onChange={(e) => {
-                  setProvinceFilter(e.target.value);
-                  setDistrictFilter("");
-                }}
-              >
-                <option value="">전체 시/도</option>
-                {provinceOptions.map((p) => (
-                  <option key={p} value={p}>
-                    {p}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                value={districtFilter}
-                onChange={(e) => setDistrictFilter(e.target.value)}
-              >
-                <option value="">전체 구/시/군</option>
-                {districtOptions.map((d) => (
-                  <option key={d} value={d}>
-                    {d}
-                  </option>
-                ))}
-              </select>
+            <select
+              className="h-9 rounded-xl border border-border bg-background/50 px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              value={districtFilter}
+              onChange={(e) => setDistrictFilter(e.target.value)}
+            >
+              <option value="">전체 구/시/군</option>
+              {districtOptions.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
 
-              {/* Sort select */}
-              <select
-                className="h-8 rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:ring-1 focus:ring-primary"
-                value={sortKey}
-                onChange={(e) =>
-                  setSortKey(e.target.value as "default" | "name" | "riders")
-                }
-              >
-                <option value="default">기본 정렬</option>
-                <option value="name">지사명 (가나다순)</option>
-                <option value="riders">라이더 인원수 (많은 순)</option>
-              </select>
-            </div>
+            <select
+              className="h-9 rounded-xl border border-border bg-background/50 px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              value={sortKey}
+              onChange={(e) =>
+                setSortKey(e.target.value as "default" | "name" | "riders")
+              }
+            >
+              <option value="default">기본 정렬</option>
+              <option value="name">이름순</option>
+              <option value="riders">라이더순</option>
+            </select>
           </div>
         </div>
-      </div>
+      </Section>
 
-      {/* Branches table */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div className="border-b border-border px-4 py-3 text-sm font-semibold text-muted-foreground">
-          지사 목록
-        </div>
-        <div className="overflow-x-auto max-h-[520px] overflow-y-auto">
-          <table className="w-full min-w-[640px] text-left text-sm">
-            <thead className="sticky top-0 z-10 border-b border-border bg-muted text-[11px] uppercase text-muted-foreground">
+      {/* Table Section */}
+      <Section className="p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[800px] text-left text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
               <tr>
-                <th className="px-4 py-2">
-                  <div className="flex h-5 items-center justify-center">
-                    <input
-                      type="checkbox"
-                      className="h-3.5 w-3.5 cursor-pointer rounded border border-border text-primary accent-primary"
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </div>
-                </th>
-                <th className="px-4 py-2">플랫폼</th>
-                <th className="px-4 py-2">시/도</th>
-                <th className="px-4 py-2">구/시/군</th>
-                <th className="px-4 py-2">지사명</th>
-                <th className="px-4 py-2">최종 지사명</th>
-                <th className="px-4 py-2">라이더 인원수</th>
+                <th className="px-6 py-3 font-medium">플랫폼</th>
+                <th className="px-6 py-3 font-medium">지역</th>
+                <th className="px-6 py-3 font-medium">지사명</th>
+                <th className="px-6 py-3 font-medium">최종 지사명</th>
+                <th className="px-6 py-3 font-medium text-right">라이더 수</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-border bg-card">
+            <tbody className="divide-y divide-border">
               {loading && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-6 text-center text-xs text-muted-foreground"
-                  >
-                    지사 목록을 불러오는 중입니다...
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-6 py-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                    <td className="px-6 py-4"><Skeleton className="h-5 w-24" /></td>
+                    <td className="px-6 py-4"><Skeleton className="h-5 w-32" /></td>
+                    <td className="px-6 py-4"><Skeleton className="h-5 w-40" /></td>
+                    <td className="px-6 py-4 text-right"><Skeleton className="ml-auto h-5 w-12" /></td>
+                  </tr>
+                ))
               )}
+
               {!loading && error && (
                 <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-6 text-center text-xs text-red-600"
-                  >
-                    {error}
+                  <td colSpan={5} className="px-6 py-12">
+                    <EmptyState
+                      title="오류 발생"
+                      description={error}
+                      icon={<span className="text-2xl">⚠️</span>}
+                      action={
+                        <GlassButton size="sm" onClick={() => window.location.reload()}>
+                          다시 시도
+                        </GlassButton>
+                      }
+                    />
                   </td>
                 </tr>
               )}
-              {!loading &&
-                !error &&
-                filteredAndSortedBranches.map((branch) => (
-                  <tr
-                    key={branch.id}
-                    className="cursor-pointer hover:bg-muted/60"
-                    onClick={() =>
-                      router.push(`/branches/${branch.id}`)
-                    }
-                  >
-                    <td className="px-4 py-3 align-middle">
-                      <div
-                        className="flex h-5 items-center justify-center"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-3.5 w-3.5 cursor-pointer rounded border border-border text-primary accent-primary"
-                        />
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 align-middle text-sm">
-                      <span
-                        className={
-                          branch.platform === "coupang"
-                            ? "inline-flex rounded-full border border-blue-100 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700"
-                            : branch.platform === "baemin"
-                              ? "inline-flex rounded-full border border-teal-100 bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700"
-                              : "inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700"
-                        }
-                      >
-                        {branch.platform === "coupang"
-                          ? "쿠팡"
-                          : branch.platform === "baemin"
-                            ? "배민"
-                            : branch.platform || "기타"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 align-middle text-sm">
+
+              {!loading && !error && filteredAndSortedBranches.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12">
+                    <EmptyState
+                      title="지사가 없습니다"
+                      description={search ? "검색 조건에 맞는 지사를 찾을 수 없습니다." : "등록된 지사가 없습니다."}
+                      action={
+                        !search && (
+                          <GlassButton variant="primary" size="sm" onClick={() => router.push("/branches/new")}>
+                            + 새 지사 추가
+                          </GlassButton>
+                        )
+                      }
+                    />
+                  </td>
+                </tr>
+              )}
+
+              {!loading && !error && filteredAndSortedBranches.map((branch) => (
+                <tr
+                  key={branch.id}
+                  className="group cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => router.push(`/branches/${branch.id}`)}
+                >
+                  <td className="px-6 py-4 align-middle">
+                    <span
+                      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${branch.platform === "coupang"
+                        ? "border-blue-200 bg-blue-50 text-blue-700"
+                        : branch.platform === "baemin"
+                          ? "border-teal-200 bg-teal-50 text-teal-700"
+                          : "border-slate-200 bg-slate-50 text-slate-700"
+                        }`}
+                    >
+                      {branch.platform === "coupang"
+                        ? "쿠팡"
+                        : branch.platform === "baemin"
+                          ? "배민"
+                          : branch.platform || "기타"}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 align-middle">
+                    <div className="flex items-center gap-1.5">
                       {branch.province ? (
-                        <span className="inline-flex rounded-full border border-amber-100 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-700">
+                        <span className="inline-flex rounded-md bg-muted px-2 py-1 text-xs font-medium text-foreground">
                           {branch.province}
                         </span>
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 align-middle text-sm">
-                      {branch.district ? (
-                        <span className="inline-flex rounded-full border border-sky-100 bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-                          {branch.district}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
+                      {branch.district && (
+                        <span className="text-muted-foreground">/ {branch.district}</span>
                       )}
-                    </td>
-                    <td className="px-4 py-3 align-middle text-sm text-foreground">
-                      {branch.branchName}
-                    </td>
-                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
-                      {branch.displayName}
-                    </td>
-                    <td className="px-4 py-3 align-middle text-sm text-muted-foreground">
-                      {branch.riderCount.toLocaleString()}명
-                    </td>
-                  </tr>
-                ))}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 align-middle font-medium text-foreground">
+                    {branch.branchName}
+                  </td>
+                  <td className="px-6 py-4 align-middle text-muted-foreground">
+                    {branch.displayName}
+                  </td>
+                  <td className="px-6 py-4 align-middle text-right font-medium text-foreground">
+                    {branch.riderCount.toLocaleString()}명
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
-      </div>
+      </Section>
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type RentalStatus = "active" | "inactive";
 
@@ -122,14 +123,15 @@ export default function LeaseRentalListPage() {
               </thead>
             <tbody>
               {loading && (
-                <tr>
-                  <td
-                    colSpan={8}
-                    className="border-b border-border px-4 py-4 text-center text-xs text-muted-foreground"
-                  >
-                    불러오는 중...
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, idx) => (
+                  <tr key={`lease-skel-${idx}`} className="animate-pulse">
+                    {Array.from({ length: 8 }).map((__, col) => (
+                      <td key={col} className="px-4 py-3">
+                        <Skeleton className="h-4 w-full" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               )}
               {error && !loading && (
                 <tr>

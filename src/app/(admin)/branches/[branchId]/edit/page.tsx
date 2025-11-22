@@ -118,22 +118,7 @@ export default async function BranchEditPage({ params }: BranchEditPageProps) {
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div className="flex flex-wrap items-center gap-4 border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-xs font-semibold text-primary">
-            {branch.district || branch.province || "지사"}
-          </div>
-          <div className="space-y-1">
-            <div className="text-[11px] text-muted-foreground">
-              지사 관리 / {branch.display_name}
-            </div>
-            <h1 className="text-lg font-semibold text-foreground">
-              지사 정보 편집
-            </h1>
-          </div>
-        </div>
-      </div>
+
 
       <BranchEditForm
         mode="edit"

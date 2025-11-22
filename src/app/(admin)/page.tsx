@@ -18,6 +18,7 @@ import {
   Truck,
   UserCheck,
   Wallet,
+  LayoutDashboard,
 } from "lucide-react";
 import { DashboardStats } from "@/components/admin-v2/DashboardStats";
 import { GlassCard } from "@/components/ui/glass/GlassCard";
@@ -314,17 +315,19 @@ export default function AdminV2DashboardPage() {
       <PageHeader
         title="운영 대시보드"
         description="라이더 · 정산 · 지사 · 운영 현황을 한눈에 보고 바로 조치하세요."
-      >
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="rounded-full bg-muted px-3 py-1 text-foreground">
-            기본 기간: 최근 7일
-          </span>
-          <span className="hidden sm:inline text-muted-foreground">·</span>
-          <span className="rounded-full border border-dashed border-border px-3 py-1">
-            차트/표는 추후 실제 데이터 연결
-          </span>
-        </div>
-      </PageHeader>
+        icon={<LayoutDashboard className="h-5 w-5" />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <span className="rounded-full bg-muted px-3 py-1 text-foreground">
+              기본 기간: 최근 7일
+            </span>
+            <span className="hidden sm:inline text-muted-foreground">·</span>
+            <span className="rounded-full border border-dashed border-border px-3 py-1">
+              차트/표는 추후 실제 데이터 연결
+            </span>
+          </div>
+        }
+      />
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

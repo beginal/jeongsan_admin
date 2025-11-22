@@ -79,35 +79,7 @@ export default async function LoanEditPage({ params }: LoanEditPageProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Wallet className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-[11px] text-muted-foreground">대여금 관리 / {riderName}</div>
-            <h1 className="text-lg font-semibold text-foreground">대여금 정보 수정</h1>
-            <p className="text-xs text-muted-foreground">
-              총 대여금, 납부 일정, 메모를 수정하세요.
-            </p>
-          </div>
-        </div>
-        <div className="ml-auto flex items-center gap-2 text-xs">
-          <Link
-            href="/loan-management"
-            className="inline-flex h-9 items-center rounded-md border border-border bg-card px-3 font-medium text-muted-foreground hover:text-foreground"
-          >
-            목록으로
-          </Link>
-          <button
-            type="submit"
-            form="loan-edit-form"
-            className="inline-flex h-9 items-center rounded-md bg-primary px-4 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-          >
-            저장
-          </button>
-        </div>
-      </div>
+
 
       <LoanEditForm
         formId="loan-edit-form"

@@ -3,12 +3,14 @@
 import type { ReactNode, ComponentType } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Bike,
   BriefcaseBusiness,
   Building2,
   CarFront,
+  ChevronRight,
   LayoutDashboard,
   MinusCircle,
   Percent,
@@ -139,9 +141,14 @@ function AdminSidebarContent() {
           href="/"
           className="flex items-center gap-2 text-base font-semibold"
         >
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-primary-foreground">
-            정
-          </span>
+          <div className="relative h-8 w-8 overflow-hidden rounded-lg">
+            <Image
+              src="/logo.png"
+              alt="Jeongsan Admin Logo"
+              fill
+              className="object-cover"
+            />
+          </div>
           <span>정산봇</span>
         </Link>
       </div>
@@ -244,7 +251,7 @@ function SidebarSection({
         onClick={onToggle}
         aria-expanded={isOpen}
         className={cn(
-          "relative flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 h-auto overflow-hidden",
+          "relative flex w-full items-center justify-between rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 h-auto overflow-hidden",
           isSectionActive
             ? "bg-surface-100 text-primary shadow-glass-sm hover:bg-surface-200 before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-full before:bg-primary"
             : "text-muted-foreground hover:bg-surface-50 hover:text-foreground"
@@ -262,7 +269,7 @@ function SidebarSection({
             isOpen ? "rotate-90" : ""
           )}
         >
-          ▸
+          <ChevronRight className="h-4 w-4" />
         </span>
       </GlassButton>
       <div className={cn("space-y-1 pl-3 overflow-hidden transition-all", !isOpen && "hidden")}>
@@ -318,17 +325,25 @@ function TopLevelLink({ section, currentPath }: TopLevelLinkProps) {
   const Icon = section.icon;
 
   return (
-    <Link
-      href={href}
-      className={cn(
-        "relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 overflow-hidden",
-        isActive
-          ? "bg-surface-100 text-primary shadow-glass-sm before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-full before:bg-primary"
-          : "text-muted-foreground hover:bg-surface-50 hover:text-foreground"
-      )}
-    >
-      {Icon && <Icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground")} />}
-      <span>{section.label}</span>
+    <Link href={href} className="group block">
+      <div
+        className={cn(
+          "relative flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm font-medium transition-all duration-200 overflow-hidden",
+          isActive
+            ? "bg-surface-100 text-primary shadow-glass-sm before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-full before:bg-primary"
+            : "text-muted-foreground hover:bg-surface-50 hover:text-foreground"
+        )}
+      >
+        {Icon && (
+          <Icon
+            className={cn(
+              "h-4 w-4 transition-colors",
+              isActive ? "text-primary" : "text-muted-foreground"
+            )}
+          />
+        )}
+        <span>{section.label}</span>
+      </div>
     </Link>
   );
 }
@@ -388,22 +403,8 @@ function SidebarUserSection() {
     <div ref={containerRef} className="relative text-xs">
       {open && (
         <div className="mb-2 rounded-md border border-border bg-card py-1 text-left shadow-lg">
-          <GlassButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground h-auto rounded-none"
-          >
-            정보 수정
-          </GlassButton>
-          <GlassButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground h-auto rounded-none"
-          >
-            비밀번호 변경
-          </GlassButton>
+          <LinkButton href="/account/profile" label="정보 수정" />
+          <LinkButton href="/account/password" label="비밀번호 변경" />
           <GlassButton
             type="button"
             variant="ghost"
@@ -438,6 +439,22 @@ function SidebarUserSection() {
         </div>
       </GlassButton>
     </div>
+  );
+}
+
+function LinkButton({ href, label }: { href: string; label: string }) {
+  return (
+    <GlassButton
+      type="button"
+      variant="ghost"
+      size="sm"
+      className="w-full justify-start px-3 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground h-auto rounded-none"
+      onClick={() => {
+        window.location.href = href;
+      }}
+    >
+      {label}
+    </GlassButton>
   );
 }
 

@@ -6,6 +6,8 @@ import { GlassCard } from "@/components/ui/glass/GlassCard";
 import { GlassInput } from "@/components/ui/glass/GlassInput";
 import { GlassSelect } from "@/components/ui/glass/GlassSelect";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
+import { PageHeader } from "@/components/ui/glass/PageHeader";
+import { Section } from "@/components/ui/glass/Section";
 
 type FeeType = "per_case" | "percentage" | "";
 
@@ -210,6 +212,23 @@ export function BranchEditForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <PageHeader
+        title={mode === "create" ? "새 지사 등록" : "지사 정보 수정"}
+        description={
+          mode === "create"
+            ? "새로운 지사를 등록하고 관리합니다."
+            : "지사의 기본 정보와 정산 설정을 수정합니다."
+        }
+        breadcrumbs={[
+          { label: "홈", href: "/" },
+          { label: "지사 관리", href: "/branches" },
+          {
+            label: mode === "create" ? "새 지사" : "지사 수정",
+            href: "#",
+          },
+        ]}
+      />
+
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50/50 px-4 py-3 text-sm text-red-700 backdrop-blur-sm">
           {error}
@@ -261,36 +280,34 @@ export function BranchEditForm({
 
       <div className="space-y-6">
         {/* 기본 정보 */}
-        <GlassCard title="기본 정보">
+        <Section title="기본 정보">
           <div className="grid gap-6">
-            {/* 플랫폼 스위치 */}
+            {/* 플랫폼 스위치 - Fixed Segmented Control */}
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-muted-foreground block ml-1">
+              <label className="text-xs font-semibold text-muted-foreground ml-1">
                 플랫폼
               </label>
-              <div className="flex w-full rounded-xl border border-border bg-muted/30 p-1 text-xs">
-                <GlassButton
+              <div className="flex w-full rounded-xl border border-border bg-muted/30 p-1">
+                <button
                   type="button"
-                  variant="ghost"
                   onClick={() => setPlatform("coupang")}
-                  className={`flex-1 rounded-lg px-3 py-2 font-medium h-auto ${platform === "coupang"
-                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/25 hover:bg-primary/90"
-                    : "bg-white text-foreground hover:bg-muted"
+                  className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all duration-200 ${platform === "coupang"
+                    ? "bg-background text-blue-600 shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
                     }`}
                 >
                   쿠팡
-                </GlassButton>
-                <GlassButton
+                </button>
+                <button
                   type="button"
-                  variant="ghost"
                   onClick={() => setPlatform("baemin")}
-                  className={`flex-1 rounded-lg px-3 py-2 font-medium h-auto ${platform === "baemin"
-                    ? "bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/25 hover:bg-primary/90"
-                    : "bg-white text-foreground hover:bg-muted"
+                  className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all duration-200 ${platform === "baemin"
+                    ? "bg-background text-teal-600 shadow-sm ring-1 ring-border"
+                    : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
                     }`}
                 >
                   배민
-                </GlassButton>
+                </button>
               </div>
             </div>
 
@@ -349,10 +366,10 @@ export function BranchEditForm({
               </p>
             </div>
           </div>
-        </GlassCard>
+        </Section>
 
         {/* 소속 정보 */}
-        <GlassCard title="소속 정보">
+        <Section title="소속 정보">
           <div className="grid gap-6">
             <GlassSelect
               label="소속(법인)"
@@ -383,10 +400,10 @@ export function BranchEditForm({
               ))}
             </GlassSelect>
           </div>
-        </GlassCard>
+        </Section>
 
         {/* 정산 정보 */}
-        <GlassCard title="정산 정보">
+        <Section title="정산 정보">
           <div className="grid gap-6">
             <div className="space-y-2">
               <label className="text-xs font-semibold text-muted-foreground ml-1">
@@ -395,23 +412,17 @@ export function BranchEditForm({
               <div className="flex gap-3">
                 <GlassButton
                   type="button"
-                  variant="ghost"
+                  variant={feeType === "per_case" ? "primary" : "outline"}
                   onClick={() => setFeeType("per_case")}
-                  className={`flex-1 rounded-xl border px-4 py-2.5 text-xs font-medium h-auto ${feeType === "per_case"
-                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/25 hover:bg-primary/90"
-                    : "border-border bg-white text-foreground hover:bg-muted"
-                    }`}
+                  className="flex-1"
                 >
                   건당 수수료
                 </GlassButton>
                 <GlassButton
                   type="button"
-                  variant="ghost"
+                  variant={feeType === "percentage" ? "primary" : "outline"}
                   onClick={() => setFeeType("percentage")}
-                  className={`flex-1 rounded-xl border px-4 py-2.5 text-xs font-medium h-auto ${feeType === "percentage"
-                    ? "border-primary bg-primary text-primary-foreground shadow-md shadow-primary/25 ring-1 ring-primary/25 hover:bg-primary/90"
-                    : "border-border bg-white text-foreground hover:bg-muted"
-                    }`}
+                  className="flex-1"
                 >
                   % 수수료
                 </GlassButton>
@@ -442,7 +453,7 @@ export function BranchEditForm({
               )}
             </div>
           </div>
-        </GlassCard>
+        </Section>
       </div>
 
       {/* 액션 버튼 */}

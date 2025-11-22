@@ -6,8 +6,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Wallet } from "lucide-react";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
-import { NumberField, TextAreaField } from "@/components/ui/FormField";
-import { DateField } from "@/components/ui/DateField";
+import { GlassInput } from "@/components/ui/glass/GlassInput";
+import { GlassSelect } from "@/components/ui/glass/GlassSelect";
+import { GlassTextarea } from "@/components/ui/glass/GlassTextarea";
+import { PageHeader } from "@/components/ui/glass/PageHeader";
+import { Section } from "@/components/ui/glass/Section";
 
 type RiderOption = {
   id: string;
@@ -105,20 +108,16 @@ export default function LoanCreatePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-            <Wallet className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="text-[11px] text-muted-foreground">대여금 관리 / 신규 등록</div>
-            <h1 className="text-lg font-semibold text-foreground">대여금 신규 등록</h1>
-            <p className="text-xs text-muted-foreground">
-              라이더 대여금 기본 정보를 입력하고 저장하세요.
-            </p>
-          </div>
-        </div>
-        <div className="ml-auto flex items-center gap-2 text-xs">
+      <PageHeader
+        title="대여금 신규 등록"
+        description="라이더 대여금 기본 정보를 입력하고 저장하세요."
+        breadcrumbs={[
+          { label: "홈", href: "/" },
+          { label: "대여금 관리", href: "/loan-management" },
+          { label: "신규 등록", href: "#" },
+        ]}
+        icon={<Wallet className="h-5 w-5" />}
+        actions={
           <GlassButton
             type="button"
             variant="outline"
@@ -127,85 +126,86 @@ export default function LoanCreatePage() {
           >
             목록으로
           </GlassButton>
-        </div>
-      </div>
+        }
+      />
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-border bg-card p-4 shadow-sm">
-        <div className="space-y-3">
-          <div className="space-y-1 text-sm">
-            <span className="text-[11px] font-semibold text-muted-foreground">라이더 선택</span>
-            <div className="relative">
-              <input
-                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-                placeholder="라이더명/지사/사업자/뒷번호 검색"
-                value={riderSearch}
-                onChange={(e) => {
-                  setRiderSearch(e.target.value);
-                  setDropdownOpen(true);
-                }}
-                onFocus={() => setDropdownOpen(true)}
-                onBlur={() => {
-                  setTimeout(() => setDropdownOpen(false), 120);
-                }}
-              />
-              {dropdownOpen && (
-                <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md border border-border bg-card shadow-lg">
-                  {filteredRiders.length === 0 && (
-                    <div className="px-3 py-2 text-xs text-muted-foreground">검색된 라이더가 없습니다.</div>
-                  )}
-                  {filteredRiders.map((r) => (
-                    <GlassButton
-                      type="button"
-                      key={r.id}
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedRiderId(r.id);
-                        setRiderSearch(r.name);
-                        setDropdownOpen(false);
-                      }}
-                      className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted h-auto rounded-none"
-                    >
-                      <span className="font-medium text-foreground">
-                        {r.name} {r.phoneSuffix ? `(${r.phoneSuffix})` : ""}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">
-                        {r.businessName ? `${r.businessName} · ` : ""}
-                        {r.branchName || "지사 정보 없음"}
-                      </span>
-                    </GlassButton>
-                  ))}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Section title="기본 정보">
+          <div className="grid gap-6">
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-muted-foreground ml-1">라이더 선택</label>
+              <div className="relative">
+                <input
+                  className="h-11 w-full rounded-xl border border-border bg-background/50 px-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground"
+                  placeholder="라이더명/지사/사업자/뒷번호 검색"
+                  value={riderSearch}
+                  onChange={(e) => {
+                    setRiderSearch(e.target.value);
+                    setDropdownOpen(true);
+                  }}
+                  onFocus={() => setDropdownOpen(true)}
+                  onBlur={() => {
+                    setTimeout(() => setDropdownOpen(false), 120);
+                  }}
+                />
+                {dropdownOpen && (
+                  <div className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-xl border border-border bg-card shadow-lg">
+                    {filteredRiders.length === 0 && (
+                      <div className="px-4 py-3 text-sm text-muted-foreground">검색된 라이더가 없습니다.</div>
+                    )}
+                    {filteredRiders.map((r) => (
+                      <button
+                        type="button"
+                        key={r.id}
+                        onClick={() => {
+                          setSelectedRiderId(r.id);
+                          setRiderSearch(r.name);
+                          setDropdownOpen(false);
+                        }}
+                        className="flex w-full flex-col items-start gap-0.5 px-4 py-3 text-left text-sm hover:bg-muted/50 transition-colors border-b border-border/50 last:border-0"
+                      >
+                        <span className="font-medium text-foreground">
+                          {r.name} {r.phoneSuffix ? `(${r.phoneSuffix})` : ""}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {r.businessName ? `${r.businessName} · ` : ""}
+                          {r.branchName || "지사 정보 없음"}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {selectedRiderId && (
+                <div className="rounded-xl border border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+                  선택된 라이더: <span className="font-medium text-foreground">{riderSearch || ""}</span>
                 </div>
               )}
             </div>
-            {selectedRiderId && (
-              <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-                선택된 라이더: {riderSearch || ""}
-              </div>
-            )}
+
+            <GlassInput
+              label="총 대여금"
+              value={principal}
+              onChange={(e) => setPrincipal(e.target.value)}
+              required
+              placeholder="0"
+            />
+
+            <GlassInput
+              type="date"
+              label="대여 일자"
+              value={loanDate}
+              onChange={(e) => setLoanDate(e.target.value)}
+              required
+            />
           </div>
-        </div>
+        </Section>
 
-        <div className="space-y-3">
-          <NumberField
-            label="총 대여금"
-            value={principal}
-            onChange={(v) => setPrincipal(v || "0")}
-            required
-            unit="원"
-          />
-
-          <label className="space-y-1 text-sm">
-            <span className="text-[11px] font-semibold text-muted-foreground">대여 일자</span>
-            <DateField value={loanDate} onChange={setLoanDate} required />
-          </label>
-        </div>
-
-        <div className="space-y-3">
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="space-y-1 text-sm">
-              <span className="text-[11px] font-semibold text-muted-foreground">납부 스케줄 (선택)</span>
-              <select
-                className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+        <Section title="상환 설정">
+          <div className="grid gap-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <GlassSelect
+                label="납부 스케줄 (선택)"
                 value={paymentDayOfWeek}
                 onChange={(e) => setPaymentDayOfWeek(e.target.value)}
               >
@@ -218,50 +218,51 @@ export default function LoanCreatePage() {
                 <option value="5">금요일</option>
                 <option value="6">토요일</option>
                 <option value="0">일요일</option>
-              </select>
-            </label>
+              </GlassSelect>
 
-            <NumberField
-              label="회차 납부 금액 (선택)"
-              value={paymentAmount}
-              onChange={setPaymentAmount}
-              unit="원"
-              helperText="선택 입력"
+              <GlassInput
+                label="회차 납부 금액 (선택)"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="0"
+              />
+            </div>
+
+            <GlassInput
+              type="date"
+              label="납부 마감일 (선택)"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              min={loanDate || undefined}
+            />
+
+            <GlassTextarea
+              label="메모"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="대여 조건, 납부 플랜 등 메모를 남겨주세요."
+              rows={4}
             />
           </div>
-
-          <label className="space-y-1 text-sm">
-            <span className="text-[11px] font-semibold text-muted-foreground">납부 마감일 (선택)</span>
-            <DateField value={dueDate} onChange={setDueDate} min={loanDate || undefined} />
-          </label>
-        </div>
-
-        <TextAreaField
-          label="메모"
-          value={notes}
-          onChange={setNotes}
-          placeholder="대여 조건, 납부 플랜 등 메모를 남겨주세요."
-          minRows={4}
-        />
+        </Section>
 
         {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          <div className="rounded-xl border border-red-200 bg-red-50/50 px-4 py-3 text-sm text-red-700 backdrop-blur-sm">
             {error}
           </div>
         )}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-3">
+          <span className="text-xs text-muted-foreground">
+            저장 후 자동으로 수정 화면으로 이동합니다.
+          </span>
           <GlassButton
             type="submit"
             variant="primary"
-            size="sm"
             disabled={saving}
           >
             {saving ? "저장 중..." : "등록"}
           </GlassButton>
-          <span className="text-[11px] text-muted-foreground">
-            저장 후 자동으로 수정 화면으로 이동합니다.
-          </span>
         </div>
       </form>
     </div>

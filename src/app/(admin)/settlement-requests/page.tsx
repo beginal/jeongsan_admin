@@ -6,6 +6,9 @@ import Link from "next/link";
 import { formatPhone } from "@/lib/phone";
 import { badgeToneClass, getSettlementRequestStatusMeta } from "@/lib/status";
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/glass/PageHeader";
+import { ListChecks } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SettlementMode = "daily" | "weekly";
 
@@ -87,32 +90,55 @@ export default function RiderSettlementRequestsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4 border-b border-border pb-4">
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            라이더 관리 / 익일정산
+      <PageHeader
+        title="익일 정산 목록"
+        description="익일 정산 신청/적용 라이더를 확인하고 처리합니다."
+        breadcrumbs={[
+          { label: "홈", href: "/" },
+          { label: "익일 정산 목록", href: "#" },
+        ]}
+        icon={<ListChecks className="h-5 w-5" />}
+        actions={
+          <div className="flex items-center gap-2">
+            <Link
+              href="/riders"
+              className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              라이더 목록
+            </Link>
+            <Button onClick={load} disabled={loading} size="sm" variant="primary" isLoading={loading}>
+              새로고침
+            </Button>
           </div>
-          <h1 className="text-lg font-semibold text-foreground">익일정산 목록</h1>
-          <p className="text-sm text-muted-foreground">
-            익일 정산을 신청했거나 적용 중인 라이더 목록입니다. 상태를 확인하고 필요 시 상세에서 처리하세요.
-          </p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Link
-            href="/riders"
-            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            라이더 목록
-          </Link>
-          <Button onClick={load} disabled={loading} size="sm" variant="primary" isLoading={loading}>
-            새로고침
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {loading && (
-        <div className="rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-          불러오는 중입니다...
+        <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
+          <table className="min-w-full divide-y divide-border text-sm">
+            <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">라이더</th>
+                <th className="px-4 py-3 text-left font-medium">전화번호</th>
+                <th className="px-4 py-3 text-left font-medium">요청</th>
+                <th className="px-4 py-3 text-left font-medium">상태</th>
+                <th className="px-4 py-3 text-left font-medium">신청일</th>
+                <th className="px-4 py-3 text-left font-medium">처리</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {Array.from({ length: 5 }).map((_, idx) => (
+                <tr key={`settlement-skel-${idx}`} className="animate-pulse">
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-5 w-28 rounded-full" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-32" /></td>
+                  <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
       {error && (
