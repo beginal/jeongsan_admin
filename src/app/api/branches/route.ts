@@ -272,6 +272,34 @@ export async function POST(request: Request) {
         ? `${body.province} ${body.district}`
         : body.district || body.province || "기타") ?? "기타";
 
+    // 동일 소유자 중 중복 여부 사전 체크 (플랫폼/지역/지사명)
+    if (userId) {
+      const provinceNorm = (body.province ?? "").trim();
+      const districtNorm = (body.district ?? "").trim();
+      const { data: existingList } = await supabase
+        .from("new_branches")
+        .select("id, province, district")
+        .eq("created_by", userId)
+        .eq("platform", body.platform)
+        .eq("branch_name", body.branchName)
+        .limit(5);
+
+      const dup = (existingList || []).find(
+        (row: any) =>
+          (row.province ?? "") === provinceNorm &&
+          (row.district ?? "") === districtNorm
+      );
+      if (dup) {
+        return NextResponse.json(
+          {
+            error: `동일 플랫폼/지역/지사명이 이미 존재합니다. 기존 지사를 확인하세요. (기존 ID: ${dup.id})`,
+            existingBranchId: dup.id,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // 1) new_branches 생성
     const { data: inserted, error: insertError } = await supabase
       .from("new_branches")
@@ -292,6 +320,14 @@ export async function POST(request: Request) {
         insertError
       );
       const msg = String(insertError?.message || "");
+      if (
+        insertError?.code === "23505"
+      ) {
+        return NextResponse.json(
+          { error: insertError?.message || "새 지사를 생성하지 못했습니다." },
+          { status: 409 }
+        );
+      }
       if (msg.includes("created_by") || (msg.toLowerCase().includes("column") && msg.toLowerCase().includes("created_by"))) {
         return NextResponse.json(
           { error: "지사를 생성하지 못했습니다. created_by 컬럼/권한을 확인해주세요." },

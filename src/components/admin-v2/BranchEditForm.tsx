@@ -429,13 +429,14 @@ export function BranchEditForm({
                 {...provinceField}
                 onChange={(e) => {
                   provinceField.onChange(e);
+                  setValue("provinceId", e.target.value, { shouldDirty: true, shouldValidate: true });
                   setValue("districtId", "", { shouldDirty: true, shouldValidate: true });
                 }}
                 disabled={saving || deleting}
               >
                 <option value="">선택</option>
                 {provinceOptions.map((p) => (
-                  <option key={p.id} value={p.id}>
+                  <option key={p.id} value={String(p.id)}>
                     {p.name}
                   </option>
                 ))}
@@ -445,11 +446,15 @@ export function BranchEditForm({
                 label="구/시/군"
                 error={errors.districtId?.message}
                 {...districtField}
+                onChange={(e) => {
+                  districtField.onChange(e);
+                  setValue("districtId", e.target.value, { shouldDirty: true, shouldValidate: true });
+                }}
                 disabled={saving || deleting}
               >
                 <option value="">선택</option>
                 {filteredDistricts.map((d) => (
-                  <option key={d.id} value={d.id}>
+                  <option key={d.id} value={String(d.id)}>
                     {d.name}
                   </option>
                 ))}
