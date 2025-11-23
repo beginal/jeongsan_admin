@@ -970,6 +970,10 @@ export default function WeeklySettlementWizardPage() {
             : `${resolvedPeakInfo.score.toLocaleString()}점${
                 resolvedPeakInfo.threshold ? ` / 기준 ${resolvedPeakInfo.threshold}점` : ""
               }`;
+        const rentCostDisplay =
+          rentCostWeekly && rentCostWeekly > 0
+            ? `-${formatCurrency(rentCostWeekly)}원`
+            : "-";
 
         return {
           licenseId: r.licenseId || "-",
@@ -977,8 +981,8 @@ export default function WeeklySettlementWizardPage() {
           riderSuffix: riderSuffixResolved || "-",
           branchName: primaryBranch,
           orderCount,
-          rentCost: rentCostWeekly ? `${formatCurrency(rentCostWeekly)}원` : "-",
-          payout: "미연동",
+          rentCost: rentCostDisplay,
+          payout: "-",
           fee,
           peakScore: peakScoreText,
           promoBasis: promoLines.join("\n"),
@@ -1048,8 +1052,8 @@ export default function WeeklySettlementWizardPage() {
         row.licenseId,
         row.orderCount,
         row.rentCost,
-        row.payout,
-        row.fee ? `${formatCurrency(row.fee)}원` : "-",
+        "-",
+        row.fee ? `-${formatCurrency(row.fee)}원` : "-",
         row.branchName || "-",
         row.peakScore || "-",
         row.promoBasis || "-",
@@ -1565,7 +1569,7 @@ export default function WeeklySettlementWizardPage() {
         {parsed && (
           <div className="overflow-x-auto rounded-xl border border-border">
             <div className="max-h-[1080px] overflow-y-auto">
-              <table className="min-w-[2100px] border-separate border-spacing-0 text-sm">
+              <table className="min-w-[2200px] border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-30 bg-muted/90 text-muted-foreground backdrop-blur">
                   <tr>
                     <th
@@ -1645,10 +1649,10 @@ export default function WeeklySettlementWizardPage() {
                         {row.rentCost}
                       </td>
                       <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
-                        {row.payout}
+                        -
                       </td>
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
-                        {row.fee ? `${formatCurrency(row.fee)}원` : "-"}
+                        {row.fee ? `-${formatCurrency(row.fee)}원` : "-"}
                       </td>
                       <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
                         <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-[3px] text-[11px] font-medium leading-none text-primary">

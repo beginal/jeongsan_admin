@@ -19,6 +19,8 @@ type BranchOption = {
   personalName?: string | null;
   feeType?: "per_case" | "percentage" | null;
   feeValue?: number | null;
+  settlementCycle?: string | null;
+  isNextDay?: boolean;
 };
 
 type BranchRider = {
@@ -29,6 +31,9 @@ type BranchRider = {
   rentalDailyFee?: number | null;
   loanPaymentWeekday?: number | null;
   loanPaymentAmount?: number | null;
+  nextDaySettlement?: boolean | null;
+  settlementCycle?: string | null;
+  licenseId?: string | null;
 };
 
 type RentalFeeMap = Record<string, number>;
@@ -106,6 +111,7 @@ type Step3Row = {
   orderCount: number;
   loanPayment: number;
   rentCost: string;
+  nextDaySettlement: number;
   payout: string;
   fee: number;
   settlementAmount: number;
@@ -130,6 +136,12 @@ const blueCellClass =
   "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-100";
 const purpleCellClass =
   "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-100";
+
+const isNextDayCycle = (cycleRaw?: string | null) => {
+  if (!cycleRaw || typeof cycleRaw !== "string") return false;
+  const v = cycleRaw.toLowerCase();
+  return v.includes("next") || v.includes("익일") || v.includes("daily") || v === "일" || v.includes("일정산");
+};
 
 const normalizeDate = (v: any): string | null => {
   if (!v) return null;
@@ -174,6 +186,7 @@ export default function WeeklySettlementWizardPage() {
   const [branches, setBranches] = useState<BranchOption[]>([]);
   const [branchRiders, setBranchRiders] = useState<Record<string, BranchRider[]>>({});
   const [rentalFeeByRider, setRentalFeeByRider] = useState<RentalFeeMap>({});
+  const [nextDayByRider, setNextDayByRider] = useState<Record<string, boolean>>({});
   const [loanScheduleByRider, setLoanScheduleByRider] = useState<
     Record<string, { weekday: number | null; amount: number | null }>
   >({});
@@ -232,19 +245,34 @@ export default function WeeklySettlementWizardPage() {
 
         if (cancelled) return;
 
-        const branchList: BranchOption[] = (branchData.branches || []).map((b: any) => ({
-          id: String(b.id),
-          name: b.display_name || b.branch_name || String(b.id),
-          displayName: b.display_name || undefined,
-          branchName: b.branch_name || undefined,
-          province: b.province || "",
-          district: b.district || "",
-          platform: b.platform || "",
-          corporateName: b.corporate_entity_name || null,
-          personalName: b.personal_entity_name || null,
-          feeType: b.fee_type || null,
-          feeValue: b.fee_value != null ? Number(b.fee_value) : null,
-        }));
+        const branchList: BranchOption[] = (branchData.branches || []).map((b: any) => {
+          const cycleRaw =
+            b.settlementCycle ??
+            b.settlement_cycle ??
+            b.settlementType ??
+            b.settlement_type ??
+            b.payoutCycle ??
+            b.payout_cycle ??
+            b.payoutType ??
+            b.payout_type ??
+            "";
+          const cycleStr = cycleRaw ? String(cycleRaw) : "";
+          return {
+            id: String(b.id),
+            name: b.display_name || b.branch_name || String(b.id),
+            displayName: b.display_name || undefined,
+            branchName: b.branch_name || undefined,
+            province: b.province || "",
+            district: b.district || "",
+            platform: b.platform || "",
+            corporateName: b.corporate_entity_name || null,
+            personalName: b.personal_entity_name || null,
+            feeType: b.fee_type || null,
+            feeValue: b.fee_value != null ? Number(b.fee_value) : null,
+            settlementCycle: cycleStr || null,
+            isNextDay: isNextDayCycle(cycleStr),
+          };
+        });
         if (branchList.length === 0) {
           throw new Error("지사 목록이 비어있습니다. 다시 불러와 주세요.");
         }
@@ -253,13 +281,51 @@ export default function WeeklySettlementWizardPage() {
         if (ridersRes && ridersRes.ok && (ridersData as any)?.ridersByBranch) {
           const riderMap: Record<string, BranchRider[]> = {};
           const rentalMap: RentalFeeMap = {};
+          const nextDayMap: Record<string, boolean> = {};
           const loanMap: Record<string, { weekday: number | null; amount: number | null }> = {};
           Object.entries((ridersData as any).ridersByBranch as Record<string, any[]>).forEach(
             ([bid, rows]) => {
+              const branchFallback = branchList.find((b) => b.id === String(bid));
+              const branchCycle = branchFallback?.settlementCycle ?? "";
+              const branchNextDay = branchFallback?.isNextDay ?? false;
+
               riderMap[bid] = rows.map((r: any) => {
                 const rid = String(r.id);
+                const license = r.licenseId ? String(r.licenseId).trim() : null;
+                const phoneSuffix = r.phoneSuffix ? String(r.phoneSuffix).trim() : "";
                 if (r.rentalDailyFee != null) {
                   rentalMap[rid] = Number(r.rentalDailyFee) || 0;
+                }
+                const nextDayFlag =
+                  r.nextDaySettlement ??
+                  r.next_day_settlement ??
+                  r.nextDay ?? r.next_day ??
+                  false;
+                const cycleRaw =
+                  r.settlementCycle ??
+                  r.settlement_cycle ??
+                  r.settlementType ??
+                  r.settlement_type ??
+                  r.settlementPlan ??
+                  r.settlement_plan ??
+                  r.settlementInterval ??
+                  r.settlement_interval ??
+                  r.payoutCycle ??
+                  r.payout_cycle ??
+                  r.payoutType ??
+                  r.payout_type ??
+                  branchCycle ??
+                  "";
+                const cycleStr = cycleRaw ? String(cycleRaw).trim() : "";
+                const isNextDay = isNextDayCycle(cycleStr) || branchNextDay;
+                if (nextDayFlag || isNextDay || branchNextDay) {
+                  nextDayMap[rid] = true;
+                  if (phoneSuffix) {
+                    nextDayMap[phoneSuffix] = true;
+                  }
+                  if (license) {
+                    nextDayMap[license] = true;
+                  }
                 }
                 if (r.loanPaymentAmount != null || r.loanPaymentWeekday != null) {
                   loanMap[rid] = {
@@ -277,16 +343,20 @@ export default function WeeklySettlementWizardPage() {
                   id: rid,
                   name: r.name || "",
                   phone: r.phone || "",
-                  phoneSuffix: r.phoneSuffix || "",
+                  phoneSuffix,
                   rentalDailyFee: r.rentalDailyFee ?? null,
                   loanPaymentWeekday: r.loanPaymentWeekday ?? null,
                   loanPaymentAmount: r.loanPaymentAmount ?? null,
+                  nextDaySettlement: !!nextDayFlag || isNextDay,
+                  settlementCycle: cycleStr || null,
+                  licenseId: license,
                 };
               });
             }
           );
           setBranchRiders(riderMap);
           setRentalFeeByRider(rentalMap);
+          setNextDayByRider(nextDayMap);
           setLoanScheduleByRider(loanMap);
         }
       } catch (e: any) {
@@ -702,6 +772,7 @@ export default function WeeklySettlementWizardPage() {
           "";
         const matched = findMatchedRider(primaryBranch, riderSuffixResolved);
         const matchedRiderId = matched?.id;
+        const riderHasNextDayCycle = isNextDayCycle(matched?.settlementCycle);
 
         // 판정일자 → 요일 매칭 (여러 건 중 하나라도 맞으면 적용)
         const extractWeekday = (value?: string | null) => {
@@ -749,9 +820,16 @@ export default function WeeklySettlementWizardPage() {
             : riderSuffixResolved && rentalBySuffix[riderSuffixResolved] != null
               ? rentalBySuffix[riderSuffixResolved]
               : 0) || 0;
+        const receivesNextDay =
+          riderHasNextDayCycle ||
+          !!matched?.nextDaySettlement ||
+          (!!matchedRiderId && !!nextDayByRider[matchedRiderId]) ||
+          (!!riderSuffixResolved && !!nextDayByRider[riderSuffixResolved]) ||
+          (!!r.licenseId && !!nextDayByRider[r.licenseId]);
 
         const overallTotal = totalSettlement + missionSum;
         const withholding = Math.floor((overallTotal * 0.033) / 10) * 10;
+        const nextDaySettlement = receivesNextDay ? Math.round(totalSettlement * 0.95 - fee) : 0;
 
         return {
           licenseId: r.licenseId || "-",
@@ -761,7 +839,8 @@ export default function WeeklySettlementWizardPage() {
           orderCount,
           loanPayment,
           rentCost: rentDaily ? `${formatCurrency(rentDaily)}원` : "-",
-          payout: "미연동",
+          nextDaySettlement,
+          payout: "-",
           fee,
           settlementAmount,
           supportTotal,
@@ -799,6 +878,7 @@ export default function WeeklySettlementWizardPage() {
       "오더수",
       "대여금 납부",
       "렌트비용",
+      "익일정산",
       "실제 입금액",
       "수수료",
       "지사",
@@ -825,7 +905,8 @@ export default function WeeklySettlementWizardPage() {
         row.orderCount,
         row.loanPayment ? `${formatCurrency(row.loanPayment)}원` : "-",
         row.rentCost,
-        row.payout,
+        row.nextDaySettlement ? `${formatCurrency(row.nextDaySettlement)}원` : "-",
+        "-",
         row.fee ? `${formatCurrency(row.fee)}원` : "-",
         row.branchName || "-",
         ...missionCols,
@@ -1279,7 +1360,7 @@ export default function WeeklySettlementWizardPage() {
         {parsed && (
           <div className="overflow-x-auto rounded-xl border border-border">
             <div className="max-h-[1080px] overflow-y-auto">
-              <table className="min-w-[2100px] border-separate border-spacing-0 text-sm">
+              <table className="min-w-[2200px] border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-30 bg-muted/90 text-muted-foreground backdrop-blur">
                   <tr>
                     <th
@@ -1297,6 +1378,7 @@ export default function WeeklySettlementWizardPage() {
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">오더수</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>대여금 납부</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>렌트비용</th>
+                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">익일정산</th>
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">실제 입금액</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>수수료</th>
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">지사</th>
@@ -1352,18 +1434,21 @@ export default function WeeklySettlementWizardPage() {
                       <td className="border border-border px-3 py-3 text-center font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap">
                         {row.orderCount.toLocaleString()}
                       </td>
-                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
-                        {row.loanPayment ? `${formatCurrency(row.loanPayment)}원` : "-"}
-                      </td>
-                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
-                        {row.rentCost}
-                      </td>
-                      <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
-                        {row.payout}
-                      </td>
-                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
-                        {row.fee ? `${formatCurrency(row.fee)}원` : "-"}
-                      </td>
+                    <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                      {row.loanPayment ? `${formatCurrency(row.loanPayment)}원` : "-"}
+                    </td>
+                    <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                      {row.rentCost}
+                    </td>
+                    <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                      {row.nextDaySettlement ? `${formatCurrency(row.nextDaySettlement)}원` : "-"}
+                    </td>
+                    <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                      -
+                    </td>
+                    <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                      {row.fee ? `${formatCurrency(row.fee)}원` : "-"}
+                    </td>
                       <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
                         <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-[3px] text-[11px] font-medium leading-none text-primary">
                           {row.branchName || "-"}

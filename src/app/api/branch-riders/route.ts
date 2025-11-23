@@ -77,6 +77,7 @@ export async function GET(request: NextRequest) {
     // 리스 렌탈 일일 요금 및 대여금 납부 정보 병합
     const rentalFeeByRider: Record<string, number> = {};
     const loanScheduleByRider: Record<string, { weekday: number | null; amount: number | null }> = {};
+    const settlementModeByRider: Record<string, "daily" | "weekly"> = {};
 
     // 리스 렌탈: 차량 owner 기준으로 조회하고 rider_id가 맞는 활성 배정의 daily_fee를 매핑
     if (riderIds.length > 0) {
@@ -126,16 +127,41 @@ export async function GET(request: NextRequest) {
               : Number(row.payment_amount),
         };
       });
+
+      // 정산 주기: 최신 승인된 요청을 기준으로 결정 (없으면 기본 weekly)
+      const { data: settlementRows, error: settlementError } = await supabase
+        .from("rider_settlement_requests")
+        .select("rider_id, requested_mode, status, decided_at, created_at, created_by")
+        .in("rider_id", riderIds)
+        .eq("status", "approved")
+        .order("decided_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false });
+
+      if (!settlementError) {
+        (settlementRows || []).forEach((row: any) => {
+          const rid = String(row.rider_id);
+          if (settlementModeByRider[rid]) return;
+          settlementModeByRider[rid] =
+            row.requested_mode === "daily" ? "daily" : "weekly";
+        });
+      }
     }
 
     // rider 개체에 병합
     Object.entries(result).forEach(([bid, list]) => {
-      result[bid] = (list || []).map((r: any) => ({
-        ...r,
-        rentalDailyFee: rentalFeeByRider[r.id] ?? null,
-        loanPaymentWeekday: loanScheduleByRider[r.id]?.weekday ?? null,
-        loanPaymentAmount: loanScheduleByRider[r.id]?.amount ?? null,
-      }));
+      result[bid] = (list || []).map((r: any) => {
+        const settlementMode = settlementModeByRider[r.id] ?? "weekly";
+        const isDaily = settlementMode === "daily";
+        return {
+          ...r,
+          rentalDailyFee: rentalFeeByRider[r.id] ?? null,
+          loanPaymentWeekday: loanScheduleByRider[r.id]?.weekday ?? null,
+          loanPaymentAmount: loanScheduleByRider[r.id]?.amount ?? null,
+          settlementMode,
+          settlementCycle: settlementMode, // 프런트에서 정산 주기 매칭 용도
+          nextDaySettlement: isDaily,
+        };
+      });
     });
 
     Object.keys(result).forEach((bid) => {

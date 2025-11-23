@@ -92,7 +92,7 @@ async function getSettlementStatus(
 export async function GET() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.supabase;
+  const supabase = auth.serviceSupabase ?? auth.supabase; // 서비스 롤 우선 사용(토큰 기반 riderId 필터로 노출 제한)
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const supabase = auth.supabase;
+  const supabase = auth.serviceSupabase ?? auth.supabase; // 서비스 롤 우선 사용(토큰 기반 riderId 필터로 노출 제한)
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.supabase;
+  const supabase = auth.serviceSupabase ?? auth.supabase; // 서비스 롤 우선 사용(토큰 기반 riderId 필터로 노출 제한)
   const { riderId } = await resolveRiderId(supabase, auth.user, auth.token);
 
   if (!riderId) {

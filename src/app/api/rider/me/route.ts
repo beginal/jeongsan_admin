@@ -4,7 +4,7 @@ import { requireRiderAuth } from "@/lib/auth";
 export async function GET() {
   const auth = await requireRiderAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.supabase; // RLS 보호 경로는 anon 키만 사용
+  const supabase = auth.serviceSupabase ?? auth.supabase; // 서비스 롤 우선 사용(데이터 노출은 토큰 기반 필터로 제한)
   const token = auth.token;
 
   try {
