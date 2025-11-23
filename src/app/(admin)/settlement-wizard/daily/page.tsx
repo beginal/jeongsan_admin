@@ -856,7 +856,7 @@ export default function WeeklySettlementWizardPage() {
           rentCostValue: rentDaily,
         };
       });
-  }, [parsed, branchIdByLabel, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider, loanScheduleByRider, rentalBySuffix, loanBySuffix]);
+  }, [parsed, branchIdByLabel, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider, loanScheduleByRider, rentalBySuffix, loanBySuffix, nextDayByRider]);
 
   const openDetail = (row: Step3Row) => {
     setDetailRow(row);

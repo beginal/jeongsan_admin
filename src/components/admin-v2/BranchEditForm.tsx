@@ -122,13 +122,12 @@ export function BranchEditForm({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const defaultProvinceId = useMemo(() => {
     const found = provinceOptions.find((p) => p.name === initialProvince);
-    return found ? String(found.id) : provinceOptions[0]?.id?.toString() ?? "";
+    return found ? String(found.id) : "";
   }, [initialProvince, provinceOptions]);
 
   const defaultDistrictId = useMemo(() => {
     const provinceNumeric = Number(
-      provinceOptions.find((p) => p.name === initialProvince)?.id ??
-      provinceOptions[0]?.id
+      provinceOptions.find((p) => p.name === initialProvince)?.id
     );
     const found = districtOptions.find(
       (d) =>
@@ -313,6 +312,37 @@ export function BranchEditForm({
         </div>
       )}
 
+      {/* 액션 버튼 (상단) */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3 text-xs">
+        {mode === "edit" && branchId && (
+          <GlassButton
+            type="button"
+            variant="destructive"
+            onClick={() => setShowDeleteModal(true)}
+            disabled={saving || deleting}
+          >
+            {deleting ? "삭제 중..." : "지사 삭제"}
+          </GlassButton>
+        )}
+        <div className="ml-auto flex gap-3">
+          <GlassButton
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+            disabled={saving || deleting}
+          >
+            취소
+          </GlassButton>
+          <GlassButton
+            type="submit"
+            variant="primary"
+            disabled={saving || deleting}
+          >
+            {saving ? "저장 중..." : "저장"}
+          </GlassButton>
+        </div>
+      </div>
+
       {/* Delete confirmation modal */}
       {mode === "edit" && branchId && showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
@@ -403,6 +433,7 @@ export function BranchEditForm({
                 }}
                 disabled={saving || deleting}
               >
+                <option value="">선택</option>
                 {provinceOptions.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -546,37 +577,6 @@ export function BranchEditForm({
             </div>
           </div>
         </Section>
-      </div>
-
-      {/* 액션 버튼 */}
-      <div className="flex items-center justify-between border-t border-border/50 pt-6 text-xs">
-        {mode === "edit" && branchId && (
-          <GlassButton
-            type="button"
-            variant="destructive"
-            onClick={() => setShowDeleteModal(true)}
-            disabled={saving || deleting}
-          >
-            {deleting ? "삭제 중..." : "지사 삭제"}
-          </GlassButton>
-        )}
-        <div className="ml-auto flex gap-3">
-          <GlassButton
-            type="button"
-            variant="outline"
-            onClick={() => router.back()}
-            disabled={saving || deleting}
-          >
-            취소
-          </GlassButton>
-          <GlassButton
-            type="submit"
-            variant="primary"
-            disabled={saving || deleting}
-          >
-            {saving ? "저장 중..." : "저장"}
-          </GlassButton>
-        </div>
       </div>
     </form>
   );

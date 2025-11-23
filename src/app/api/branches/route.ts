@@ -236,7 +236,7 @@ export async function POST(request: Request) {
 
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
-  const supabase = auth.supabase;
+  const supabase = auth.serviceSupabase ?? auth.supabase;
 
   try {
     // 현재 로그인한 사용자 (created_by / 정책용)
@@ -299,7 +299,7 @@ export async function POST(request: Request) {
         );
       }
       return NextResponse.json(
-        { error: "새 지사를 생성하지 못했습니다." },
+        { error: insertError?.message ? `새 지사를 생성하지 못했습니다: ${insertError.message}` : "새 지사를 생성하지 못했습니다." },
         { status: 500 }
       );
     }
