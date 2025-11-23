@@ -225,6 +225,10 @@ const buildPromotionSummary = (type?: string, cfgRaw?: Record<string, any>) => {
   const peakLines: string[] = [];
   if (peak && Array.isArray(peak.conditions) && peak.conditions.length > 0) {
     peakLines.push(`피크타임 (${peak.mode || "AND"})`);
+    const minScore = peak.minScore ?? peak.min_score;
+    if (minScore != null && minScore !== "") {
+      peakLines.push(`적용 기준: 피크점수 ${minScore}점 이상`);
+    }
     peak.conditions.forEach((c: any, idx: number) => {
       const slot = c.slot || "-";
       const min = c.minCount ?? "-";
@@ -807,6 +811,46 @@ export default function WeeklySettlementWizardPage() {
     [promotionDetail]
   );
 
+  const calcPeakScore = useCallback(
+    (promo: PromotionOption | undefined, peakByDate: AggRider["peakByDate"]) => {
+      if (!promo) return null;
+      const cfg = promo.config || {};
+      const peak =
+        cfg.peakPrecondition ??
+        cfg.peak_precondition ??
+        cfg.peak_pre_condition ??
+        cfg.peak;
+      if (!peak || !Array.isArray(peak.conditions) || peak.conditions.length === 0) return null;
+      const mode = String(peak.mode || "AND").toUpperCase();
+      const thresholdRaw = peak.minScore ?? peak.min_score;
+      const thresholdNum = Number(thresholdRaw);
+      const threshold =
+        Number.isFinite(thresholdNum) && thresholdNum > 0 ? thresholdNum : null;
+
+      let score = 0;
+      Object.values(peakByDate || {}).forEach((counts) => {
+        const conditionsMet = peak.conditions.map((c: any) => {
+          const slot = c.slot as keyof typeof counts;
+          const min = c.minCount ?? c.min_count ?? 0;
+          const actual = slot ? Number(counts[slot] || 0) : 0;
+          return actual >= min;
+        });
+        const ok =
+          mode === "OR"
+            ? conditionsMet.some(Boolean)
+            : conditionsMet.length > 0 && conditionsMet.every(Boolean);
+        if (ok) score += 1;
+      });
+
+      return {
+        score,
+        threshold,
+        meets: threshold == null ? true : score >= threshold,
+      };
+    },
+    []
+  );
+
   const missionTotals = useMemo(() => {
     if (!parsed) return {} as Record<string, Record<string, number>>;
     const nameToLic: Record<string, string> = {};
@@ -859,8 +903,20 @@ export default function WeeklySettlementWizardPage() {
 
         const promoLines: string[] = [];
         let promoTotal = 0;
+        let peakInfoForDisplay: { score: number; threshold: number | null } | null =
+          null as { score: number; threshold: number | null } | null;
         promos.forEach((p) => {
           const { amount, typeLabel } = calcPromoAmount(p, orderCount, branchId);
+          const peakInfo = calcPeakScore(p, r.peakByDate);
+          if (peakInfo && !peakInfoForDisplay) {
+            peakInfoForDisplay = { score: peakInfo.score, threshold: peakInfo.threshold };
+          }
+          if (peakInfo && !peakInfo.meets) {
+            promoLines.push(
+              `[${typeLabel || "피크"}] 피크점수 ${peakInfo.score}점`
+            );
+            return;
+          }
           if (amount && typeLabel) {
             promoLines.push(`[${typeLabel}] ${formatCurrency(amount)}원`);
             promoTotal += amount;
@@ -906,6 +962,15 @@ export default function WeeklySettlementWizardPage() {
         const overallTotal = totalSettlement + promoTotal + missionSum;
         const withholding = Math.floor((overallTotal * 0.033) / 10) * 10;
 
+        const resolvedPeakInfo: { score: number; threshold: number | null } | null =
+          peakInfoForDisplay;
+        const peakScoreText =
+          resolvedPeakInfo == null
+            ? "-"
+            : `${resolvedPeakInfo.score.toLocaleString()}점${
+                resolvedPeakInfo.threshold ? ` / 기준 ${resolvedPeakInfo.threshold}점` : ""
+              }`;
+
         return {
           licenseId: r.licenseId || "-",
           riderName: r.riderName || summary?.name || "-",
@@ -915,7 +980,7 @@ export default function WeeklySettlementWizardPage() {
           rentCost: rentCostWeekly ? `${formatCurrency(rentCostWeekly)}원` : "-",
           payout: "미연동",
           fee,
-          peakScore: "-",
+          peakScore: peakScoreText,
           promoBasis: promoLines.join("\n"),
           promoAmount: promoTotal,
           settlementAmount,
@@ -933,7 +998,7 @@ export default function WeeklySettlementWizardPage() {
           rentCostValue: rentCostWeekly,
         };
       });
-  }, [parsed, branchIdByLabel, promotionByBranch, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider, calcPromoAmount]);
+  }, [parsed, branchIdByLabel, promotionByBranch, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider, calcPromoAmount, calcPeakScore]);
 
   const openDetail = (row: Step3Row) => {
     setDetailRow(row);
@@ -1594,10 +1659,19 @@ export default function WeeklySettlementWizardPage() {
                         {row.peakScore}
                       </td>
                       <td
-                        className={`border border-border px-3 py-3 text-center whitespace-pre-line text-[12px] ${purpleCellClass}`}
+                        className={`border border-border px-3 py-3 text-center text-[12px] ${purpleCellClass}`}
                         style={{ minWidth: "140px", width: "140px" }}
                       >
-                        {row.promoBasis || "-"}
+                        {(row.promoBasis || "-")
+                          .split("\n")
+                          .map((line, idx) => (
+                            <div
+                              key={`${row.licenseId}-promo-${idx}`}
+                              className={line.includes("피크점수") ? "text-amber-700 font-semibold" : ""}
+                            >
+                              {line || "-"}
+                            </div>
+                          ))}
                       </td>
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}>
                         {row.promoAmount ? `${formatCurrency(row.promoAmount)}원` : "-"}

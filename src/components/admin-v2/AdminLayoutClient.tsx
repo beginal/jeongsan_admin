@@ -3,36 +3,20 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { Bell, Menu, Moon, Sun } from "lucide-react";
 import { AdminSidebar, AdminSidebarMobile } from "@/components/admin-v2/AdminSidebar";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { ToastHost } from "@/components/ui/Toast";
 
-export type ThemeMode = "light" | "dark";
-
 interface AdminLayoutClientProps {
   children: ReactNode;
-  initialTheme?: ThemeMode;
 }
 
-function getPreferredTheme(fallback: ThemeMode): ThemeMode {
-  if (typeof window === "undefined" || typeof document === "undefined") return fallback;
-
-  const stored = window.localStorage.getItem("admin-v2-theme");
-  if (stored === "dark" || stored === "light") return stored;
-
-  const cookieMatch = document.cookie.match(/(?:^|; )admin-v2-theme=([^;]+)/);
-  const cookieTheme = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
-  if (cookieTheme === "dark" || cookieTheme === "light") return cookieTheme;
-
-  const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
-  return prefersDark ? "dark" : "light";
-}
-
-export function AdminLayoutClient({ children, initialTheme = "light" }: AdminLayoutClientProps) {
+export function AdminLayoutClient({ children }: AdminLayoutClientProps) {
   const router = useRouter();
-  const [theme, setTheme] = useState<ThemeMode>(initialTheme);
-  const [mounted, setMounted] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const currentTheme = resolvedTheme === "dark" ? "dark" : "light";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expiresAt, setExpiresAt] = useState<number | null>(null);
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
@@ -41,26 +25,6 @@ export function AdminLayoutClient({ children, initialTheme = "light" }: AdminLay
   const refreshingRef = useRef(false);
   const logoutRedirectRef = useRef(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<number | null>(null);
-
-  useEffect(() => {
-    const resolvedTheme = getPreferredTheme(initialTheme);
-    setTheme(resolvedTheme);
-    setMounted(true);
-  }, [initialTheme]);
-
-  useEffect(() => {
-    if (!mounted || typeof document === "undefined") return;
-    const root = document.documentElement;
-    const isDark = theme === "dark";
-    root.classList.toggle("dark", isDark);
-    root.style.colorScheme = theme;
-
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem("admin-v2-theme", theme);
-    }
-
-    document.cookie = `admin-v2-theme=${theme}; path=/; max-age=31536000; SameSite=Lax`;
-  }, [mounted, theme]);
 
   const redirectToLogin = useCallback(() => {
     if (logoutRedirectRef.current) return;
@@ -178,7 +142,7 @@ export function AdminLayoutClient({ children, initialTheme = "light" }: AdminLay
   const isDanger = remainingMs != null && remainingMs <= 5 * 60 * 1000;
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+    setTheme(currentTheme === "light" ? "dark" : "light");
   };
 
   return (
@@ -235,7 +199,7 @@ export function AdminLayoutClient({ children, initialTheme = "light" }: AdminLay
               className="h-9 w-9 rounded-full"
               aria-label="Toggle theme"
             >
-              {theme === "light" ? (
+              {currentTheme === "light" ? (
                 <Moon className="h-4 w-4" />
               ) : (
                 <Sun className="h-4 w-4" />

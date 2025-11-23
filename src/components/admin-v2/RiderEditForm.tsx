@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { RiderStatusActions } from "@/components/admin-v2/RiderStatusActions";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -78,29 +81,64 @@ function formatPhone(raw?: string | null) {
   )}-${digits.slice(-4)}`;
 }
 
+const riderSchema = z.object({
+  name: z.string().trim().min(1, "이름을 입력하세요."),
+  residentNumber: z.string().optional(),
+  phone: z
+    .string()
+    .trim()
+    .min(9, "전화번호를 입력하세요.")
+    .max(13, "전화번호를 다시 확인하세요."),
+  baeminId: z.string().optional(),
+  bankName: z.string().optional(),
+  accountHolder: z.string().optional(),
+  accountNumber: z.string().optional(),
+  taxName: z.string().optional(),
+  taxResidentNumber: z.string().optional(),
+  verificationStatus: z.enum(["approved", "pending", "rejected"]),
+});
+
+type RiderFormValues = z.infer<typeof riderSchema>;
+
 export function RiderEditForm({ riderId }: RiderEditFormProps) {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const [name, setName] = useState("");
-  const [residentNumber, setResidentNumber] = useState<string | null>(null);
-  const [phone, setPhone] = useState("");
-  const [baeminId, setBaeminId] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [accountHolder, setAccountHolder] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [taxName, setTaxName] = useState("");
-  const [taxResidentNumber, setTaxResidentNumber] = useState("");
   const [availableBranches, setAvailableBranches] = useState<BranchOption[]>([]);
   const [selectedBranchIds, setSelectedBranchIds] = useState<string[]>([]);
   const [primaryBranchId, setPrimaryBranchId] = useState<string | null>(null);
   const [branchSearch, setBranchSearch] = useState("");
-  const [verificationStatus, setVerificationStatus] = useState<
-    "approved" | "pending" | "rejected"
-  >("pending");
+  const {
+    register,
+    handleSubmit,
+    reset,
+    setValue,
+    watch,
+    formState: { errors, isSubmitting },
+  } = useForm<RiderFormValues>({
+    resolver: zodResolver(riderSchema),
+    defaultValues: {
+      name: "",
+      residentNumber: "",
+      phone: "",
+      baeminId: "",
+      bankName: "",
+      accountHolder: "",
+      accountNumber: "",
+      taxName: "",
+      taxResidentNumber: "",
+      verificationStatus: "pending",
+    },
+  });
+
+  const saving = isSubmitting;
+  const verificationStatus = watch("verificationStatus");
+  const nameValue = watch("name");
+  const bankNameValue = watch("bankName") || "";
+  const phoneValue = watch("phone") || "";
+  const accountNumberValue = watch("accountNumber") || "";
+  const taxResidentNumberValue = watch("taxResidentNumber") || "";
 
   useEffect(() => {
     let cancelled = false;
@@ -118,22 +156,21 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
         }
         if (cancelled) return;
         const r = data.rider as any;
-        setName(r.name || "");
-        setResidentNumber(r.resident_number || null);
-        setPhone(formatPhone(r.phone || ""));
-        setBaeminId(r.baemin_id || "");
-        setBankName(r.bank_name || "");
-        setAccountHolder(r.account_holder || "");
-        setAccountNumber(
-          formatAccountForDisplay(r.account_number || "", r.bank_name || "")
-        );
-        setTaxName(r.tax_name || "");
+        const vsRaw = r.verification_status as string;
+        const vs = vsRaw === "approved" || vsRaw === "rejected" ? vsRaw : "pending";
         const rawTax = (r.tax_resident_number as string | null) || "";
-        setTaxResidentNumber(formatSsnForInput(rawTax));
-        const vs = r.verification_status as string;
-        setVerificationStatus(
-          vs === "approved" || vs === "rejected" ? (vs as any) : "pending"
-        );
+        reset({
+          name: r.name || "",
+          residentNumber: formatSsnForInput(r.resident_number || ""),
+          phone: formatPhone(r.phone || ""),
+          baeminId: r.baemin_id || "",
+          bankName: r.bank_name || "",
+          accountHolder: r.account_holder || "",
+          accountNumber: formatAccountForDisplay(r.account_number || "", r.bank_name || ""),
+          taxName: r.tax_name || "",
+          taxResidentNumber: formatSsnForInput(rawTax),
+          verificationStatus: vs,
+        });
 
         const assigned: any[] = Array.isArray(data.assignedBranches)
           ? data.assignedBranches
@@ -172,26 +209,23 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
     return () => {
       cancelled = true;
     };
-  }, [riderId]);
+  }, [riderId, reset]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = handleSubmit(async (values) => {
     setError(null);
-    setSaving(true);
-
     try {
       const body: Record<string, any> = {
-        name: name.trim(),
-        phone: phone.trim(),
-        baeminId: baeminId.trim() || null,
-        bankName: bankName.trim() || null,
-        accountHolder: accountHolder.trim() || null,
-        accountNumber: accountNumber.trim() || null,
-        taxName: taxName.trim() || null,
-        taxResidentNumber: taxResidentNumber.trim() || null,
+        name: values.name.trim(),
+        phone: values.phone.trim(),
+        baeminId: values.baeminId?.trim() || null,
+        bankName: values.bankName?.trim() || null,
+        accountHolder: values.accountHolder?.trim() || null,
+        accountNumber: values.accountNumber?.trim() || null,
+        taxName: values.taxName?.trim() || null,
+        taxResidentNumber: values.taxResidentNumber?.trim() || null,
         branchIds: selectedBranchIds,
         primaryBranchId: primaryBranchId,
-        verificationStatus,
+        verificationStatus: values.verificationStatus,
       };
 
       const res = await fetch(`/api/riders/${encodeURIComponent(riderId)}`, {
@@ -210,34 +244,30 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
       router.refresh();
     } catch (e: any) {
       setError(e.message || "라이더 정보를 저장하지 못했습니다.");
-    } finally {
-      setSaving(false);
     }
-  };
+  });
 
   const handleAccountNumberChange = (raw: string) => {
     const digits = raw.replace(/\D/g, "");
-    const maxDigits = getAccountMaxDigits(bankName);
+    const maxDigits = getAccountMaxDigits(bankNameValue);
     const limited = digits.slice(0, maxDigits);
-    setAccountNumber(formatAccountForDisplay(limited, bankName));
+    setValue("accountNumber", formatAccountForDisplay(limited, bankNameValue), {
+      shouldDirty: true,
+    });
   };
 
   const handleTaxResidentChange = (raw: string) => {
     const digits = raw.replace(/\D/g, "");
     const limited = digits.slice(0, 13);
-    if (!limited) {
-      setTaxResidentNumber("");
-      return;
-    }
-    if (limited.length <= 6) {
-      setTaxResidentNumber(limited);
-    } else {
-      setTaxResidentNumber(`${limited.slice(0, 6)}-${limited.slice(6)}`);
-    }
+    const formatted =
+      !limited || limited.length <= 6
+        ? limited
+        : `${limited.slice(0, 6)}-${limited.slice(6)}`;
+    setValue("taxResidentNumber", formatted, { shouldDirty: true });
   };
 
   const handlePhoneChange = (raw: string) => {
-    setPhone(formatPhone(raw));
+    setValue("phone", formatPhone(raw), { shouldDirty: true, shouldValidate: true });
   };
 
   const filteredBranches = availableBranches.filter((b) => {
@@ -256,11 +286,11 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={onSubmit} className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-4 text-xs">
         <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
           <span className="rounded-md bg-primary/10 px-2 py-1 text-primary">라이더 수정</span>
-          <span className="text-muted-foreground text-xs">{name || riderId}</span>
+          <span className="text-muted-foreground text-xs">{nameValue || riderId}</span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <Button
@@ -304,10 +334,12 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <input
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                {...register("name")}
                 placeholder="예: 홍길동"
               />
+              {errors.name?.message && (
+                <p className="text-[11px] text-red-500">{errors.name.message}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -316,7 +348,7 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <input
                 className="h-9 w-full rounded-md border border-dashed border-border bg-muted/40 px-2 text-xs text-muted-foreground"
-                value={formatSsnForDisplay(residentNumber)}
+                value={formatSsnForDisplay(watch("residentNumber"))}
                 readOnly
                 disabled
               />
@@ -331,10 +363,13 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <input
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={phone}
+                value={phoneValue}
                 onChange={(e) => handlePhoneChange(e.target.value)}
                 placeholder="예: 010-1234-5678"
               />
+              {errors.phone?.message && (
+                <p className="text-[11px] text-red-500">{errors.phone.message}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -343,8 +378,7 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <input
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={baeminId}
-                onChange={(e) => setBaeminId(e.target.value)}
+                {...register("baeminId")}
                 placeholder="예: baemin01"
               />
             </div>
@@ -372,12 +406,14 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <select
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={bankName}
+                value={bankNameValue}
                 onChange={(e) => {
                   const next = e.target.value;
-                  setBankName(next);
-                  setAccountNumber((prev) =>
-                    formatAccountForDisplay(prev.replace(/\D/g, ""), next)
+                  setValue("bankName", next, { shouldDirty: true });
+                  setValue(
+                    "accountNumber",
+                    formatAccountForDisplay(accountNumberValue.replace(/\D/g, ""), next),
+                    { shouldDirty: true }
                   );
                 }}
               >
@@ -395,8 +431,7 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <input
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={accountHolder}
-                onChange={(e) => setAccountHolder(e.target.value)}
+                {...register("accountHolder")}
                 placeholder="예: 홍길동"
               />
             </div>
@@ -406,7 +441,7 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <input
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={accountNumber}
+                value={accountNumberValue}
                 onChange={(e) => handleAccountNumberChange(e.target.value)}
                 placeholder="숫자만 또는 하이픈 포함 입력"
               />
@@ -425,8 +460,7 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <input
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={taxName}
-                onChange={(e) => setTaxName(e.target.value)}
+                {...register("taxName")}
                 placeholder="예: 홍길동"
               />
             </div>
@@ -436,7 +470,7 @@ export function RiderEditForm({ riderId }: RiderEditFormProps) {
               </label>
               <input
                 className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={taxResidentNumber}
+                value={taxResidentNumberValue}
                 onChange={(e) => handleTaxResidentChange(e.target.value)}
                 maxLength={14}
                 placeholder="예: 991231-1234567"

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
-
-type BusinessEntityType = "CORPORATE" | "PERSONAL";
 
 type CorporateOption = {
   id: string;
@@ -29,27 +30,61 @@ export function BusinessEntityCreateForm({
   corporateOptions,
 }: BusinessEntityCreateFormProps) {
   const router = useRouter();
-  const [type, setType] = useState<BusinessEntityType>("CORPORATE");
-  const [name, setName] = useState("");
-  const [regNo, setRegNo] = useState("");
-  const [parentId, setParentId] = useState("");
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSaving(true);
+  const schema = useMemo(
+    () =>
+      z.object({
+        type: z.enum(["CORPORATE", "PERSONAL"]),
+        name: z.string().trim().min(1, "사업자명을 입력하세요."),
+        registrationNumber: z
+          .string()
+          .trim()
+          .transform((v) => v.replace(/\s+/g, ""))
+          .superRefine((v, ctx) => {
+            const digits = v.replace(/\D/g, "");
+            if (digits.length !== 10) {
+              ctx.addIssue({
+                code: "custom",
+                message: "10자리 사업자등록번호를 입력하세요.",
+              });
+            }
+          }),
+        parentEntityId: z.string().optional(),
+      }),
+    []
+  );
 
+  type FormValues = z.infer<typeof schema>;
+
+  const {
+    register,
+    handleSubmit: formHandleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      type: "CORPORATE",
+      name: "",
+      registrationNumber: "",
+      parentEntityId: "",
+    },
+  });
+
+  const type = watch("type");
+  const saving = isSubmitting;
+
+  const onSubmit = formHandleSubmit(async (values) => {
+    setError(null);
     try {
-      const payload: any = {
-        name: name.trim(),
-        type,
-        registrationNumber: regNo.trim(),
+      const payload = {
+        name: values.name.trim(),
+        type: values.type,
+        registrationNumber: formatBusinessNumber(values.registrationNumber).trim(),
+        parentEntityId: values.type === "PERSONAL" ? values.parentEntityId || null : null,
       };
-      if (type === "PERSONAL") {
-        payload.parentEntityId = parentId || null;
-      }
 
       const res = await fetch("/api/business-entities", {
         method: "POST",
@@ -69,13 +104,11 @@ export function BusinessEntityCreateForm({
       router.refresh();
     } catch (e: any) {
       setError(e.message || "사업자를 생성하지 못했습니다.");
-    } finally {
-      setSaving(false);
     }
-  };
+  });
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={onSubmit} className="space-y-6">
       {error && (
         <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           {error}
@@ -97,7 +130,10 @@ export function BusinessEntityCreateForm({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setType("CORPORATE")}
+                  onClick={() => {
+                    setValue("type", "CORPORATE", { shouldDirty: true });
+                    setValue("parentEntityId", "", { shouldDirty: true });
+                  }}
                   className={`h-auto rounded-full px-2.5 py-0.5 text-[11px] hover:bg-transparent ${type === "CORPORATE"
                     ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/25 hover:bg-primary/90"
                     : "bg-white text-foreground hover:bg-muted"
@@ -110,7 +146,7 @@ export function BusinessEntityCreateForm({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setType("PERSONAL")}
+                  onClick={() => setValue("type", "PERSONAL", { shouldDirty: true })}
                   className={`h-auto rounded-full px-2.5 py-0.5 text-[11px] hover:bg-transparent ${type === "PERSONAL"
                     ? "bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/25 hover:bg-primary/90"
                     : "bg-white text-foreground hover:bg-muted"
@@ -127,11 +163,15 @@ export function BusinessEntityCreateForm({
                 사업자명
               </label>
               <input
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                className={`h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${errors.name ? "border-red-300 focus:border-red-400 focus:ring-red-300/60" : ""
+                  }`}
                 placeholder="예: 정산봇 주식회사"
+                disabled={saving}
+                {...register("name")}
               />
+              {errors.name?.message && (
+                <p className="text-[11px] text-red-500">{errors.name.message}</p>
+              )}
             </div>
 
             <div className="space-y-1.5">
@@ -139,13 +179,21 @@ export function BusinessEntityCreateForm({
                 사업자등록번호
               </label>
               <input
-                className="h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-                value={regNo}
-                onChange={(e) =>
-                  setRegNo(formatBusinessNumber(e.target.value))
-                }
+                className={`h-9 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary ${errors.registrationNumber ? "border-red-300 focus:border-red-400 focus:ring-red-300/60" : ""
+                  }`}
                 placeholder="예: 000-00-00000"
+                disabled={saving}
+                {...register("registrationNumber")}
+                onChange={(e) => {
+                  const formatted = formatBusinessNumber(e.target.value);
+                  setValue("registrationNumber", formatted, { shouldDirty: true, shouldValidate: true });
+                }}
               />
+              {errors.registrationNumber?.message && (
+                <p className="text-[11px] text-red-500">
+                  {errors.registrationNumber.message}
+                </p>
+              )}
               <p className="text-[11px] text-muted-foreground">
                 숫자만 입력해도 자동으로 형식이 맞춰집니다.
               </p>
@@ -158,9 +206,8 @@ export function BusinessEntityCreateForm({
                 </label>
                 <select
                   className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
-                  value={parentId}
-                  onChange={(e) => setParentId(e.target.value)}
                   disabled={saving}
+                  {...register("parentEntityId")}
                 >
                   <option value="">상위 법인 없음</option>
                   {corporateOptions.map((c) => (

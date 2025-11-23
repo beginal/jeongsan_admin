@@ -11,6 +11,7 @@ import { GlassSelect } from "@/components/ui/glass/GlassSelect";
 import { GlassTextarea } from "@/components/ui/glass/GlassTextarea";
 import { PageHeader } from "@/components/ui/glass/PageHeader";
 import { Section } from "@/components/ui/glass/Section";
+import { DateField } from "@/components/ui/DateField";
 
 type RiderOption = {
   id: string;
@@ -191,11 +192,10 @@ export default function LoanCreatePage() {
               placeholder="0"
             />
 
-            <GlassInput
-              type="date"
+            <DateField
               label="대여 일자"
               value={loanDate}
-              onChange={(e) => setLoanDate(e.target.value)}
+              onChange={setLoanDate}
               required
             />
           </div>
@@ -228,11 +228,10 @@ export default function LoanCreatePage() {
               />
             </div>
 
-            <GlassInput
-              type="date"
+            <DateField
               label="납부 마감일 (선택)"
               value={dueDate}
-              onChange={(e) => setDueDate(e.target.value)}
+              onChange={setDueDate}
               min={loanDate || undefined}
             />
 

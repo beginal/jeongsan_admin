@@ -29,13 +29,12 @@ const sizeClass: Record<Size, string> = {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "secondary", size = "md", icon, children, isLoading, ...props }, ref) => {
-    const { isLoading: _omit, ...rest } = props;
     return (
       <button
         ref={ref}
         className={cn(base, variantClass[variant], sizeClass[size], className)}
         disabled={props.disabled || isLoading}
-        {...rest}
+        {...props}
       >
         {isLoading && <span className="mr-2 h-3 w-3 animate-spin rounded-full border border-white/70 border-t-transparent" />}
         {icon && <span className={children ? "mr-1.5" : ""}>{icon}</span>}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
+import Providers from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,48 +16,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const cookieStore = await cookies();
   const themeCookie = cookieStore.get("admin-v2-theme")?.value;
   const initialThemeClass = themeCookie === "dark" ? "dark" : undefined;
+  const initialTheme = themeCookie === "dark" ? "dark" : "light";
 
   return (
     <html lang="en" className={initialThemeClass} suppressHydrationWarning>
-      <HeadThemeScript />
       <body className="min-h-screen bg-background text-foreground antialiased">
-        {children}
+        <Providers initialTheme={initialTheme}>{children}</Providers>
       </body>
     </html>
-  );
-}
-
-function HeadThemeScript() {
-  return (
-    <head>
-      <script
-        id="theme-init"
-        dangerouslySetInnerHTML={{
-          __html: `(() => {
-  try {
-    var storageTheme = localStorage.getItem("admin-v2-theme");
-    var cookieMatch = document.cookie.match(/(?:^|; )admin-v2-theme=([^;]+)/);
-    var cookieTheme = cookieMatch ? decodeURIComponent(cookieMatch[1]) : null;
-    var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-    var theme = storageTheme === "dark" || storageTheme === "light"
-      ? storageTheme
-      : cookieTheme === "dark" || cookieTheme === "light"
-        ? cookieTheme
-        : prefersDark
-          ? "dark"
-          : "light";
-    var root = document.documentElement;
-    if (theme === "dark") {
-      root.classList.add("dark");
-    } else {
-      root.classList.remove("dark");
-    }
-    root.style.colorScheme = theme;
-    document.cookie = "admin-v2-theme=" + theme + "; path=/; max-age=31536000; SameSite=Lax";
-  } catch (e) {}
-})();`,
-        }}
-      />
-    </head>
   );
 }

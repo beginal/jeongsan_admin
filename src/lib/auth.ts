@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient, type User } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 
 type AdminAuthSuccess = {
   supabase: SupabaseClient;
@@ -31,6 +32,25 @@ function missingEnvResponse() {
   );
 }
 
+async function createAuthedServerClient(url: string, anonKey: string, token?: string) {
+  const cookieStore = await cookies();
+  return createServerClient(url, anonKey, {
+    cookies: {
+      getAll: () => cookieStore.getAll(),
+      setAll: (cookies) => {
+        cookies.forEach(({ name, value, options }) => {
+          cookieStore.set({ name, value, ...options });
+        });
+      },
+    },
+    global: token
+      ? {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      : undefined,
+  });
+}
+
 /**
  * 관리자 세션을 확인하고 Supabase 클라이언트를 제공합니다.
  * - 기본 supabase: anon 키 + Authorization 헤더(토큰) → RLS가 켜진 경우 안전
@@ -50,13 +70,7 @@ export async function requireAdminAuth(): Promise<AdminAuthSuccess | AdminAuthFa
     return { response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  });
+  const supabase = await createAuthedServerClient(supabaseUrl, supabaseAnonKey, token);
 
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data?.user) {
@@ -86,13 +100,7 @@ export async function requireRiderAuth(): Promise<RiderAuthSuccess | RiderAuthFa
     return { response: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    },
-  });
+  const supabase = await createAuthedServerClient(supabaseUrl, supabaseAnonKey, token);
 
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data?.user) {

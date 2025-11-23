@@ -1,7 +1,10 @@
 "use client";
 
-import type { FormEvent } from "react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { GlassInput } from "@/components/ui/glass/GlassInput";
 import { GlassSelect } from "@/components/ui/glass/GlassSelect";
@@ -9,6 +12,8 @@ import { GlassTextarea } from "@/components/ui/glass/GlassTextarea";
 import { PageHeader } from "@/components/ui/glass/PageHeader";
 import { Section } from "@/components/ui/glass/Section";
 import { showToast } from "@/components/ui/Toast";
+import { formatKRW } from "@/lib/format";
+import { DateField } from "@/components/ui/DateField";
 
 interface LoanEditFormProps {
   loanId: string;
@@ -28,6 +33,27 @@ interface LoanEditFormProps {
   payments?: { id: string; amount: number; paidAt: string; note: string; cancelled?: boolean }[];
 }
 
+const numberString = z
+  .string()
+  .trim()
+  .transform((v) => (v ?? "").replace(/,/g, ""))
+  .transform((v) => (v === "" ? "" : v))
+  .refine((v) => v === "" || !Number.isNaN(Number(v)), {
+    message: "숫자만 입력하세요.",
+  });
+
+const loanSchema = z.object({
+  principal: numberString.refine((v) => v !== "", { message: "총 대여금을 입력하세요." }),
+  loanDate: z.string().min(1, "대여 일자를 입력하세요."),
+  nextPaymentDate: z.string().default(""),
+  paymentDayOfWeek: z.string().default(""),
+  paymentAmount: numberString.default(""),
+  dueDate: z.string().default(""),
+  notes: z.string().default(""),
+});
+
+type LoanFormValues = z.input<typeof loanSchema>;
+
 export function LoanEditForm({
   loanId,
   riderName,
@@ -45,18 +71,7 @@ export function LoanEditForm({
   formId,
   payments: paymentsProp = [],
 }: LoanEditFormProps) {
-  const [principal, setPrincipal] = useState(Number(principalAmount || 0).toLocaleString());
-  const [loanDateInput, setLoanDateInput] = useState(loanDate);
-  const [nextPaymentInput, setNextPaymentInput] = useState(nextPaymentDate || "");
-  const [paymentDayInput, setPaymentDayInput] = useState(
-    paymentDayOfWeek != null ? String(paymentDayOfWeek) : ""
-  );
-  const [paymentAmountInput, setPaymentAmountInput] = useState(
-    paymentAmount != null ? Number(paymentAmount).toLocaleString() : ""
-  );
-  const [dueDateInput, setDueDateInput] = useState(dueDate || "");
-  const [noteInput, setNoteInput] = useState(notes);
-  const [saving, setSaving] = useState(false);
+  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const formDomId = formId || "loan-edit-form";
@@ -69,16 +84,37 @@ export function LoanEditForm({
   const [newPaymentNote, setNewPaymentNote] = useState("");
   const [addingPayment, setAddingPayment] = useState(false);
 
-  const principalNumber = Number(principal.replace(/,/g, "") || 0);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<LoanFormValues>({
+    resolver: zodResolver(loanSchema),
+    defaultValues: {
+      principal: Number(principalAmount || 0).toLocaleString(),
+      loanDate,
+      nextPaymentDate: nextPaymentDate || "",
+      paymentDayOfWeek: paymentDayOfWeek != null ? String(paymentDayOfWeek) : "",
+      paymentAmount: paymentAmount != null ? Number(paymentAmount).toLocaleString() : "",
+      dueDate: dueDate || "",
+      notes: notes || "",
+    },
+  });
+
+  const principalValue = watch("principal") || "";
+  const loanDateValue = watch("loanDate") || "";
+  const dueDateValue = watch("dueDate") || "";
+  const paymentAmountValue = watch("paymentAmount") || "";
+  const principalNumber = Number(principalValue.replace(/,/g, "") || 0);
   const totalPaid =
     payments.length > 0
       ? payments.reduce((sum, p) => sum + (p.cancelled ? 0 : Number(p.amount || 0)), 0)
       : paidAmount;
   const remainingCalc = Math.max(principalNumber - totalPaid, 0);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
+  const onSubmit = handleSubmit(async (values) => {
     setError(null);
     setMessage(null);
     try {
@@ -86,15 +122,17 @@ export function LoanEditForm({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          principalAmount: Number(principal.replace(/,/g, "") || 0),
-          loanDate: loanDateInput,
-          nextPaymentDate: nextPaymentInput || null,
-          paymentDayOfWeek: paymentDayInput === "" ? null : Number(paymentDayInput),
+          principalAmount: Number(values.principal?.replace(/,/g, "") || 0),
+          loanDate: values.loanDate,
+          nextPaymentDate: values.nextPaymentDate || null,
+          paymentDayOfWeek: values.paymentDayOfWeek ? Number(values.paymentDayOfWeek) : null,
           paymentAmount:
-            paymentAmountInput === "" ? null : Number(paymentAmountInput.replace(/,/g, "") || 0),
-          dueDate: dueDateInput || null,
+            values.paymentAmount && values.paymentAmount !== ""
+              ? Number(values.paymentAmount.replace(/,/g, "") || 0)
+              : null,
+          dueDate: values.dueDate || null,
           lastPaymentDate,
-          notes: noteInput,
+          notes: values.notes || "",
         }),
       });
 
@@ -104,15 +142,13 @@ export function LoanEditForm({
       }
       setMessage("대여금 정보가 저장되었습니다.");
       showToast("대여금 정보를 저장했습니다.", "success");
-      window.location.href = "/loan-management";
+      router.push("/loan-management");
     } catch (e: any) {
       const msg = e.message || "저장에 실패했습니다.";
       setError(msg);
       showToast(msg, "error");
-    } finally {
-      setSaving(false);
     }
-  };
+  });
 
   const addPayment = async () => {
     const amountNum = Number(newPaymentAmount.replace(/,/g, "") || 0);
@@ -172,7 +208,7 @@ export function LoanEditForm({
   };
 
   return (
-    <form id={formDomId} onSubmit={handleSubmit} className="space-y-6">
+    <form id={formDomId} onSubmit={onSubmit} className="space-y-6">
       <PageHeader
         title="대여금 정보 수정"
         description="대여금 정보와 상환 내역을 관리합니다."
@@ -196,35 +232,50 @@ export function LoanEditForm({
 
           <GlassInput
             label="총 대여금"
-            value={principal}
-            onChange={(e) => setPrincipal(e.target.value)}
+            value={principalValue}
+            onChange={(e) => {
+              const val = e.target.value.replace(/[^\d,]/g, "");
+              setValue("principal", val, { shouldDirty: true, shouldValidate: true });
+            }}
             required
             placeholder="0"
+            error={errors.principal?.message}
           />
 
           <div className="grid gap-4 md:grid-cols-2">
-            <GlassInput
-              type="date"
-              label="대여 일자"
-              required
-              value={loanDateInput}
-              onChange={(e) => setLoanDateInput(e.target.value)}
-            />
+            <div className="space-y-1.5">
+              <DateField
+                label="대여 일자"
+                value={loanDateValue}
+                onChange={(v) =>
+                  setValue("loanDate", v, { shouldDirty: true, shouldValidate: true })
+                }
+                required
+              />
+              {errors.loanDate?.message && (
+                <p className="text-[11px] text-red-500 ml-1">{errors.loanDate.message}</p>
+              )}
+            </div>
 
-            <GlassInput
-              type="date"
-              label="납부 마감일 (선택)"
-              value={dueDateInput}
-              onChange={(e) => setDueDateInput(e.target.value)}
-              min={loanDateInput || undefined}
-            />
+            <div className="space-y-1.5">
+              <DateField
+                label="납부 마감일 (선택)"
+                value={dueDateValue}
+                min={loanDateValue || undefined}
+                onChange={(v) =>
+                  setValue("dueDate", v, { shouldDirty: true, shouldValidate: true })
+                }
+              />
+              {errors.dueDate?.message && (
+                <p className="text-[11px] text-red-500 ml-1">{errors.dueDate.message}</p>
+              )}
+            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
             <GlassSelect
               label="납부 스케줄 (선택)"
-              value={paymentDayInput}
-              onChange={(e) => setPaymentDayInput(e.target.value)}
+              {...register("paymentDayOfWeek")}
             >
               <option value="">설정 안함</option>
               <option value="7">주 정산 시 차감</option>
@@ -239,16 +290,21 @@ export function LoanEditForm({
 
             <GlassInput
               label="회차 납부 금액 (선택)"
-              value={paymentAmountInput}
-              onChange={(e) => setPaymentAmountInput(e.target.value)}
+              value={watch("paymentAmount") || ""}
+              onChange={(e) =>
+                setValue("paymentAmount", e.target.value.replace(/[^\d,]/g, ""), {
+                  shouldDirty: true,
+                  shouldValidate: true,
+                })
+              }
               placeholder="0"
+              error={errors.paymentAmount?.message}
             />
           </div>
 
           <GlassTextarea
             label="메모"
-            value={noteInput}
-            onChange={(e) => setNoteInput(e.target.value)}
+            {...register("notes")}
             placeholder="대여 조건, 납부 플랜 등 메모를 남겨주세요."
             rows={4}
           />
@@ -265,11 +321,10 @@ export function LoanEditForm({
               onChange={(e) => setNewPaymentAmount(e.target.value)}
               placeholder="0"
             />
-            <GlassInput
-              type="date"
+            <DateField
               label="입금일"
               value={newPaymentDate}
-              onChange={(e) => setNewPaymentDate(e.target.value)}
+              onChange={setNewPaymentDate}
             />
             <GlassInput
               label="비고"
@@ -345,19 +400,19 @@ export function LoanEditForm({
         <div className="space-y-1">
           <div className="text-xs font-medium text-muted-foreground">납부 완료 금액</div>
           <div className="text-xl font-bold text-emerald-600">
-            {totalPaid.toLocaleString()}원
+            {formatKRW(totalPaid)}
           </div>
         </div>
         <div className="space-y-1">
           <div className="text-xs font-medium text-muted-foreground">잔여 금액</div>
           <div className="text-xl font-bold text-amber-600">
-            {remainingCalc.toLocaleString()}원
+            {formatKRW(remainingCalc)}
           </div>
         </div>
         <div className="space-y-1">
           <div className="text-xs font-medium text-muted-foreground">총 대여금</div>
           <div className="text-xl font-bold text-foreground">
-            {principalNumber.toLocaleString()}원
+            {formatKRW(principalNumber)}
           </div>
         </div>
       </div>
@@ -373,16 +428,16 @@ export function LoanEditForm({
           type="button"
           variant="outline"
           onClick={() => window.history.back()}
-          disabled={saving}
+          disabled={isSubmitting}
         >
           취소
         </GlassButton>
         <GlassButton
           type="submit"
           variant="primary"
-          disabled={saving}
+          disabled={isSubmitting}
         >
-          {saving ? "저장 중..." : "저장"}
+          {isSubmitting ? "저장 중..." : "저장"}
         </GlassButton>
       </div>
     </form>

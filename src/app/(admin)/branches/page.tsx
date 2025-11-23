@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { PageHeader } from "@/components/ui/glass/PageHeader";
@@ -8,6 +9,7 @@ import { Section } from "@/components/ui/glass/Section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Building2 } from "lucide-react";
+import { fetchJson } from "@/lib/api";
 
 type BranchRow = {
   id: string;
@@ -21,9 +23,19 @@ type BranchRow = {
 
 export default function BranchesPage() {
   const router = useRouter();
-  const [branches, setBranches] = useState<BranchRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery<{ branches?: any[] }, Error>({
+    queryKey: ["branches"],
+    queryFn: () => fetchJson<{ branches?: any[] }>("/api/branches"),
+    staleTime: 30_000,
+    retry: 1,
+  });
+
   const [search, setSearch] = useState("");
   const [platformFilter, setPlatformFilter] = useState<"all" | "coupang" | "baemin">("all");
   const [provinceFilter, setProvinceFilter] = useState("");
@@ -31,48 +43,24 @@ export default function BranchesPage() {
   const [sortKey, setSortKey] = useState<"default" | "name" | "riders">(
     "default"
   );
+  const isBusy = isLoading || isFetching;
+  const errorMessage = error?.message || null;
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadBranches() {
-      try {
-        const res = await fetch("/api/branches");
-        if (!res.ok) {
-          throw new Error("지사 목록을 불러오지 못했습니다.");
-        }
-        const data = (await res.json()) as { branches?: any[] };
-        if (cancelled) return;
-        if (Array.isArray(data.branches)) {
-          setBranches(
-            data.branches.map((b) => ({
-              id: String(b.id),
-              platform: b.platform || "",
-              province: b.province || "",
-              district: b.district || "",
-              branchName: b.branch_name || b.display_name || String(b.id),
-              displayName: b.display_name || b.branch_name || String(b.id),
-              riderCount:
-                typeof b.rider_count === "number" ? b.rider_count : 0,
-            }))
-          );
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e.message || "지사 목록을 불러오지 못했습니다.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadBranches();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const branches: BranchRow[] = useMemo(
+    () =>
+      Array.isArray(data?.branches)
+        ? data.branches.map((b) => ({
+            id: String(b.id),
+            platform: b.platform || "",
+            province: b.province || "",
+            district: b.district || "",
+            branchName: b.branch_name || b.display_name || String(b.id),
+            displayName: b.display_name || b.branch_name || String(b.id),
+            riderCount: typeof b.rider_count === "number" ? b.rider_count : 0,
+          }))
+        : [],
+    [data?.branches]
+  );
 
   const provinceOptions = useMemo(() => {
     const set = new Set<string>();
@@ -161,6 +149,12 @@ export default function BranchesPage() {
             <span className="text-xs">
               총 라이더 {filteredAndSortedBranches.reduce((sum, b) => sum + b.riderCount, 0).toLocaleString()}명
             </span>
+            {isBusy && (
+              <>
+                <span>·</span>
+                <span className="text-xs text-primary">새로고침 중...</span>
+              </>
+            )}
           </div>
 
           {/* Controls */}
@@ -271,7 +265,7 @@ export default function BranchesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {loading && (
+              {isLoading && (
                 Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
                     <td className="px-6 py-4"><Skeleton className="h-5 w-16 rounded-full" /></td>
@@ -283,15 +277,15 @@ export default function BranchesPage() {
                 ))
               )}
 
-              {!loading && error && (
+              {!isLoading && errorMessage && (
                 <tr>
                   <td colSpan={5} className="px-6 py-12">
                     <EmptyState
                       title="오류 발생"
-                      description={error}
+                      description={errorMessage}
                       icon={<span className="text-2xl">⚠️</span>}
                       action={
-                        <GlassButton size="sm" onClick={() => window.location.reload()}>
+                        <GlassButton size="sm" onClick={() => refetch()}>
                           다시 시도
                         </GlassButton>
                       }
@@ -300,7 +294,7 @@ export default function BranchesPage() {
                 </tr>
               )}
 
-              {!loading && !error && filteredAndSortedBranches.length === 0 && (
+              {!isLoading && !errorMessage && filteredAndSortedBranches.length === 0 && (
                 <tr>
                   <td colSpan={5} className="px-6 py-12">
                     <EmptyState
@@ -318,7 +312,7 @@ export default function BranchesPage() {
                 </tr>
               )}
 
-              {!loading && !error && filteredAndSortedBranches.map((branch) => (
+              {!isLoading && !errorMessage && filteredAndSortedBranches.map((branch) => (
                 <tr
                   key={branch.id}
                   className="group cursor-pointer hover:bg-muted/50 transition-colors"

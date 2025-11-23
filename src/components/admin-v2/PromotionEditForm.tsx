@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { GlassInput } from "@/components/ui/glass/GlassInput";
@@ -47,23 +50,26 @@ type PromotionEditFormProps = {
   promotionId?: string;
 };
 
+const promotionSchema = z.object({
+  name: z.string().trim().min(1, "프로모션명을 입력하세요."),
+  type: z.enum(["excess", "milestone", "milestone_per_unit"]),
+  status: z.enum(["ACTIVE", "INACTIVE"]),
+  description: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  peakMode: z.enum(["AND", "OR"]),
+  peakScoreThreshold: z.string().optional(),
+});
+
+type PromotionFormValues = z.infer<typeof promotionSchema>;
+
 export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
   const router = useRouter();
   const isCreate = !promotionId;
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [name, setName] = useState("");
-  const [type, setType] = useState<PromotionType>("excess");
-  const [status, setStatus] = useState<PromotionStatusDb>("ACTIVE");
-  const [description, setDescription] = useState("");
-
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-
-  const [peakMode, setPeakMode] = useState<PeakMode>("AND");
   const [peakConditions, setPeakConditions] = useState<PeakCondition[]>([]);
 
   const [configExcess, setConfigExcess] = useState<{
@@ -88,6 +94,37 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
   const [branchSearch, setBranchSearch] = useState("");
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const {
+    register,
+    handleSubmit: formHandleSubmit,
+    watch,
+    reset,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<PromotionFormValues>({
+    resolver: zodResolver(promotionSchema),
+    defaultValues: {
+      name: "",
+      type: "excess",
+      status: "ACTIVE",
+      description: "",
+      startDate: "",
+      endDate: "",
+      peakMode: "AND",
+      peakScoreThreshold: "0",
+    },
+  });
+
+  const saving = isSubmitting;
+  const name = watch("name");
+  const type = watch("type");
+  const status = watch("status");
+  const description = watch("description");
+  const startDate = watch("startDate") || "";
+  const endDate = watch("endDate") || "";
+  const peakMode = watch("peakMode");
+  const peakModeField = register("peakMode");
+  const peakScoreThreshold = watch("peakScoreThreshold") ?? "0";
 
   useEffect(() => {
     let cancelled = false;
@@ -138,40 +175,36 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
         const p = data.promotion as any;
         const cfg = (p?.config ?? {}) as any;
 
-        setName(p.name || "");
-        setType(
-          p.type === "milestone_per_unit" ||
-            p.type === "milestone" ||
-            p.type === "excess"
-            ? (p.type as PromotionType)
-            : "excess"
-        );
-        setStatus(
-          p.status === "INACTIVE" ? "INACTIVE" : ("ACTIVE" as PromotionStatusDb)
-        );
-        if (typeof p.description === "string" && p.description) {
-          setDescription(p.description);
-        } else if (typeof cfg.description === "string" && cfg.description) {
-          setDescription(cfg.description);
-        } else {
-          setDescription("");
-        }
+        const modeRaw = String((cfg.peakPrecondition as any)?.mode || "").toUpperCase();
+        const resolvedPeakMode: PeakMode = modeRaw === "OR" ? "OR" : "AND";
 
-        // 기간 설정 (테이블 컬럼 우선, 레거시 config 값은 보조)
-        if (typeof p.start_date === "string" && p.start_date) {
-          setStartDate(p.start_date.slice(0, 10));
-        } else if (typeof cfg.startDate === "string" && cfg.startDate) {
-          setStartDate(cfg.startDate.slice(0, 10));
-        } else {
-          setStartDate("");
-        }
-        if (typeof p.end_date === "string" && p.end_date) {
-          setEndDate(p.end_date.slice(0, 10));
-        } else if (typeof cfg.endDate === "string" && cfg.endDate) {
-          setEndDate(cfg.endDate.slice(0, 10));
-        } else {
-          setEndDate("");
-        }
+      reset({
+        name: p.name || "",
+        type:
+          p.type === "milestone_per_unit" || p.type === "milestone" || p.type === "excess"
+            ? (p.type as PromotionType)
+              : "excess",
+          status: p.status === "INACTIVE" ? "INACTIVE" : ("ACTIVE" as PromotionStatusDb),
+          description:
+            (typeof p.description === "string" && p.description) ||
+            (typeof cfg.description === "string" && cfg.description) ||
+            "",
+          startDate:
+            (typeof p.start_date === "string" && p.start_date.slice(0, 10)) ||
+            (typeof cfg.startDate === "string" && cfg.startDate.slice(0, 10)) ||
+            "",
+          endDate:
+            (typeof p.end_date === "string" && p.end_date.slice(0, 10)) ||
+            (typeof cfg.endDate === "string" && cfg.endDate.slice(0, 10)) ||
+            "",
+        peakMode: resolvedPeakMode,
+        peakScoreThreshold:
+          typeof (cfg.peakPrecondition as any)?.minScore === "number"
+            ? String((cfg.peakPrecondition as any)?.minScore)
+            : typeof (cfg.peakPrecondition as any)?.min_score === "number"
+              ? String((cfg.peakPrecondition as any)?.min_score)
+              : "0",
+      });
 
         // 피크타임 선행 조건
         const peak = cfg.peakPrecondition as
@@ -179,7 +212,14 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
           | undefined;
         if (peak && Array.isArray(peak.conditions)) {
           const modeRaw = String(peak.mode || "").toUpperCase();
-          setPeakMode(modeRaw === "OR" ? "OR" : "AND");
+          setValue("peakMode", modeRaw === "OR" ? "OR" : "AND", { shouldDirty: false });
+          const minScoreRaw = (peak as any).minScore ?? (peak as any).min_score;
+          const minScoreNum = typeof minScoreRaw === "number" ? minScoreRaw : Number(minScoreRaw);
+          setValue(
+            "peakScoreThreshold",
+            Number.isFinite(minScoreNum) && minScoreNum > 0 ? String(minScoreNum) : "",
+            { shouldDirty: false }
+          );
           setPeakConditions(
             peak.conditions.map((c: any) => ({
               slot: (c.slot as PeakSlot) || "Breakfast",
@@ -188,7 +228,8 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
             }))
           );
         } else {
-          setPeakMode("AND");
+          setValue("peakMode", "AND", { shouldDirty: true });
+          setValue("peakScoreThreshold", "", { shouldDirty: false });
           setPeakConditions([]);
         }
 
@@ -272,7 +313,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
     return () => {
       cancelled = true;
     };
-  }, [promotionId, isCreate]);
+  }, [promotionId, isCreate, reset, setValue]);
 
   const filteredAvailableBranches = useMemo(() => {
     const q = branchSearch.trim().toLowerCase();
@@ -298,49 +339,54 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
     setSelectedBranches((prev) => prev.filter((b) => b.id !== branchId));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      setError("프로모션명을 입력해 주세요.");
-      return;
-    }
-
-    setSaving(true);
+  const onSubmit = formHandleSubmit(async (values) => {
     setError(null);
-
     try {
       let baseConfig: any;
-      if (type === "excess") {
+      if (values.type === "excess") {
         const amt = Number(configExcess.amountPerExcess || 0);
-        baseConfig = {
-          threshold: Number(configExcess.threshold || 0),
-          amountPerExcess: amt,
-          amount: amt,
-        };
+        const threshold = Number(configExcess.threshold || 0);
+        if (!amt || !threshold) {
+          setError("건당 초과 기준/금액을 입력하세요.");
+          return;
+        }
+        baseConfig = { threshold, amountPerExcess: amt, amount: amt };
         if (configExcess.cap) {
           baseConfig.cap = Number(configExcess.cap);
         }
-      } else if (type === "milestone") {
-        baseConfig = {
-          milestones: configMilestone.tiers.map((t) => ({
+      } else if (values.type === "milestone") {
+        const milestones = configMilestone.tiers
+          .filter((t) => t.threshold !== "" && t.amount !== "")
+          .map((t) => ({
             threshold: Number(t.threshold || 0),
             amount: Number(t.amount || 0),
-          })),
-        };
+          }));
+        if (milestones.length === 0) {
+          setError("마일스톤 티어를 추가하세요.");
+          return;
+        }
+        baseConfig = { milestones };
       } else {
+        const threshold = Number(configPerUnit.threshold || 0);
+        const unitSize = Number(configPerUnit.unitSize || 0);
+        const unitAmount = Number(configPerUnit.unitAmount || 0);
+        if (!threshold || !unitSize || !unitAmount) {
+          setError("기준/단위/금액을 모두 입력하세요.");
+          return;
+        }
         baseConfig = {
           milestonePerUnit: [
             {
-              threshold: Number(configPerUnit.threshold || 0),
-              unitSize: Number(configPerUnit.unitSize || 0),
-              unitAmount: Number(configPerUnit.unitAmount || 0),
+              threshold,
+              unitSize,
+              unitAmount,
             },
           ],
         };
       }
 
-      if (description && description.trim()) {
-        baseConfig.description = description.trim();
+      if (values.description && values.description.trim()) {
+        baseConfig.description = values.description.trim();
       }
 
       const normalizedPeakConds = peakConditions
@@ -351,106 +397,94 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
         }));
 
       if (normalizedPeakConds.length > 0) {
+        const minScore =
+          peakScoreThreshold && Number(peakScoreThreshold) > 0
+            ? Number(peakScoreThreshold)
+            : 0;
         baseConfig.peakPrecondition = {
-          mode: peakMode,
+          mode: values.peakMode,
           conditions: normalizedPeakConds,
+          ...(minScore ? { minScore } : {}),
         };
       }
+
+      const payload = {
+        name: values.name.trim(),
+        type: values.type,
+        status: values.status,
+        config: baseConfig,
+        start_date: values.startDate || null,
+        end_date: values.endDate || null,
+        assignments: selectedBranches.map((b) => ({
+          branch_id: b.id,
+          is_active: b.active,
+          start_date: null,
+          end_date: null,
+          priority_order: null,
+        })),
+      };
 
       if (isCreate) {
         const res = await fetch("/api/promotions", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: name.trim(),
-            type,
-            status,
-            config: baseConfig,
-            start_date: startDate || null,
-            end_date: endDate || null,
-            assignments: selectedBranches.map((b) => ({
-              branch_id: b.id,
-              is_active: b.active,
-              start_date: null,
-              end_date: null,
-              priority_order: null,
-            })),
-          }),
+          body: JSON.stringify(payload),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || data?.error) {
           throw new Error(data?.error || "프로모션을 생성하지 못했습니다.");
         }
-      } else {
-        const patchRes = await fetch(
-          `/api/promotions/${encodeURIComponent(promotionId!)}`,
+        router.push(`/promotions/${encodeURIComponent(data.id || "")}`);
+        router.refresh();
+        return;
+      }
+
+      const patchRes = await fetch(`/api/promotions/${encodeURIComponent(promotionId!)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...payload, initial_assignments: initialAssignedIds }),
+      });
+      const patchData = await patchRes.json().catch(() => ({}));
+      if (!patchRes.ok || patchData?.error) {
+        throw new Error(patchData?.error || "프로모션 정보를 저장하지 못했습니다.");
+      }
+
+      const upserts = selectedBranches.map((b) => ({
+        branch_id: b.id,
+        is_active: b.active,
+        start_date: null as string | null,
+        end_date: null as string | null,
+        priority_order: null as number | null,
+      }));
+
+      if (upserts.length > 0) {
+        const assignRes = await fetch(
+          `/api/promotions/${encodeURIComponent(promotionId!)}/assignments`,
           {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: name.trim(),
-              type,
-              status,
-              config: baseConfig,
-              start_date: startDate || null,
-              end_date: endDate || null,
-            }),
+            body: JSON.stringify(upserts),
           }
         );
-        const patchData = await patchRes.json().catch(() => ({}));
-        if (!patchRes.ok || patchData?.error) {
-          throw new Error(
-            patchData?.error || "프로모션 정보를 저장하지 못했습니다."
-          );
+        const assignData = await assignRes.json().catch(() => ({}));
+        if (!assignRes.ok || assignData?.error) {
+          throw new Error(assignData?.error || "프로모션 지사 배정을 저장하지 못했습니다.");
         }
+      }
 
-        const upserts = selectedBranches.map((b) => ({
-          branch_id: b.id,
-          is_active: b.active,
-          start_date: null as string | null,
-          end_date: null as string | null,
-          priority_order: null as number | null,
-        }));
-
-        if (upserts.length > 0) {
-          const assignRes = await fetch(
-            `/api/promotions/${encodeURIComponent(
-              promotionId!
-            )}/assignments`,
-            {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(upserts),
-            }
-          );
-          const assignData = await assignRes.json().catch(() => ({}));
-          if (!assignRes.ok || assignData?.error) {
-            throw new Error(
-              assignData?.error || "프로모션 지사 배정을 저장하지 못했습니다."
-            );
+      const removed = initialAssignedIds.filter((id) => !selectedBranches.some((b) => b.id === id));
+      if (removed.length > 0) {
+        const delRes = await fetch(
+          `/api/promotions/${encodeURIComponent(promotionId!)}/assignments`,
+          {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ branch_ids: removed }),
           }
-        }
-
-        const removed = initialAssignedIds.filter(
-          (id) => !selectedBranches.some((b) => b.id === id)
         );
-        if (removed.length > 0) {
-          const delRes = await fetch(
-            `/api/promotions/${encodeURIComponent(
-              promotionId!
-            )}/assignments`,
-            {
-              method: "DELETE",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ branch_ids: removed }),
-            }
-          );
-          const delData = await delRes.json().catch(() => ({}));
-          if (!delRes.ok || delData?.error) {
-            throw new Error(
-              delData?.error || "프로모션 지사 배정을 삭제하지 못했습니다."
-            );
-          }
+        const delData = await delRes.json().catch(() => ({}));
+        if (!delRes.ok || delData?.error) {
+          throw new Error(delData?.error || "프로모션 지사 배정을 삭제하지 못했습니다.");
         }
       }
 
@@ -458,10 +492,8 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
       router.refresh();
     } catch (err: any) {
       setError(err.message || "프로모션 정보를 저장하지 못했습니다.");
-    } finally {
-      setSaving(false);
     }
-  };
+  });
 
   const handleDelete = async () => {
     if (isCreate || !promotionId) return;
@@ -498,7 +530,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={onSubmit} className="space-y-6">
       <PageHeader
         title={isCreate ? "프로모션 생성" : "프로모션 수정"}
         description={name || "제목 없음"}
@@ -590,8 +622,9 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                 <GlassInput
                   label="프로모션명"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => setValue("name", e.target.value, { shouldDirty: true, shouldValidate: true })}
                   placeholder="예: 7월 피크 보너스"
+                  error={errors.name?.message}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -599,7 +632,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                   <GlassSelect
                     label="유형"
                     value={type}
-                    onChange={(e) => setType(e.target.value as PromotionType)}
+                    onChange={(e) => setValue("type", e.target.value as PromotionType, { shouldDirty: true })}
                     options={[
                       { label: "건수 초과 보상", value: "excess" },
                       { label: "목표 달성 보상", value: "milestone" },
@@ -612,7 +645,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                     label="활성 상태"
                     description="활성 시 즉시 적용되며, 비활성 시 노출/지급이 중단됩니다."
                     checked={status === "ACTIVE"}
-                    onChange={(v) => setStatus(v ? "ACTIVE" : "INACTIVE")}
+                    onChange={(v) => setValue("status", v ? "ACTIVE" : "INACTIVE", { shouldDirty: true })}
                     onLabel="활성"
                     offLabel="비활성"
                   />
@@ -622,13 +655,13 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                 <DateField
                   label="시작일"
                   value={startDate}
-                  onChange={setStartDate}
+                  onChange={(v) => setValue("startDate", v, { shouldDirty: true })}
                   placeholder="YYYY-MM-DD"
                 />
                 <DateField
                   label="종료일"
                   value={endDate}
-                  onChange={setEndDate}
+                  onChange={(v) => setValue("endDate", v, { shouldDirty: true })}
                   placeholder="YYYY-MM-DD"
                   min={startDate || undefined}
                 />
@@ -637,7 +670,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                 <GlassTextarea
                   label="프로모션 설명"
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => setValue("description", e.target.value, { shouldDirty: true })}
                   placeholder="프로모션 설명 (선택 사항)"
                 />
               </div>
@@ -794,15 +827,15 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
             </div>
           </Section>
 
-          <Section
-            title="피크타임 선행 조건 (옵션)"
-            action={
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">조건 결합:</span>
+      <Section
+        title="피크타임 선행 조건 (옵션)"
+        action={
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">조건 결합:</span>
                 <div className="inline-flex rounded-lg border border-border bg-background/50 p-0.5">
                   <button
                     type="button"
-                    onClick={() => setPeakMode("AND")}
+                    onClick={() => setValue("peakMode", "AND", { shouldDirty: true })}
                     className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${peakMode === "AND"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -812,7 +845,7 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPeakMode("OR")}
+                    onClick={() => setValue("peakMode", "OR", { shouldDirty: true })}
                     className={`rounded px-2 py-0.5 text-[10px] font-medium transition-colors ${peakMode === "OR"
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground"
@@ -822,10 +855,11 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
                   </button>
                 </div>
               </div>
-            }
-          >
-            <div className="mt-3 space-y-3">
-              {peakConditions.map((cond, idx) => (
+        }
+      >
+        <input type="hidden" {...peakModeField} value={peakMode} />
+        <div className="mt-3 space-y-3">
+          {peakConditions.map((cond, idx) => (
                 <div
                   key={idx}
                   className="grid grid-cols-1 gap-2 md:grid-cols-[1fr,1fr,auto]"
@@ -889,7 +923,23 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
               >
                 + 피크타임 조건 추가
               </GlassButton>
-            </div>
+
+              <div className="space-y-1.5">
+                <GlassInput
+                  label="필요 피크 점수 (일수)"
+                  value={peakScoreThreshold}
+                  onChange={(e) =>
+                    setValue("peakScoreThreshold", e.target.value.replace(/[^0-9]/g, ""), {
+                      shouldDirty: true,
+                    })
+                  }
+                  placeholder="예: 4"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  조건을 충족한 날짜마다 1점씩 적립됩니다. 입력한 점수 이상일 때만 프로모션이 적용됩니다.
+                </p>
+              </div>
+          </div>
           </Section>
 
           <Section title="지사 배정">

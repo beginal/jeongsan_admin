@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
   Activity,
@@ -23,6 +24,8 @@ import {
 import { DashboardStats } from "@/components/admin-v2/DashboardStats";
 import { GlassCard } from "@/components/ui/glass/GlassCard";
 import { PageHeader } from "@/components/ui/glass/PageHeader";
+import { fetchJson } from "@/lib/api";
+import { formatKRW } from "@/lib/format";
 
 type DashboardData = {
   riders: {
@@ -77,163 +80,145 @@ const toneClass = (tone: MiniStat["tone"]) => {
   return "text-muted-foreground";
 };
 
-const formatKRW = (v: number | null | undefined) =>
-  typeof v === "number" ? `₩${v.toLocaleString("ko-KR")}` : "₩0";
-
 const formatCount = (v: number | null | undefined, unit: string) =>
   typeof v === "number" ? `${v.toLocaleString("ko-KR")}${unit}` : `0${unit}`;
 
 export default function AdminV2DashboardPage() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+  } = useQuery<DashboardData, Error>({
+    queryKey: ["dashboard"],
+    queryFn: () => fetchJson<DashboardData>("/api/dashboard", { cache: "no-store" }),
+    staleTime: 30_000,
+    retry: 1,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch("/api/dashboard", { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || json?.error) {
-          throw new Error(json?.error || "대시보드 데이터를 불러오지 못했습니다.");
-        }
-        if (!cancelled) setData(json as DashboardData);
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e.message || "대시보드 데이터를 불러오지 못했습니다.");
-          setData(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const isBusy = isLoading || isFetching;
+  const errorMessage = error?.message ?? null;
+  const dashboard = data ?? null;
 
   const approvalRate = useMemo(() => {
-    if (!data) return null;
-    if (data.riders.total === 0) return 0;
-    return Math.round((data.riders.approved / data.riders.total) * 100);
-  }, [data]);
+    if (!dashboard) return null;
+    if (dashboard.riders.total === 0) return 0;
+    return Math.round((dashboard.riders.approved / dashboard.riders.total) * 100);
+  }, [dashboard]);
 
   const stats = useMemo(
     () => [
       {
         label: "승인 라이더",
-        value: formatCount(data?.riders.approved, "명"),
-        change: data ? `신규 ${formatCount(data.riders.newThisWeek, "명")}` : "불러오는 중",
+        value: formatCount(dashboard?.riders.approved, "명"),
+        change: dashboard ? `신규 ${formatCount(dashboard.riders.newThisWeek, "명")}` : "불러오는 중",
         trend: "up" as const,
         icon: <UserCheck className="h-5 w-5" />,
       },
       {
         label: "대기 라이더",
-        value: formatCount(data?.riders.pending, "명"),
-        change: data ? `전체 ${formatCount(data.riders.total, "명")}` : "불러오는 중",
-        trend: data && data.riders.pending > 0 ? ("down" as const) : ("neutral" as const),
+        value: formatCount(dashboard?.riders.pending, "명"),
+        change: dashboard ? `전체 ${formatCount(dashboard.riders.total, "명")}` : "불러오는 중",
+        trend: dashboard && dashboard.riders.pending > 0 ? ("down" as const) : ("neutral" as const),
         icon: <Clock4 className="h-5 w-5" />,
       },
       {
         label: "익일 정산 대기",
-        value: formatCount(data?.settlement.pendingDaily, "건"),
-        change: data ? `총 요청 ${formatCount(data.settlement.totalDaily, "건")}` : "불러오는 중",
-        trend: data && data.settlement.pendingDaily > 0 ? ("up" as const) : ("neutral" as const),
+        value: formatCount(dashboard?.settlement.pendingDaily, "건"),
+        change: dashboard ? `총 요청 ${formatCount(dashboard.settlement.totalDaily, "건")}` : "불러오는 중",
+        trend: dashboard && dashboard.settlement.pendingDaily > 0 ? ("up" as const) : ("neutral" as const),
         icon: <CalendarClock className="h-5 w-5" />,
       },
       {
         label: "대여금 잔액",
-        value: formatKRW(data?.loans.remaining),
-        change: data ? `연체 ${formatCount(data.loans.overdue, "명")}` : "불러오는 중",
-        trend: data && data.loans.overdue > 0 ? ("down" as const) : ("neutral" as const),
+        value: formatKRW(dashboard?.loans.remaining),
+        change: dashboard ? `연체 ${formatCount(dashboard.loans.overdue, "명")}` : "불러오는 중",
+        trend: dashboard && dashboard.loans.overdue > 0 ? ("down" as const) : ("neutral" as const),
         icon: <Wallet className="h-5 w-5" />,
       },
       {
         label: "지사",
-        value: `${data?.branches.total?.toLocaleString("ko-KR") ?? 0}곳`,
+        value: `${dashboard?.branches.total?.toLocaleString("ko-KR") ?? 0}곳`,
         change:
-          data && data.branches.missingPolicy > 0
-            ? `정산 정책 미설정 ${data.branches.missingPolicy}곳`
+          dashboard && dashboard.branches.missingPolicy > 0
+            ? `정산 정책 미설정 ${dashboard.branches.missingPolicy}곳`
             : "정책 연결",
-        trend: data && data.branches.missingPolicy > 0 ? ("down" as const) : ("neutral" as const),
+        trend: dashboard && dashboard.branches.missingPolicy > 0 ? ("down" as const) : ("neutral" as const),
         icon: <Building2 className="h-5 w-5" />,
       },
       {
         label: "배정 차량",
-        value: `${data?.vehicles.active?.toLocaleString("ko-KR") ?? 0}대`,
-        change: data ? `배정률 ${calcRate(data.vehicles.active, data.vehicles.total)}%` : "불러오는 중",
+        value: `${dashboard?.vehicles.active?.toLocaleString("ko-KR") ?? 0}대`,
+        change: dashboard ? `배정률 ${calcRate(dashboard.vehicles.active, dashboard.vehicles.total)}%` : "불러오는 중",
         trend: "neutral" as const,
         icon: <Truck className="h-5 w-5" />,
       },
       {
         label: "진행 프로모션",
-        value: `${data?.promotions.active?.toLocaleString("ko-KR") ?? 0}건`,
-        change: data ? `예정 ${data.promotions.scheduled}건` : "불러오는 중",
+        value: `${dashboard?.promotions.active?.toLocaleString("ko-KR") ?? 0}건`,
+        change: dashboard ? `예정 ${dashboard.promotions.scheduled}건` : "불러오는 중",
         trend: "up" as const,
         icon: <Megaphone className="h-5 w-5" />,
       },
       {
         label: "품질 경보",
-        value: `${calcRiskTotal(data)}`,
-        change: data
-          ? `정책 ${data.risks.missingPolicy} · 미배정 ${data.risks.unassignedVehicles}`
+        value: `${calcRiskTotal(dashboard)}`,
+        change: dashboard
+          ? `정책 ${dashboard.risks.missingPolicy} · 미배정 ${dashboard.risks.unassignedVehicles}`
           : "불러오는 중",
-        trend: data && calcRiskTotal(data) > 0 ? ("down" as const) : ("neutral" as const),
+        trend: dashboard && calcRiskTotal(dashboard) > 0 ? ("down" as const) : ("neutral" as const),
         icon: <ShieldAlert className="h-5 w-5" />,
       },
     ],
-    [data]
+    [dashboard]
   );
 
   const actionItems: ActionItem[] = useMemo(
     () => [
       {
         title: "승인 대기 라이더",
-        value: formatCount(data?.riders.pending, "명"),
-        detail: data ? `이번 주 신규 ${formatCount(data.riders.newThisWeek, "명")}` : "불러오는 중",
+        value: formatCount(dashboard?.riders.pending, "명"),
+        detail: dashboard ? `이번 주 신규 ${formatCount(dashboard.riders.newThisWeek, "명")}` : "불러오는 중",
         href: "/riders?status=pending",
       },
       {
         title: "익일 정산 승인/반려",
-        value: formatCount(data?.settlement.pendingDaily, "건"),
-        detail: data?.settlement.avgSlaDays
-          ? `SLA ${data.settlement.avgSlaDays.toFixed(1)}일`
+        value: formatCount(dashboard?.settlement.pendingDaily, "건"),
+        detail: dashboard?.settlement.avgSlaDays
+          ? `SLA ${dashboard.settlement.avgSlaDays.toFixed(1)}일`
           : "SLA 계산 중",
         href: "/settlement-requests",
       },
       {
         title: "대여금 연체/오늘 납부",
-        value: data
-          ? `${formatCount(data.loans.overdue, "명")}`
+        value: dashboard
+          ? `${formatCount(dashboard.loans.overdue, "명")}`
           : "불러오는 중",
-        detail: data ? `오늘 납부 예정 ${formatCount(data.loans.dueToday, "명")}` : "불러오는 중",
+        detail: dashboard ? `오늘 납부 예정 ${formatCount(dashboard.loans.dueToday, "명")}` : "불러오는 중",
         href: "/loan-management",
       },
       {
         title: "차량 배정 만료 예정",
-        value: formatCount(data?.vehicles.expiringSoon, "대"),
-        detail: data ? `미배정 ${formatCount(data.vehicles.unassigned, "대")}` : "불러오는 중",
+        value: formatCount(dashboard?.vehicles.expiringSoon, "대"),
+        detail: dashboard ? `미배정 ${formatCount(dashboard.vehicles.unassigned, "대")}` : "불러오는 중",
         href: "/lease-rentals",
       },
       {
         title: "종료 임박 프로모션",
-        value: formatCount(data?.promotions.endingSoon, "건"),
-        detail: data ? `진행 ${formatCount(data.promotions.active, "건")}` : "불러오는 중",
+        value: formatCount(dashboard?.promotions.endingSoon, "건"),
+        detail: dashboard ? `진행 ${formatCount(dashboard.promotions.active, "건")}` : "불러오는 중",
         href: "/promotions",
       },
     ],
-    [data]
+    [dashboard]
   );
 
   const onboardingStats: MiniStat[] = useMemo(
     () => [
       {
         label: "이번 주 가입",
-        value: formatCount(data?.riders.newThisWeek, "명"),
-        helper: data ? `전체 ${formatCount(data.riders.total, "명")}` : undefined,
+        value: formatCount(dashboard?.riders.newThisWeek, "명"),
+        helper: dashboard ? `전체 ${formatCount(dashboard.riders.total, "명")}` : undefined,
       },
       {
         label: "승인율",
@@ -243,71 +228,71 @@ export default function AdminV2DashboardPage() {
       },
       {
         label: "반려",
-        value: formatCount(data?.riders.rejected, "명"),
-        tone: data && data.riders.rejected > 0 ? "warning" : "muted",
+        value: formatCount(dashboard?.riders.rejected, "명"),
+        tone: dashboard && dashboard.riders.rejected > 0 ? "warning" : "muted",
         helper: "사유 관리 필요",
       },
       {
         label: "대기",
-        value: formatCount(data?.riders.pending, "명"),
-        tone: data && data.riders.pending > 0 ? "danger" : "muted",
+        value: formatCount(dashboard?.riders.pending, "명"),
+        tone: dashboard && dashboard.riders.pending > 0 ? "danger" : "muted",
         helper: "승인 처리",
       },
     ],
-    [data, approvalRate]
+    [dashboard, approvalRate]
   );
 
   const settlementStats: MiniStat[] = useMemo(
     () => [
       {
         label: "익일정산 비중",
-        value: data ? calcRate(data.settlement.totalDaily, data.riders.total) + "%" : "0%",
+        value: dashboard ? calcRate(dashboard.settlement.totalDaily, dashboard.riders.total) + "%" : "0%",
         helper: "주정산 대비",
       },
       {
         label: "승인 SLA",
-        value: data?.settlement.avgSlaDays
-          ? `${data.settlement.avgSlaDays.toFixed(1)}일`
+        value: dashboard?.settlement.avgSlaDays
+          ? `${dashboard.settlement.avgSlaDays.toFixed(1)}일`
           : "계산 중",
-        tone: data && data.settlement.avgSlaDays && data.settlement.avgSlaDays <= 1 ? "positive" : "warning",
+        tone: dashboard && dashboard.settlement.avgSlaDays && dashboard.settlement.avgSlaDays <= 1 ? "positive" : "warning",
         helper: "목표 1일",
       },
       {
         label: "대기",
-        value: formatCount(data?.settlement.pendingDaily, "건"),
-        tone: data && data.settlement.pendingDaily > 0 ? "warning" : "muted",
+        value: formatCount(dashboard?.settlement.pendingDaily, "건"),
+        tone: dashboard && dashboard.settlement.pendingDaily > 0 ? "warning" : "muted",
       },
       {
         label: "승인",
-        value: formatCount(data?.settlement.approvedDaily, "건"),
+        value: formatCount(dashboard?.settlement.approvedDaily, "건"),
         tone: "positive",
       },
     ],
-    [data]
+    [dashboard]
   );
 
   const branchStats: MiniStat[] = useMemo(
     () => [
-      { label: "지사", value: `${data?.branches.total ?? 0}곳` },
-      { label: "정산 정책 미설정", value: `${data?.branches.missingPolicy ?? 0}곳`, tone: data && data.branches.missingPolicy > 0 ? "warning" : "muted" },
-      { label: "배정 차량", value: `${data?.vehicles.active ?? 0}대`, helper: `총 ${data?.vehicles.total ?? 0}대` },
-      { label: "미배정 차량", value: `${data?.vehicles.unassigned ?? 0}대`, tone: data && data.vehicles.unassigned > 0 ? "danger" : "muted" },
+      { label: "지사", value: `${dashboard?.branches.total ?? 0}곳` },
+      { label: "정산 정책 미설정", value: `${dashboard?.branches.missingPolicy ?? 0}곳`, tone: dashboard && dashboard.branches.missingPolicy > 0 ? "warning" : "muted" },
+      { label: "배정 차량", value: `${dashboard?.vehicles.active ?? 0}대`, helper: `총 ${dashboard?.vehicles.total ?? 0}대` },
+      { label: "미배정 차량", value: `${dashboard?.vehicles.unassigned ?? 0}대`, tone: dashboard && dashboard.vehicles.unassigned > 0 ? "danger" : "muted" },
     ],
-    [data]
+    [dashboard]
   );
 
   const promoStats: MiniStat[] = useMemo(
     () => [
-      { label: "진행", value: formatCount(data?.promotions.active, "건"), tone: "positive" },
-      { label: "예정", value: formatCount(data?.promotions.scheduled, "건") },
+      { label: "진행", value: formatCount(dashboard?.promotions.active, "건"), tone: "positive" },
+      { label: "예정", value: formatCount(dashboard?.promotions.scheduled, "건") },
       {
         label: "종료 임박",
-        value: formatCount(data?.promotions.endingSoon, "건"),
-        tone: data && data.promotions.endingSoon > 0 ? "warning" : "muted",
+        value: formatCount(dashboard?.promotions.endingSoon, "건"),
+        tone: dashboard && dashboard.promotions.endingSoon > 0 ? "warning" : "muted",
       },
-      { label: "총 합", value: formatCount(data?.promotions.total, "건"), helper: "상태별 합계" },
+      { label: "총 합", value: formatCount(dashboard?.promotions.total, "건"), helper: "상태별 합계" },
     ],
-    [data]
+    [dashboard]
   );
 
   return (
@@ -325,13 +310,18 @@ export default function AdminV2DashboardPage() {
             <span className="rounded-full border border-dashed border-border px-3 py-1">
               차트/표는 추후 실제 데이터 연결
             </span>
+            {isBusy && (
+              <span className="rounded-full bg-muted px-3 py-1 text-foreground">
+                데이터 갱신 중...
+              </span>
+            )}
           </div>
         }
       />
 
-      {error && (
+      {errorMessage && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
+          {errorMessage}
         </div>
       )}
 
@@ -480,10 +470,10 @@ export default function AdminV2DashboardPage() {
                   </Link>
                 </div>
                 <div className="grid gap-2 text-sm text-muted-foreground">
-                  <MiniLine label="총 차량 · 배정률" value={`${data?.vehicles.total ?? 0}대 · ${calcRate(data?.vehicles.active, data?.vehicles.total)}%`} />
-                  <MiniLine label="미배정 차량" value={`${data?.vehicles.unassigned ?? 0}대`} tone={data && data.vehicles.unassigned > 0 ? "warning" : undefined} />
-                  <MiniLine label="만료 임박(7일)" value={`${data?.vehicles.expiringSoon ?? 0}대`} tone={data && data.vehicles.expiringSoon > 0 ? "danger" : undefined} />
-                  <MiniLine label="배정 건수" value={`${data?.vehicles.activeAssignments ?? 0}건`} />
+                  <MiniLine label="총 차량 · 배정률" value={`${dashboard?.vehicles.total ?? 0}대 · ${calcRate(dashboard?.vehicles.active, dashboard?.vehicles.total)}%`} />
+                  <MiniLine label="미배정 차량" value={`${dashboard?.vehicles.unassigned ?? 0}대`} tone={dashboard && dashboard.vehicles.unassigned > 0 ? "warning" : undefined} />
+                  <MiniLine label="만료 임박(7일)" value={`${dashboard?.vehicles.expiringSoon ?? 0}대`} tone={dashboard && dashboard.vehicles.expiringSoon > 0 ? "danger" : undefined} />
+                  <MiniLine label="배정 건수" value={`${dashboard?.vehicles.activeAssignments ?? 0}건`} />
                 </div>
               </div>
               <div className="rounded-xl border border-border/60 bg-background/60 p-4">
@@ -497,10 +487,10 @@ export default function AdminV2DashboardPage() {
                   </Link>
                 </div>
                 <div className="grid gap-2 text-sm text-muted-foreground">
-                  <MiniLine label="잔액" value={formatKRW(data?.loans.remaining)} />
-                  <MiniLine label="총 대여금" value={formatKRW(data?.loans.totalLoan)} />
-                  <MiniLine label="연체" value={`${data?.loans.overdue ?? 0}명`} tone={data && data.loans.overdue > 0 ? "danger" : undefined} />
-                  <MiniLine label="오늘 납부 예정" value={`${data?.loans.dueToday ?? 0}명`} tone={data && data.loans.dueToday > 0 ? "warning" : undefined} />
+                  <MiniLine label="잔액" value={formatKRW(dashboard?.loans.remaining)} />
+                  <MiniLine label="총 대여금" value={formatKRW(dashboard?.loans.totalLoan)} />
+                  <MiniLine label="연체" value={`${dashboard?.loans.overdue ?? 0}명`} tone={dashboard && dashboard.loans.overdue > 0 ? "danger" : undefined} />
+                  <MiniLine label="오늘 납부 예정" value={`${dashboard?.loans.dueToday ?? 0}명`} tone={dashboard && dashboard.loans.dueToday > 0 ? "warning" : undefined} />
                 </div>
               </div>
             </div>
@@ -549,10 +539,10 @@ export default function AdminV2DashboardPage() {
             }
           >
             <ul className="space-y-3 text-sm">
-              <RiskRow label="정산 정책 미설정 지사" value={`${data?.risks.missingPolicy ?? 0}곳`} tone={data && data.risks.missingPolicy > 0 ? "warning" : undefined} />
-              <RiskRow label="미배정 차량" value={`${data?.risks.unassignedVehicles ?? 0}대`} tone={data && data.risks.unassignedVehicles > 0 ? "danger" : undefined} />
-              <RiskRow label="대여금 연체" value={`${data?.risks.overdueLoans ?? 0}건`} tone={data && data.risks.overdueLoans > 0 ? "danger" : undefined} />
-              <RiskRow label="배정 종료 임박 차량" value={`${data?.vehicles.expiringSoon ?? 0}대`} tone={data && data.vehicles.expiringSoon > 0 ? "warning" : undefined} />
+              <RiskRow label="정산 정책 미설정 지사" value={`${dashboard?.risks.missingPolicy ?? 0}곳`} tone={dashboard && dashboard.risks.missingPolicy > 0 ? "warning" : undefined} />
+              <RiskRow label="미배정 차량" value={`${dashboard?.risks.unassignedVehicles ?? 0}대`} tone={dashboard && dashboard.risks.unassignedVehicles > 0 ? "danger" : undefined} />
+              <RiskRow label="대여금 연체" value={`${dashboard?.risks.overdueLoans ?? 0}건`} tone={dashboard && dashboard.risks.overdueLoans > 0 ? "danger" : undefined} />
+              <RiskRow label="배정 종료 임박 차량" value={`${dashboard?.vehicles.expiringSoon ?? 0}대`} tone={dashboard && dashboard.vehicles.expiringSoon > 0 ? "warning" : undefined} />
               <RiskRow label="기타 데이터 품질 체크" value="확인 필요" tone="warning" />
             </ul>
             <p className="mt-4 text-[11px] text-muted-foreground">

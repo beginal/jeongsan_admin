@@ -1,6 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  SortingState,
+  useReactTable,
+} from "@tanstack/react-table";
 import { useRouter } from "next/navigation";
 import { GlassButton } from "@/components/ui/glass/GlassButton";
 import { PageHeader } from "@/components/ui/glass/PageHeader";
@@ -8,9 +17,11 @@ import { Section } from "@/components/ui/glass/Section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Percent } from "lucide-react";
+import { fetchJson } from "@/lib/api";
 
 type PromotionStatus = "active" | "scheduled" | "ended";
 type PromotionType = "excess" | "milestone" | "milestone_per_unit" | "";
+type SortKey = "default" | "name" | "type" | "branches";
 
 type BranchAssignmentRow = {
   branchId: string;
@@ -26,65 +37,22 @@ type PromotionRow = {
   branches: BranchAssignmentRow[];
 };
 
-type SortKey = "default" | "name" | "type" | "branches";
-
 export default function PromotionsPage() {
   const router = useRouter();
-  const [promotions, setPromotions] = useState<PromotionRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [statusFilter, setStatusFilter] = useState<"all" | PromotionStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | Exclude<PromotionType, "">>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("default");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("default");
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [actionId, setActionId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadPromotions() {
-      try {
-        const res = await fetch("/api/promotions");
-        if (!res.ok) {
-          throw new Error("프로모션 목록을 불러오지 못했습니다.");
-        }
-        const data = (await res.json()) as { promotions?: any[] };
-        if (cancelled) return;
-        if (Array.isArray(data.promotions)) {
-          setPromotions(
-            data.promotions.map((p) => ({
-              id: String(p.id),
-              name: (p.name as string) || "",
-              type: (p.type as PromotionType) || "",
-              status:
-                p.status === "scheduled" || p.status === "ended"
-                  ? (p.status as PromotionStatus)
-                  : "active",
-              branches: Array.isArray(p.branches)
-                ? p.branches.map((b: any) => ({
-                  branchId: String(b.branchId || b.branch_id || ""),
-                  name: (b.name as string) || "",
-                  active: !!b.active,
-                }))
-                : [],
-            }))
-          );
-        }
-      } catch (e: any) {
-        if (!cancelled) {
-          setError(e.message || "프로모션 목록을 불러오지 못했습니다.");
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    loadPromotions();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data, isLoading, isFetching, error } = useQuery<{ promotions?: any[] }, Error>({
+    queryKey: ["promotions"],
+    queryFn: () => fetchJson("/api/promotions"),
+    staleTime: 30_000,
+    retry: 1,
+  });
 
   const typeLabel = (type: string) => {
     if (type === "excess") return "건수 초과 보상";
@@ -92,6 +60,26 @@ export default function PromotionsPage() {
     if (type === "milestone_per_unit") return "단위당 보상";
     return type || "-";
   };
+
+  const promotions: PromotionRow[] = useMemo(() => {
+    const list = Array.isArray(data?.promotions) ? data?.promotions : [];
+    return list.map((p) => ({
+      id: String(p.id),
+      name: (p.name as string) || "",
+      type: (p.type as PromotionType) || "",
+      status:
+        p.status === "scheduled" || p.status === "ended"
+          ? (p.status as PromotionStatus)
+          : "active",
+      branches: Array.isArray(p.branches)
+        ? p.branches.map((b: any) => ({
+          branchId: String(b.branchId || b.branch_id || ""),
+          name: (b.name as string) || "",
+          active: !!b.active,
+        }))
+        : [],
+    }));
+  }, [data?.promotions]);
 
   const filteredPromotions = useMemo(() => {
     let list = promotions.filter((p) => {
@@ -112,26 +100,38 @@ export default function PromotionsPage() {
 
     if (sortKey === "name") {
       list = [...list].sort((a, b) =>
-        a.name.localeCompare(b.name, "ko")
+        a.name.localeCompare(b.name, "ko", { sensitivity: "base" })
       );
     } else if (sortKey === "type") {
       list = [...list].sort((a, b) =>
-        typeLabel(a.type).localeCompare(typeLabel(b.type), "ko")
+        typeLabel(a.type).localeCompare(typeLabel(b.type), "ko", { sensitivity: "base" })
       );
     } else if (sortKey === "branches") {
-      list = [...list].sort(
-        (a, b) => b.branches.length - a.branches.length
-      );
+      list = [...list].sort((a, b) => b.branches.length - a.branches.length);
     }
 
     return list;
-  }, [promotions, statusFilter, typeFilter, sortKey, search]);
+  }, [promotions, statusFilter, typeFilter, search, sortKey]);
 
-  const handleDelete = (promotionId: string) => {
+  const handleDelete = useCallback(async (promotionId: string) => {
     const confirmDelete = window.confirm("정말 이 프로모션을 삭제하시겠습니까?");
     if (!confirmDelete) return;
-    setPromotions((prev) => prev.filter((p) => p.id !== promotionId));
-  };
+    setActionId(promotionId);
+    try {
+      const res = await fetch(`/api/promotions/${encodeURIComponent(promotionId)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.error) {
+        throw new Error(data?.error || "프로모션을 삭제하지 못했습니다.");
+      }
+      queryClient.invalidateQueries({ queryKey: ["promotions"] });
+    } catch (e: any) {
+      alert(e.message || "프로모션을 삭제하지 못했습니다.");
+    } finally {
+      setActionId(null);
+    }
+  }, [queryClient]);
 
   const statusLabel = (status: PromotionStatus) => {
     if (status === "active") return "진행 중";
@@ -148,6 +148,94 @@ export default function PromotionsPage() {
     }
     return "bg-slate-100 text-slate-700 border-slate-200";
   };
+
+  const columns = useMemo<ColumnDef<PromotionRow>[]>(
+    () => [
+      {
+        accessorKey: "name",
+        header: "프로모션명",
+        cell: ({ row }) => <span className="font-medium text-foreground">{row.original.name}</span>,
+      },
+      {
+        accessorKey: "type",
+        header: "유형",
+        cell: ({ row }) => <span className="text-sm text-muted-foreground">{typeLabel(row.original.type)}</span>,
+      },
+      {
+        accessorKey: "status",
+        header: "상태",
+        cell: ({ row }) => (
+          <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium ${statusClass(row.original.status)}`}>
+            {statusLabel(row.original.status)}
+          </span>
+        ),
+      },
+      {
+        id: "branches",
+        header: "배정 지사",
+        cell: ({ row }) =>
+          row.original.branches.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {row.original.branches.slice(0, 3).map((b) => (
+                <span key={b.branchId} className="inline-flex items-center rounded-full bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground">
+                  {b.name || "지사"}
+                </span>
+              ))}
+              {row.original.branches.length > 3 && (
+                <span className="text-[11px] text-muted-foreground">+{row.original.branches.length - 3}</span>
+              )}
+            </div>
+          ) : (
+            <span className="text-muted-foreground">-</span>
+          ),
+      },
+      {
+        id: "actions",
+        header: () => <span className="sr-only">작업</span>,
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-2">
+            <GlassButton
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/promotions/${encodeURIComponent(row.original.id)}`);
+              }}
+            >
+              상세
+            </GlassButton>
+            <GlassButton
+              variant="destructive"
+              size="sm"
+              className="h-8 text-xs"
+              disabled={actionId === row.original.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete(row.original.id);
+              }}
+            >
+              삭제
+            </GlassButton>
+          </div>
+        ),
+      },
+    ],
+    [router, handleDelete, actionId]
+  );
+
+  const table = useReactTable({
+    data: filteredPromotions,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  const isBusy = isLoading || isFetching;
+  const loading = isBusy;
+  const errorMessage = error?.message || null;
 
   return (
     <div className="space-y-4">
@@ -171,6 +259,12 @@ export default function PromotionsPage() {
                 {filteredPromotions.length}개
               </span>
             </span>
+            {isBusy && (
+              <span className="text-[11px] text-primary">불러오는 중...</span>
+            )}
+            {errorMessage && (
+              <span className="text-[11px] text-red-600">{errorMessage}</span>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -283,7 +377,7 @@ export default function PromotionsPage() {
                   </tr>
                 ))
               )}
-              {!loading && error && (
+              {!loading && errorMessage && (
                 <tr>
                   <td
                     colSpan={5}
@@ -291,7 +385,7 @@ export default function PromotionsPage() {
                   >
                     <EmptyState
                       title="오류 발생"
-                      description={error}
+                      description={errorMessage}
                       icon={<span className="text-2xl">⚠️</span>}
                       action={
                         <GlassButton size="sm" onClick={() => window.location.reload()}>
@@ -303,7 +397,7 @@ export default function PromotionsPage() {
                 </tr>
               )}
               {!loading &&
-                !error &&
+                !errorMessage &&
                 filteredPromotions.length === 0 && (
                   <tr>
                     <td
@@ -325,7 +419,7 @@ export default function PromotionsPage() {
                   </tr>
                 )}
               {!loading &&
-                !error &&
+                !errorMessage &&
                 filteredPromotions.map((promotion) => (
                   <tr
                     key={promotion.id}

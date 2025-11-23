@@ -2,6 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CalendarIcon, X } from "lucide-react";
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  format,
+  getDay,
+  parseISO,
+  startOfDay,
+  startOfMonth,
+} from "date-fns";
 
 export type DateFieldProps = {
   label?: string;
@@ -14,19 +24,14 @@ export type DateFieldProps = {
   helperText?: string;
 };
 
-function pad(n: number) {
-  return String(n).padStart(2, "0");
-}
-
 function toDate(value?: string) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
-  const [y, m, d] = value.split("-").map(Number);
-  const dt = new Date(Date.UTC(y, m - 1, d));
-  return Number.isNaN(dt.getTime()) ? null : dt;
+  const parsed = parseISO(value);
+  return Number.isNaN(parsed.getTime()) ? null : startOfDay(parsed);
 }
 
 function formatDate(date: Date) {
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+  return format(date, "yyyy-MM-dd");
 }
 
 export function DateField({
@@ -42,12 +47,11 @@ export function DateField({
   const [open, setOpen] = useState(false);
   const parsed = useMemo(() => toDate(value), [value]);
   const today = useMemo(() => {
-    const now = new Date();
-    return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    return startOfDay(new Date());
   }, []);
 
-  const [viewYear, setViewYear] = useState(() => (parsed || today).getUTCFullYear());
-  const [viewMonth, setViewMonth] = useState(() => (parsed || today).getUTCMonth());
+  const [viewYear, setViewYear] = useState(() => (parsed || today).getFullYear());
+  const [viewMonth, setViewMonth] = useState(() => (parsed || today).getMonth());
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -70,30 +74,30 @@ export function DateField({
   const minDate = useMemo(() => toDate(min || undefined), [min]);
   const maxDate = useMemo(() => toDate(max || undefined), [max]);
 
-  const daysInMonth = new Date(Date.UTC(viewYear, viewMonth + 1, 0)).getUTCDate();
-  const startDay = new Date(Date.UTC(viewYear, viewMonth, 1)).getUTCDay();
+  const viewDate = useMemo(() => new Date(viewYear, viewMonth, 1), [viewYear, viewMonth]);
+  const monthStart = startOfMonth(viewDate);
+  const monthEnd = endOfMonth(viewDate);
+  const startDay = getDay(monthStart);
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
 
-  const weeks: Array<Array<{ day: number | null; date?: Date; disabled?: boolean }>> = [];
-  let current: Array<{ day: number | null; date?: Date; disabled?: boolean }> = [];
-  for (let i = 0; i < startDay; i++) current.push({ day: null });
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(Date.UTC(viewYear, viewMonth, d));
-    const disabled = Boolean(
-      (minDate && date < minDate) ||
-      (maxDate && date > maxDate)
-    ) || undefined;
-    current.push({ day: d, date, disabled });
+  const weeks: Array<Array<{ date: Date | null; disabled?: boolean }>> = [];
+  let current: Array<{ date: Date | null; disabled?: boolean }> = [];
+  for (let i = 0; i < startDay; i++) current.push({ date: null });
+  monthDays.forEach((date) => {
+    const disabled =
+      Boolean((minDate && date < minDate) || (maxDate && date > maxDate)) || undefined;
+    current.push({ date, disabled });
     if (current.length === 7) {
       weeks.push(current);
       current = [];
     }
-  }
+  });
   if (current.length) {
-    while (current.length < 7) current.push({ day: null });
+    while (current.length < 7) current.push({ date: null });
     weeks.push(current);
   }
 
-  const subtitle = `${viewYear}년 ${viewMonth + 1}월`;
+  const subtitle = format(viewDate, "yyyy년 M월");
 
   const applyDate = (date: Date) => {
     onChange(formatDate(date));
@@ -137,10 +141,10 @@ export function DateField({
               <button
                 type="button"
                 className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted/60"
-                onClick={() => {
-                  const next = new Date(Date.UTC(viewYear, viewMonth - 1, 1));
-                  setViewYear(next.getUTCFullYear());
-                  setViewMonth(next.getUTCMonth());
+                  onClick={() => {
+                  const next = addMonths(viewDate, -1);
+                  setViewYear(next.getFullYear());
+                  setViewMonth(next.getMonth());
                 }}
               >
                 ◀
@@ -150,9 +154,9 @@ export function DateField({
                 type="button"
                 className="rounded-md px-2 py-1 text-muted-foreground hover:bg-muted/60"
                 onClick={() => {
-                  const next = new Date(Date.UTC(viewYear, viewMonth + 1, 1));
-                  setViewYear(next.getUTCFullYear());
-                  setViewMonth(next.getUTCMonth());
+                  const next = addMonths(viewDate, 1);
+                  setViewYear(next.getFullYear());
+                  setViewMonth(next.getMonth());
                 }}
               >
                 ▶
@@ -167,7 +171,7 @@ export function DateField({
             <div className="mt-1 grid grid-cols-7 gap-1 text-center text-sm">
               {weeks.map((week, wi) =>
                 week.map((item, di) => {
-                  if (!item.day) return <div key={`${wi}-${di}`} className="h-9" />;
+                  if (!item.date) return <div key={`${wi}-${di}`} className="h-9" />;
                   const isSelected =
                     parsed &&
                     item.date &&
@@ -185,7 +189,7 @@ export function DateField({
                       } ${isSelected ? "border-primary bg-primary/15 font-semibold" : ""}`}
                       onClick={() => item.date && applyDate(item.date)}
                     >
-                      {item.day}
+                      {format(item.date, "d")}
                     </button>
                   );
                 })
