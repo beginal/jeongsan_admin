@@ -36,10 +36,18 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showFieldErrors, setShowFieldErrors] = useState(false);
+  const emailInvalid = form.email.length > 0 && !isValidEmail(form.email);
+  const emailValid = form.email.length > 0 && isValidEmail(form.email);
+  const passwordHasValue = form.password.length > 0;
+  const passwordValid = passwordHasValue && isValidPassword(form.password);
+  const passwordError = showFieldErrors && !isValidPassword(form.password);
   const passwordMismatch =
     form.password.length > 0 &&
     form.passwordConfirm.length > 0 &&
     form.password !== form.passwordConfirm;
+  const passwordConfirmError =
+    showFieldErrors && form.password !== form.passwordConfirm;
 
   function updateField<K extends keyof SignupFormState>(
     key: K,
@@ -77,14 +85,25 @@ export default function SignupPage() {
     e.preventDefault();
     setError(null);
     setSuccess(null);
+    setShowFieldErrors(true);
 
-    if (!form.agreePrivacy) {
-      setError("개인정보 수집 및 이용에 동의해야 회원가입이 가능합니다.");
+    if (!isValidEmail(form.email)) {
+      setError("올바른 이메일 주소를 입력해 주세요.");
+      return;
+    }
+
+    if (!isValidPassword(form.password)) {
+      setError("비밀번호는 8자 이상이며 숫자와 문자를 포함해야 합니다.");
       return;
     }
 
     if (form.password !== form.passwordConfirm) {
       setError("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+      return;
+    }
+
+    if (!form.agreePrivacy) {
+      setError("개인정보 수집 및 이용에 동의해야 회원가입이 가능합니다.");
       return;
     }
 
@@ -172,12 +191,27 @@ export default function SignupPage() {
                   required
                   value={form.email}
                   onChange={(e) => updateField("email", e.target.value)}
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                  aria-invalid={emailInvalid || (showFieldErrors && !emailValid)}
+                  className={`h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 ${
+                    showFieldErrors && !isValidEmail(form.email)
+                      ? "border-2 border-red-300 focus:border-red-400 focus:ring-red-200"
+                      : "border-border focus:border-primary"
+                  }`}
                   placeholder="admin@example.com"
                 />
-                <p className="text-[11px] text-muted-foreground">
-                  로그인에 사용하는 이메일입니다.
-                </p>
+                {emailInvalid ? (
+                  <p className="text-[11px] text-red-600" role="alert">
+                    올바른 이메일 주소를 입력해 주세요.
+                  </p>
+                ) : emailValid ? (
+                  <p className="text-[11px] text-emerald-600" role="status">
+                    올바른 이메일 형식입니다.
+                  </p>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    로그인에 사용하는 이메일입니다.
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -272,13 +306,36 @@ export default function SignupPage() {
                   autoComplete="new-password"
                   required
                   value={form.password}
-                  aria-invalid={passwordMismatch}
+                  aria-invalid={passwordError || (passwordHasValue && !passwordValid)}
                   onChange={(e) => updateField("password", e.target.value)}
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                  className={`h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 ${
+                    passwordError
+                      ? "border-2 border-red-300 focus:border-red-400 focus:ring-red-200"
+                      : "border-border focus:border-primary"
+                  }`}
                   placeholder="8자 이상, 문자/숫자 포함"
                 />
-                <p className="text-[11px] text-muted-foreground">
-                  8자 이상, 숫자와 문자를 조합해 주세요.
+                <p
+                  className={`text-[11px] ${
+                    passwordValid
+                      ? "text-emerald-600"
+                      : passwordHasValue || passwordError
+                        ? "text-red-600"
+                        : "text-muted-foreground"
+                  }`}
+                  role={
+                    passwordError || (passwordHasValue && !passwordValid)
+                      ? "alert"
+                      : passwordValid
+                        ? "status"
+                        : undefined
+                  }
+                >
+                  {passwordValid
+                    ? "사용 가능한 비밀번호입니다."
+                    : passwordHasValue || passwordError
+                      ? "8자 이상이며 숫자와 문자를 모두 포함해야 합니다."
+                      : "8자 이상, 숫자와 문자를 조합해 주세요."}
                 </p>
               </div>
 
@@ -295,11 +352,15 @@ export default function SignupPage() {
                   autoComplete="new-password"
                   required
                   value={form.passwordConfirm}
-                  aria-invalid={passwordMismatch}
+                  aria-invalid={passwordMismatch || passwordConfirmError}
                   onChange={(e) =>
                     updateField("passwordConfirm", e.target.value)
                   }
-                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/30"
+                  className={`h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30 ${
+                    passwordMismatch || passwordConfirmError
+                      ? "border-2 border-red-300 focus:border-red-400 focus:ring-red-200"
+                      : "border-border focus:border-primary"
+                  }`}
                   placeholder="비밀번호를 다시 입력"
                 />
                 {passwordMismatch && (
@@ -494,6 +555,14 @@ function formatBusinessNumber(value: string): string {
     return `${digits.slice(0, 3)}-${digits.slice(3)}`;
   }
   return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+}
+
+function isValidPassword(value: string): boolean {
+  return value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
 }
 
 function TermsInline({ title, children }: { title: string; children: ReactNode }) {
