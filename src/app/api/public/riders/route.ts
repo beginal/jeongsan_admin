@@ -39,18 +39,19 @@ export async function POST(request: Request) {
     );
   }
 
+  const searchParams = new URL(request.url).searchParams;
   const name = (body.name || "").trim();
   const phone = (body.phone || "").trim();
   const baeminId = (body.baeminId || "").trim();
   const password = (body.password || "").trim();
-  const linkCode = (body.linkCode || "").trim();
+  const linkCode = (body.linkCode || searchParams.get("linkCode") || "").trim();
   const residentNumber = (body.residentNumber || "").trim();
   const bankName = (body.bankName || "").trim();
   const accountHolder = (body.accountHolder || "").trim();
   const accountNumber = (body.accountNumber || "").trim();
   const taxName = (body.taxName || "").trim();
   const taxResidentNumber = (body.taxResidentNumber || "").trim();
-  const branchId = (body.branchId || "").trim();
+  const branchId = (body.branchId || searchParams.get("branchId") || "").trim();
   const adminIdReq = (body.adminId || "").trim();
 
   if (
@@ -67,13 +68,6 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { error: "필수 정보를 모두 입력해 주세요." },
-      { status: 400 }
-    );
-  }
-
-  if (!adminIdReq || !linkCode) {
-    return NextResponse.json(
-      { error: "유효한 초대 링크가 필요합니다." },
       { status: 400 }
     );
   }
@@ -104,60 +98,94 @@ export async function POST(request: Request) {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
-    // adminId 필수
-    if (!adminIdReq) {
+    // 1) 초대 링크 처리: linkCode가 없으면 adminId+branchId로 활성 링크를 조회/생성
+    if (!adminIdReq || !branchId) {
       return NextResponse.json(
-        { error: "유효한 등록 링크 또는 관리자 정보가 필요합니다." },
+        { error: "관리자 정보와 지사 정보가 필요합니다." },
         { status: 400 }
       );
     }
 
-    // 제공된 초대 링크 검증 (자동 생성 제거)
-    const { data: linkRow, error: linkError } = await supabase
-      .from("registration_links")
-      .select("link_code, admin_id, is_active, new_branch_id, expires_at")
-      .eq("link_code", linkCode)
-      .eq("admin_id", adminIdReq)
-      .eq("is_active", true)
-      .maybeSingle();
+    let linkRow: any = null;
+    if (linkCode) {
+      const { data: linkData, error: linkError } = await supabase
+        .from("registration_links")
+        .select("link_code, admin_id, is_active, new_branch_id")
+        .eq("link_code", linkCode)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!linkError && linkData) {
+        linkRow = linkData;
+      } else {
+        return NextResponse.json(
+          { error: "유효하지 않은 초대 링크입니다." },
+          { status: 400 }
+        );
+      }
+    } else {
+      // linkCode 미제공 시: 동일 admin/branch의 활성 링크를 재사용하거나 새로 생성
+      const { data: existingLink, error: existingErr } = await supabase
+        .from("registration_links")
+        .select("link_code, admin_id, new_branch_id, is_active")
+        .eq("admin_id", adminIdReq)
+        .eq("new_branch_id", branchId)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .maybeSingle();
+      if (
+        !existingErr &&
+        existingLink
+      ) {
+        linkRow = existingLink;
+      } else {
+        const generatedCode = `RL-${Math.random().toString(36).slice(2, 10)}`;
+        const { data: newLink, error: newLinkError } = await supabase
+          .from("registration_links")
+          .insert({
+            link_code: generatedCode,
+            admin_id: adminIdReq,
+            new_branch_id: branchId,
+            is_active: true,
+            created_by: adminIdReq || null,
+            name: `auto-${branchId}`,
+          })
+          .select("link_code, admin_id, new_branch_id, is_active")
+          .maybeSingle();
+        if (newLinkError || !newLink) {
+          return NextResponse.json(
+            { error: newLinkError?.message || "초대 링크를 생성하지 못했습니다." },
+            { status: 400 }
+          );
+        }
+        linkRow = newLink;
+      }
+    }
 
-    if (linkError || !linkRow) {
+    // 2) 지사 존재/매칭 확인
+    const branchToUse =
+      linkRow?.new_branch_id && !branchId ? String(linkRow.new_branch_id) : branchId;
+    if (!branchToUse) {
       return NextResponse.json(
-        { error: "유효하지 않은 등록 링크입니다." },
+        { error: "지사 정보가 필요합니다." },
+        { status: 400 }
+      );
+    }
+    if (linkRow?.new_branch_id && String(linkRow.new_branch_id) !== branchToUse) {
+      return NextResponse.json(
+        { error: "등록 링크와 지사 정보가 일치하지 않습니다." },
         { status: 400 }
       );
     }
 
-    if (linkRow.expires_at && new Date(linkRow.expires_at).getTime() < Date.now()) {
-      return NextResponse.json(
-        { error: "만료된 등록 링크입니다." },
-        { status: 400 }
-      );
-    }
-
-    // 1) 지사 존재 확인만 선행 (링크 검증은 함수에서 수행)
     const { data: branchExists, error: branchCheckError } = await supabase
       .from("new_branches")
-      .select("id, created_by")
-      .eq("id", branchId)
+      .select("id")
+      .eq("id", branchToUse)
       .maybeSingle();
 
     if (branchCheckError || !branchExists) {
       return NextResponse.json(
         { error: "존재하지 않는 지사입니다." },
-        { status: 400 }
-      );
-    }
-    if (String(branchExists.created_by || "") !== adminIdReq) {
-      return NextResponse.json(
-        { error: "해당 지사를 소유한 관리자 정보가 아닙니다." },
-        { status: 400 }
-      );
-    }
-
-    if (linkRow.new_branch_id && String(linkRow.new_branch_id) !== branchId) {
-      return NextResponse.json(
-        { error: "등록 링크와 지사 정보가 일치하지 않습니다." },
         { status: 400 }
       );
     }
@@ -182,40 +210,21 @@ export async function POST(request: Request) {
           taxName,
           taxSsn: normalizedTaxSsn,
         },
-        selected_branch_ids: [branchId],
-        primary_branch_id_param: branchId,
+        selected_branch_ids: [branchToUse],
+        primary_branch_id_param: branchToUse,
         client_ip: request.headers.get("x-forwarded-for") || null,
       });
 
-    let { data: registrationResult, error: registrationError } = await doRegister(linkCode);
+    let { data: registrationResult, error: registrationError } = await doRegister(linkRow ? linkRow.link_code : null);
 
     const regRow = Array.isArray(registrationResult)
       ? (registrationResult as any[])[0]
       : null;
 
     if (registrationError || !regRow?.success) {
-      const msg = String(regRow?.message || registrationError?.message || "");
-      const shouldRetryWithoutLink =
-        linkCode != null &&
-        (msg.toLowerCase().includes("link") ||
-          msg.includes("링크") ||
-          msg.toLowerCase().includes("expired"));
-
-      if (shouldRetryWithoutLink) {
-        const retry = await doRegister(null);
-        registrationResult = retry.data;
-        registrationError = retry.error;
-      }
-    }
-
-    const finalRow = Array.isArray(registrationResult)
-      ? (registrationResult as any[])[0]
-      : null;
-
-    if (registrationError || !finalRow?.success) {
       console.error("[public/riders POST] registration error:", registrationError, registrationResult);
       return NextResponse.json(
-        { error: finalRow?.message || "라이더 신청을 저장하지 못했습니다." },
+        { error: regRow?.message || registrationError?.message || "라이더 신청을 저장하지 못했습니다." },
         { status: 400 }
       );
     }
@@ -229,7 +238,7 @@ export async function POST(request: Request) {
         email_confirm: true,
         user_metadata: {
           role: "rider",
-          rider_id: finalRow.rider_id,
+          rider_id: regRow.rider_id,
           phone: phoneDigits,
         },
       });
@@ -247,7 +256,7 @@ export async function POST(request: Request) {
               email_confirm: true,
               user_metadata: {
                 role: "rider",
-                rider_id: finalRow.rider_id,
+                rider_id: regRow.rider_id,
                 phone: phoneDigits,
               },
             });

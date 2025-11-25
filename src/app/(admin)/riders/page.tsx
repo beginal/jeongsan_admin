@@ -72,7 +72,7 @@ export default function RidersPage() {
 
   const riderRows: RiderRow[] = useMemo(() => {
     const list = Array.isArray(data?.riders) ? data?.riders : [];
-    return list.map((r: any) => ({
+    const mapped = list.map((r: any) => ({
       id: String(r.id),
       name: r.name || "-",
       primaryBranchName:
@@ -88,6 +88,14 @@ export default function RidersPage() {
           ? (r.verificationStatus as RiderStatus)
           : ("pending" as RiderStatus),
     }));
+
+    // 대기 상태 우선 정렬, 이후 이름순
+    return mapped.sort((a, b) => {
+      const aPending = a.status === "pending" ? 1 : 0;
+      const bPending = b.status === "pending" ? 1 : 0;
+      if (aPending !== bPending) return bPending - aPending;
+      return a.name.localeCompare(b.name, "ko");
+    });
   }, [data?.riders]);
 
   const duplicateInfo = useMemo(() => {
