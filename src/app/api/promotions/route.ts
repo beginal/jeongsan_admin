@@ -229,10 +229,10 @@ export async function POST(request: Request) {
         priority_order: x.priority_order ?? null,
         created_by: userId,
       }))
-      .filter((x) => x.branch_id);
+      .filter((x: { branch_id: string | null }) => x.branch_id);
 
     if (assignmentRows.length > 0) {
-      const branchIds = assignmentRows.map((r) => r.branch_id as string);
+      const branchIds = assignmentRows.map((r: { branch_id: string }) => r.branch_id as string);
 
       const { error: delError } = await dbForAssignments
         .from("promotion_branch_assignments")

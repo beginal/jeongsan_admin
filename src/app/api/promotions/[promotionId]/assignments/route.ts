@@ -49,7 +49,7 @@ export async function PATCH(
       priority_order: x.priority_order ?? null,
       created_by: userId,
     }))
-    .filter((r) => r.branch_id);
+    .filter((r: { branch_id: string | null }) => r.branch_id);
 
   try {
     if (rows.length > 0) {
