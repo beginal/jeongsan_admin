@@ -434,7 +434,8 @@ export function PromotionEditForm({ promotionId }: PromotionEditFormProps) {
         if (!res.ok || data?.error) {
           throw new Error(data?.error || "프로모션을 생성하지 못했습니다.");
         }
-        router.push(`/promotions/${encodeURIComponent(data.id || "")}`);
+        const newId = data.id || "";
+        router.push(`/promotions/${encodeURIComponent(newId)}/edit`);
         router.refresh();
         return;
       }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CalendarIcon, X } from "lucide-react";
 import {
   addMonths,
@@ -53,10 +54,18 @@ export function DateField({
   const [viewYear, setViewYear] = useState(() => (parsed || today).getFullYear());
   const [viewMonth, setViewMonth] = useState(() => (parsed || today).getMonth());
   const ref = useRef<HTMLDivElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const [panelPos, setPanelPos] = useState<{ top: number; left: number; width: number } | null>(null);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        ref.current &&
+        !ref.current.contains(target) &&
+        (!panelRef.current || !panelRef.current.contains(target))
+      ) {
         setOpen(false);
       }
     }
@@ -104,8 +113,30 @@ export function DateField({
     setOpen(false);
   };
 
+  useEffect(() => {
+    function updatePosition() {
+      if (!buttonRef.current) return;
+      const rect = buttonRef.current.getBoundingClientRect();
+      const gap = 8;
+      const width = Math.min(Math.max(rect.width, 288), window.innerWidth - gap * 2);
+      const left = Math.min(Math.max(rect.left, gap), window.innerWidth - width - gap);
+      const top = rect.bottom + gap;
+      setPanelPos({ top, left, width });
+    }
+
+    if (open) {
+      updatePosition();
+      window.addEventListener("resize", updatePosition);
+      window.addEventListener("scroll", updatePosition, true);
+    }
+    return () => {
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [open]);
+
   return (
-    <div className="space-y-1" ref={ref}>
+    <div className="relative z-10 space-y-1" ref={ref}>
       {label && (
         <div className="text-[11px] font-semibold text-muted-foreground">
           {label}
@@ -115,6 +146,7 @@ export function DateField({
       <div className="relative">
         <button
           type="button"
+          ref={buttonRef}
           onClick={() => setOpen((v) => !v)}
           className="flex h-10 w-full items-center justify-between rounded-md border border-border bg-background px-3 text-left text-sm text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-1 focus:ring-primary"
         >
@@ -135,8 +167,13 @@ export function DateField({
           </div>
         </button>
 
-        {open && (
-          <div className="absolute z-30 mt-2 w-72 rounded-lg border border-border bg-card p-3 shadow-lg">
+        {open && panelPos &&
+          createPortal(
+            <div
+              ref={panelRef}
+              className="fixed z-[120] rounded-lg border border-border bg-card p-3 shadow-xl"
+              style={{ top: panelPos.top, left: panelPos.left, width: panelPos.width }}
+            >
             <div className="mb-2 flex items-center justify-between text-sm font-semibold text-foreground">
               <button
                 type="button"
@@ -215,8 +252,9 @@ export function DateField({
               </div>
               <span className="text-[11px] text-muted-foreground">형식: YYYY-MM-DD</span>
             </div>
-          </div>
-        )}
+            </div>,
+            document.body
+          )}
       </div>
       {helperText && (
         <div className="text-[11px] text-muted-foreground">{helperText}</div>

@@ -34,6 +34,8 @@ export async function GET() {
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
   const supabase = auth.supabase;
+  const serviceSupabase = auth.serviceSupabase;
+  const dbForAssignments = serviceSupabase ?? supabase;
   const userId = auth.user.id;
 
   try {
@@ -168,6 +170,8 @@ export async function POST(request: Request) {
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
   const supabase = auth.supabase;
+  const serviceSupabase = auth.serviceSupabase;
+  const dbForAssignments = serviceSupabase ?? supabase;
   const userId = auth.user.id;
 
   const body = await request.json().catch(() => ({}));
@@ -215,19 +219,39 @@ export async function POST(request: Request) {
 
     const promotionId = data.id as string;
 
-    if (assignments.length > 0) {
-      const rows = assignments.map((x: any) => ({
+    const assignmentRows = assignments
+      .map((x: any) => ({
         promotion_id: promotionId,
-        branch_id: x.branch_id,
+        branch_id: x.branch_id ? String(x.branch_id) : null,
         is_active: x.is_active ?? true,
         start_date: x.start_date ?? null,
         end_date: x.end_date ?? null,
         priority_order: x.priority_order ?? null,
         created_by: userId,
-      }));
-      const { error: assignError } = await supabase
+      }))
+      .filter((x) => x.branch_id);
+
+    if (assignmentRows.length > 0) {
+      const branchIds = assignmentRows.map((r) => r.branch_id as string);
+
+      const { error: delError } = await dbForAssignments
         .from("promotion_branch_assignments")
-        .upsert(rows, { onConflict: "promotion_id,branch_id" });
+        .delete()
+        .eq("promotion_id", promotionId)
+        .in("branch_id", branchIds)
+        .eq("created_by", userId);
+
+      if (delError) {
+        console.error("[admin-v2/promotions POST] assignment delete error:", delError);
+        return NextResponse.json(
+          { error: "프로모션을 생성했지만 기존 지사 배정 정리에 실패했습니다." },
+          { status: 500 }
+        );
+      }
+
+      const { error: assignError } = await dbForAssignments
+        .from("promotion_branch_assignments")
+        .insert(assignmentRows);
       if (assignError) {
         console.error("[admin-v2/promotions POST] assignment error:", assignError);
         return NextResponse.json(

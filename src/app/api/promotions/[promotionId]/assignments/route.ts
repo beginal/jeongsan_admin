@@ -18,6 +18,8 @@ export async function PATCH(
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
   const supabase = auth.supabase;
+  const serviceSupabase = auth.serviceSupabase;
+  const dbForAssignments = serviceSupabase ?? supabase;
   const userId = auth.user.id;
 
   let payload: any;
@@ -37,36 +39,58 @@ export async function PATCH(
     );
   }
 
-  const rows = payload.map((x: any) => ({
-    promotion_id: promotionId,
-    branch_id: x.branch_id,
-    is_active: x.is_active ?? true,
-    start_date: x.start_date ?? null,
-    end_date: x.end_date ?? null,
-    priority_order: x.priority_order ?? null,
-    created_by: userId,
-  }));
+  const rows = payload
+    .map((x: any) => ({
+      promotion_id: promotionId,
+      branch_id: x.branch_id ? String(x.branch_id) : null,
+      is_active: x.is_active ?? true,
+      start_date: x.start_date ?? null,
+      end_date: x.end_date ?? null,
+      priority_order: x.priority_order ?? null,
+      created_by: userId,
+    }))
+    .filter((r) => r.branch_id);
 
   try {
-    const { data, error } = await supabase
-      .from("promotion_branch_assignments")
-      .upsert(rows, { onConflict: "promotion_id,branch_id" })
-      .select(
-        "id, branch_id, is_active, start_date, end_date, priority_order"
-      );
+    if (rows.length > 0) {
+      const branchIds = rows.map((r) => r.branch_id as string);
+      const { error: delError } = await dbForAssignments
+        .from("promotion_branch_assignments")
+        .delete()
+        .eq("promotion_id", promotionId)
+        .in("branch_id", branchIds)
+        .eq("created_by", userId);
 
-    if (error) {
-      console.error(
-        "[admin-v2/promotion assignments PATCH] Supabase error:",
-        error
-      );
-      return NextResponse.json(
-        { error: "프로모션 지사 배정을 저장하지 못했습니다." },
-        { status: 500 }
-      );
+      if (delError) {
+        console.error("[admin-v2/promotion assignments PATCH] delete error:", delError);
+        return NextResponse.json(
+          { error: "프로모션 지사 배정을 저장하지 못했습니다." },
+          { status: 500 }
+        );
+      }
+
+      const { data, error } = await dbForAssignments
+        .from("promotion_branch_assignments")
+        .insert(rows)
+        .select(
+          "id, branch_id, is_active, start_date, end_date, priority_order"
+        );
+
+      if (error) {
+        console.error(
+          "[admin-v2/promotion assignments PATCH] Supabase error:",
+          error
+        );
+        return NextResponse.json(
+          { error: "프로모션 지사 배정을 저장하지 못했습니다." },
+          { status: 500 }
+        );
+      }
+
+      return NextResponse.json({ ok: true, assignments: data });
     }
 
-    return NextResponse.json({ ok: true, assignments: data });
+    return NextResponse.json({ ok: true, assignments: [] });
   } catch (e) {
     console.error(
       "[admin-v2/promotion assignments PATCH] Unexpected error:",
@@ -96,6 +120,8 @@ export async function DELETE(
   const auth = await requireAdminAuth();
   if ("response" in auth) return auth.response;
   const supabase = auth.supabase;
+  const serviceSupabase = auth.serviceSupabase;
+  const dbForAssignments = serviceSupabase ?? supabase;
   const userId = auth.user.id;
 
   let body: any = {};
@@ -117,7 +143,7 @@ export async function DELETE(
   }
 
   try {
-    const { error } = await supabase
+    const { error } = await dbForAssignments
       .from("promotion_branch_assignments")
       .delete()
       .eq("promotion_id", promotionId)
