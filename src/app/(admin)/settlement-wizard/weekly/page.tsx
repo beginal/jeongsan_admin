@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Upload, FileSpreadsheet, ShieldCheck, Trash2 } from "lucide-react";
 import { showToast } from "@/components/ui/Toast";
 import SettlementRowDrawer from "@/components/admin-v2/SettlementRowDrawer";
@@ -77,6 +76,9 @@ type ParsedFileResult = {
     timeInsurance: number;
     retro: number;
   }[];
+  _sourceFile?: string;
+  _branchId?: string | null;
+  _branchLabel?: string | null;
   details: {
     licenseId: string;
     riderName: string;
@@ -91,16 +93,24 @@ type ParsedFileResult = {
   missions: Record<string, any>[];
 };
 
+type PeakCount = {
+  Breakfast: number;
+  Lunch_Peak: number;
+  Post_Lunch: number;
+  Dinner_Peak: number;
+  Post_Dinner: number;
+  total: number;
+};
+
 type AggRider = {
+  key: string;
   licenseId: string;
   riderName: string;
   riderSuffix: string;
   totalOrders: number;
   branchCounts: Record<string, number>;
-  peakByDate: Record<
-    string,
-    { Breakfast: number; Lunch_Peak: number; Post_Lunch: number; Dinner_Peak: number; Post_Dinner: number; total: number }
-  >;
+  peakByDate: Record<string, PeakCount>;
+  peakByBranch: Record<string, Record<string, PeakCount>>;
   details: ParsedFileResult["details"];
 };
 
@@ -117,7 +127,20 @@ type SummaryFinancial = {
   retro: number;
 };
 
+type RawRiderSummary = {
+  key: string;
+  licenseId: string;
+  riderName: string;
+  riderSuffix: string;
+  rawName: string;
+  branchName: string;
+  orderCount: number;
+  fin: SummaryFinancial;
+  sourceFile?: string;
+};
+
 type Step3Row = {
+  key: string;
   licenseId: string;
   riderName: string;
   riderSuffix: string;
@@ -142,6 +165,9 @@ type Step3Row = {
   matchedRiderId?: string;
   matchedRiderName?: string;
   rentCostValue?: number;
+  isChild?: boolean;
+  parentKey?: string;
+  sourceFile?: string;
 };
 
 const excelAccept = ".xls,.xlsx,.xlsm";
@@ -257,6 +283,15 @@ const splitRider = (full: string) => {
   return { name: full, suffix: "" };
 };
 
+const createEmptyPeak = (): PeakCount => ({
+  Breakfast: 0,
+  Lunch_Peak: 0,
+  Post_Lunch: 0,
+  Dinner_Peak: 0,
+  Post_Dinner: 0,
+  total: 0,
+});
+
 const normalizeLic = (id: string | null | undefined) => (id ? String(id).trim() : "-");
 
 const formatCurrency = (v: number | string) => {
@@ -273,8 +308,13 @@ const formatMissionLabel = (dateStr: string) => {
   return `${mm}/${dd}(${weekday})`;
 };
 
+const formatPeakScoreText = (peak?: { score: number; threshold: number | null } | null) => {
+  if (!peak) return "-";
+  const thresholdText = peak.threshold ? ` / 기준 ${peak.threshold}점` : "";
+  return `${peak.score.toLocaleString()}점${thresholdText}`;
+};
+
 export default function WeeklySettlementWizardPage() {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastLoadKeyRef = useRef<number | null>(null);
 
@@ -296,9 +336,11 @@ export default function WeeklySettlementWizardPage() {
     riders: AggRider[];
     branches: string[];
     missions: Record<string, any>[];
+    rawRowsByRider: Record<string, RawRiderSummary[]>;
     summaries: Map<
       string,
       {
+        licenseId: string;
         name: string;
         rawName: string;
         suffix: string;
@@ -308,6 +350,7 @@ export default function WeeklySettlementWizardPage() {
       }
     >;
   } | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const [selectedRider, setSelectedRider] = useState<string | null>(null);
   const [detailRow, setDetailRow] = useState<Step3Row | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -546,6 +589,25 @@ export default function WeeklySettlementWizardPage() {
       }
 
       const results: ParsedFileResult[] = [];
+      const nameSuffixKeyMap = new Map<string, string>();
+      const resolveRiderKey = (licRaw?: string | null, name?: string, suffix?: string | null) => {
+        const lic = normalizeLic(licRaw);
+        const sp = splitRider(name || "");
+        const nm = (sp.name || name || "-").trim();
+        const sx = (suffix || sp.suffix || "").trim();
+        const nsKey = `${nm}__${sx || "no-suffix"}`;
+        if (nameSuffixKeyMap.has(nsKey)) {
+          const existing = nameSuffixKeyMap.get(nsKey)!;
+          if (lic && lic !== "-" && existing !== lic) {
+            // 이미 같은 이름/뒷번호로 병합된 키가 있으면 그대로 사용
+            return existing;
+          }
+          return existing;
+        }
+        const base = lic && lic !== "-" ? lic : nsKey;
+        nameSuffixKeyMap.set(nsKey, base);
+        return base;
+      };
       for (const u of uploads) {
         const branchLabel =
           branches.find((b) => b.id === u.branchId)?.name || u.branchId || "";
@@ -563,13 +625,19 @@ export default function WeeklySettlementWizardPage() {
         if (!res.ok || data?.error) {
           throw new Error(data?.error || "파일을 파싱하지 못했습니다.");
         }
-        results.push(data as ParsedFileResult);
+        results.push({
+          ...(data as ParsedFileResult),
+          _sourceFile: u.file.name,
+          _branchId: u.branchId,
+          _branchLabel: branchLabel,
+        });
       }
 
       // 병합 및 집계
       const summaryMap = new Map<
         string,
         {
+          licenseId: string;
           name: string;
           rawName: string;
           suffix: string;
@@ -578,19 +646,22 @@ export default function WeeklySettlementWizardPage() {
           fin: SummaryFinancial;
         }
       >();
+      const rawRowsByRider: Record<string, RawRiderSummary[]> = {};
       results.forEach((r) => {
         r.summaries.forEach((s) => {
           const lic = normalizeLic(s.licenseId);
           const sp = splitRider(s.riderName || "-");
-          const prev = summaryMap.get(lic);
-          summaryMap.set(lic, {
+          const riderKey = resolveRiderKey(lic, s.riderName || s.riderNameRaw, sp.suffix);
+          const prev = summaryMap.get(riderKey);
+          summaryMap.set(riderKey, {
+            licenseId: prev?.licenseId || lic || riderKey,
             name: prev?.name || sp.name || "-",
             rawName: prev?.rawName || s.riderNameRaw || s.riderName || "-",
             suffix: prev?.suffix || sp.suffix || "",
             total: (prev?.total || 0) + (s.totalOrders || 0),
-            branchName: prev?.branchName || s.branchName || "-",
+            branchName: prev?.branchName || s.branchName || r._branchLabel || "-",
             fin: {
-              branchName: prev?.fin.branchName || s.branchName || "-",
+              branchName: prev?.fin.branchName || s.branchName || r._branchLabel || "-",
               settlementAmount: (prev?.fin.settlementAmount || 0) + (s.settlementAmount || 0),
               supportTotal: (prev?.fin.supportTotal || 0) + (s.supportTotal || 0),
               deduction: (prev?.fin.deduction || 0) + (s.deduction || 0),
@@ -602,6 +673,30 @@ export default function WeeklySettlementWizardPage() {
               retro: (prev?.fin.retro || 0) + (s.retro || 0),
             },
           });
+
+          const rawEntry: RawRiderSummary = {
+            key: riderKey,
+            licenseId: lic || riderKey,
+            riderName: sp.name || "-",
+            riderSuffix: sp.suffix || "",
+            rawName: s.riderNameRaw || s.riderName || "-",
+            branchName: s.branchName || r._branchLabel || "-",
+            orderCount: s.totalOrders || 0,
+            fin: {
+              branchName: s.branchName || r._branchLabel || "-",
+              settlementAmount: s.settlementAmount || 0,
+              supportTotal: s.supportTotal || 0,
+              deduction: s.deduction || 0,
+              totalSettlement: s.totalSettlement || 0,
+              fee: s.fee || 0,
+              employment: s.employment || 0,
+              accident: s.accident || 0,
+              timeInsurance: s.timeInsurance || 0,
+              retro: s.retro || 0,
+            },
+            sourceFile: r._sourceFile,
+          };
+          (rawRowsByRider[riderKey] = rawRowsByRider[riderKey] || []).push(rawEntry);
         });
       });
 
@@ -611,18 +706,25 @@ export default function WeeklySettlementWizardPage() {
       results.forEach((r) => {
         r.details.forEach((d) => {
           const lic = normalizeLic(d.licenseId);
-          const sp = splitRider(d.riderName || summaryMap.get(lic)?.name || "-");
+          const sp = splitRider(d.riderName || "-");
+          const riderKey =
+            resolveRiderKey(lic, d.riderName, d.riderSuffix) ||
+            resolveRiderKey(lic, summaryMap.get(lic)?.name, d.riderSuffix);
           const name = sp.name || "-";
-          const suffix = d.riderSuffix || sp.suffix || summaryMap.get(lic)?.suffix || "";
+          const summaryForKey = summaryMap.get(riderKey || lic);
+          const suffix =
+            d.riderSuffix || sp.suffix || summaryForKey?.suffix || "";
           const existing =
-            riderMap.get(lic) ||
+            riderMap.get(riderKey) ||
             ({
+              key: riderKey,
               licenseId: lic,
               riderName: name,
               riderSuffix: suffix,
               totalOrders: 0,
               branchCounts: {},
               peakByDate: {},
+              peakByBranch: {},
               details: [],
             } as AggRider);
 
@@ -634,43 +736,43 @@ export default function WeeklySettlementWizardPage() {
           branchSet.add(d.branchName);
 
           const peakKey = d.judgementDate;
-          existing.peakByDate[peakKey] = existing.peakByDate[peakKey] || {
-            Breakfast: 0,
-            Lunch_Peak: 0,
-            Post_Lunch: 0,
-            Dinner_Peak: 0,
-            Post_Dinner: 0,
-            total: 0,
-          };
+          existing.peakByDate[peakKey] = existing.peakByDate[peakKey] || createEmptyPeak();
+          existing.peakByBranch[d.branchName] = existing.peakByBranch[d.branchName] || {};
+          existing.peakByBranch[d.branchName][peakKey] =
+            existing.peakByBranch[d.branchName][peakKey] || createEmptyPeak();
           const shift = d.peakTime as keyof AggRider["peakByDate"][string];
           if (shift && existing.peakByDate[peakKey][shift] !== undefined) {
             existing.peakByDate[peakKey][shift]! += 1;
+            existing.peakByBranch[d.branchName][peakKey][shift]! += 1;
           }
           existing.peakByDate[peakKey].total += 1;
+          existing.peakByBranch[d.branchName][peakKey].total += 1;
 
-          riderMap.set(lic, existing);
+          riderMap.set(riderKey, existing);
         });
       });
 
-      summaryMap.forEach((s, lic) => {
+      summaryMap.forEach((s, riderKey) => {
         if (s.branchName) branchSet.add(s.branchName);
-        if (!riderMap.has(lic)) {
-          riderMap.set(lic, {
-            licenseId: lic,
+        if (!riderMap.has(riderKey)) {
+          riderMap.set(riderKey, {
+            key: riderKey,
+            licenseId: s.licenseId || riderKey,
             riderName: s.name || "-",
             riderSuffix: s.suffix || "",
             totalOrders: s.total || 0,
             branchCounts: {},
             peakByDate: {},
+            peakByBranch: {},
             details: [],
           });
         }
       });
 
       // 총 오더수 설정
-      riderMap.forEach((r, licRaw) => {
-        const lic = normalizeLic(licRaw);
-        const summary = summaryMap.get(lic);
+      riderMap.forEach((r, riderKey) => {
+        const lic = normalizeLic(r.licenseId || riderKey);
+        const summary = summaryMap.get(riderKey);
         const counted = Object.values(r.branchCounts).reduce((a, b) => a + b, 0);
         r.totalOrders = summary?.total ?? counted;
         if (!r.riderName || r.riderName === "-") {
@@ -679,18 +781,20 @@ export default function WeeklySettlementWizardPage() {
         if (!r.riderSuffix) {
           r.riderSuffix = summary?.suffix || "";
         }
-        r.licenseId = lic;
+        r.licenseId = summary?.licenseId || lic || riderKey;
+        r.key = riderKey;
         r.details.sort((a, b) => b.acceptedAtMs - a.acceptedAtMs);
       });
 
       const ridersArr = Array.from(riderMap.values()).map((r) => {
-        const sum = summaryMap.get(r.licenseId);
+        const sum = summaryMap.get(r.key);
         if (sum) {
           if (!r.riderName || r.riderName === "-") {
             r.riderName = sum.name || r.riderName;
           }
           r.totalOrders = sum.total || r.totalOrders;
           r.riderSuffix = sum.suffix || splitRider(sum.rawName || "").suffix || r.riderSuffix;
+          r.licenseId = sum.licenseId || r.licenseId;
         }
         return r;
       });
@@ -701,9 +805,11 @@ export default function WeeklySettlementWizardPage() {
         riders: ridersArr.sort((a, b) => (a.riderName || "").localeCompare(b.riderName || "", "ko")),
         branches: branchesUsed,
         missions: results.flatMap((r) => r.missions || []),
+        rawRowsByRider,
         summaries: summaryMap,
       });
       setSelectedRider(null);
+      setExpandedRows({});
     } catch (e: any) {
       setParseError(e.message || "파싱 중 오류가 발생했습니다.");
     } finally {
@@ -854,8 +960,10 @@ export default function WeeklySettlementWizardPage() {
   const missionTotals = useMemo(() => {
     if (!parsed) return {} as Record<string, Record<string, number>>;
     const nameToLic: Record<string, string> = {};
+    const licenseToKey: Record<string, string> = {};
     parsed.summaries?.forEach((v, lic) => {
       if (v.name) nameToLic[v.name] = lic;
+      if (v.licenseId) licenseToKey[v.licenseId] = lic;
     });
     const totals: Record<string, Record<string, number>> = {};
     parsed.missions.forEach((m: any) => {
@@ -863,11 +971,14 @@ export default function WeeklySettlementWizardPage() {
       if (!date) return;
       const rawName = m.name || m["이름"] || "";
       const { name } = splitRider(String(rawName));
-      const lic = m.licenseId || nameToLic[name];
-      if (!lic) return;
+      const licKey =
+        licenseToKey[m.licenseId] ||
+        m.licenseId ||
+        nameToLic[name];
+      if (!licKey) return;
       const amount = Number(m.amount ?? m["amount"] ?? 0) || 0;
       if (!totals[date]) totals[date] = {};
-      totals[date][lic] = (totals[date][lic] || 0) + amount;
+      totals[date][licKey] = (totals[date][licKey] || 0) + amount;
     });
     return totals;
   }, [parsed]);
@@ -880,41 +991,134 @@ export default function WeeklySettlementWizardPage() {
     [missionTotals]
   );
 
-  const getSummaryFor = (r: { riderName?: string; riderSuffix?: string; licenseId?: string }) => {
+  const getSummaryFor = (r: { riderName?: string; riderSuffix?: string; licenseId?: string; key?: string }) => {
+    if (r.key && parsed?.summaries.has(r.key)) return parsed?.summaries.get(r.key);
     return r.licenseId ? parsed?.summaries.get(r.licenseId) : undefined;
   };
 
-  const step3Rows: Step3Row[] = useMemo(() => {
-    if (!parsed) return [];
-    return [...parsed.riders]
-      .sort((a, b) => (a.riderName || "").localeCompare(b.riderName || "", "ko"))
-      .map((r) => {
-        const summary = parsed.summaries.get(r.licenseId);
-        const orderCount = r.totalOrders || summary?.total || 0;
-        const primaryBranch =
-          summary?.branchName ||
-          Object.entries(r.branchCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
-          "-";
-        const branchId = branchIdByLabel[primaryBranch] || "";
+  const step3Data = useMemo(() => {
+    if (!parsed) return { rows: [] as Step3Row[], childRowsByKey: {} as Record<string, Step3Row[]> };
+
+    const riderLookup: Record<string, AggRider> = {};
+    parsed.riders.forEach((r) => {
+      riderLookup[r.key] = r;
+    });
+
+    const childRowsByKey: Record<string, Step3Row[]> = {};
+    Object.entries(parsed.rawRowsByRider || {}).forEach(([key, raws]) => {
+      const rider = riderLookup[key];
+      childRowsByKey[key] = raws.map((raw, idx) => {
+        const branchId = branchIdByLabel[raw.branchName] || "";
         const branchObj =
           (branchId && branches.find((b) => b.id === branchId)) ||
-          branches.find((b) => b.name === primaryBranch || b.displayName === primaryBranch || b.branchName === primaryBranch);
+          branches.find(
+            (b) =>
+              b.name === raw.branchName ||
+              b.displayName === raw.branchName ||
+              b.branchName === raw.branchName
+          );
         const promos = branchId ? promotionByBranch[branchId] || [] : [];
+        const orderCount = raw.orderCount || 0;
 
         const promoLines: string[] = [];
         let promoTotal = 0;
-        let peakInfoForDisplay: { score: number; threshold: number | null } | null =
-          null as { score: number; threshold: number | null } | null;
+        let peakInfoForDisplay: { score: number; threshold: number | null } | null = null;
+        const branchPeak: AggRider["peakByDate"] = rider?.peakByBranch?.[raw.branchName] || {};
         promos.forEach((p) => {
           const { amount, typeLabel } = calcPromoAmount(p, orderCount, branchId);
-          const peakInfo = calcPeakScore(p, r.peakByDate);
+          const peakInfo = calcPeakScore(p, branchPeak);
           if (peakInfo && !peakInfoForDisplay) {
             peakInfoForDisplay = { score: peakInfo.score, threshold: peakInfo.threshold };
           }
           if (peakInfo && !peakInfo.meets) {
-            promoLines.push(
-              `[${typeLabel || "피크"}] 피크점수 ${peakInfo.score}점`
-            );
+            promoLines.push(`[${typeLabel || "피크"}] 피크점수 ${peakInfo.score}점`);
+            return;
+          }
+          if (amount && typeLabel) {
+            promoLines.push(`[${typeLabel}] ${formatCurrency(amount)}원`);
+            promoTotal += amount;
+          }
+        });
+
+        const peakScoreText = formatPeakScoreText(peakInfoForDisplay);
+
+        const missionSum = 0;
+        const overallTotal = raw.fin.totalSettlement + promoTotal + missionSum;
+        const withholding = Math.floor((overallTotal * 0.033) / 10) * 10;
+
+        let fee = raw.fin.fee || 0;
+        if (branchObj?.feeType && branchObj?.feeValue != null) {
+          if (branchObj.feeType === "per_case") {
+            fee = Math.round((branchObj.feeValue || 0) * orderCount);
+          } else if (branchObj.feeType === "percentage") {
+            const base = raw.fin.settlementAmount || raw.fin.totalSettlement;
+            fee = Math.round(base * ((branchObj.feeValue || 0) / 100));
+          }
+        }
+
+        return {
+          key: `${key}-child-${idx}`,
+          parentKey: key,
+          isChild: true,
+          licenseId: raw.licenseId || key,
+          riderName: raw.riderName || raw.rawName || "-",
+          riderSuffix: raw.riderSuffix || "-",
+          branchName: raw.branchName,
+          orderCount,
+          rentCost: "-",
+          payout: "-",
+          fee,
+          peakScore: peakScoreText,
+          promoBasis: promoLines.join("\n"),
+          promoAmount: promoTotal,
+          settlementAmount: raw.fin.settlementAmount || 0,
+          supportTotal: raw.fin.supportTotal || 0,
+          deduction: raw.fin.deduction || 0,
+          totalSettlement: raw.fin.totalSettlement || 0,
+          overallTotal,
+          employment: raw.fin.employment || 0,
+          accident: raw.fin.accident || 0,
+          timeInsurance: raw.fin.timeInsurance || 0,
+          retro: raw.fin.retro || 0,
+          withholding,
+          matchedRiderId: undefined,
+          matchedRiderName: undefined,
+          rentCostValue: 0,
+          sourceFile: raw.sourceFile,
+        };
+      });
+    });
+
+    const rows = [...parsed.riders]
+      .sort((a, b) => (a.riderName || "").localeCompare(b.riderName || "", "ko"))
+      .map((r) => {
+        const summary = parsed.summaries.get(r.key);
+        const orderCount = r.totalOrders || summary?.total || 0;
+        const primaryBranch =
+          Object.entries(r.branchCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+          summary?.branchName ||
+          "-";
+        const branchId = branchIdByLabel[primaryBranch] || "";
+        const branchObj =
+          (branchId && branches.find((b) => b.id === branchId)) ||
+          branches.find(
+            (b) =>
+              b.name === primaryBranch || b.displayName === primaryBranch || b.branchName === primaryBranch
+          );
+        const promos = branchId ? promotionByBranch[branchId] || [] : [];
+
+        const promoLines: string[] = [];
+        let promoTotal = 0;
+        let peakInfoForDisplay: { score: number; threshold: number | null } | null = null;
+        const branchPeak: AggRider["peakByDate"] = r.peakByBranch?.[primaryBranch] || {};
+        promos.forEach((p) => {
+          const { amount, typeLabel } = calcPromoAmount(p, orderCount, branchId);
+          const peakInfo = calcPeakScore(p, branchPeak);
+          if (peakInfo && !peakInfoForDisplay) {
+            peakInfoForDisplay = { score: peakInfo.score, threshold: peakInfo.threshold };
+          }
+          if (peakInfo && !peakInfo.meets) {
+            promoLines.push(`[${typeLabel || "피크"}] 피크점수 ${peakInfo.score}점`);
             return;
           }
           if (amount && typeLabel) {
@@ -950,7 +1154,7 @@ export default function WeeklySettlementWizardPage() {
         const matched = findMatchedRider(primaryBranch, riderSuffixResolved);
 
         const missionSum = missionDates.reduce((acc, d) => {
-          const amt = missionTotals[d]?.[r.licenseId] || 0;
+          const amt = missionTotals[d]?.[r.key] || 0;
           return acc + amt;
         }, 0);
 
@@ -962,20 +1166,14 @@ export default function WeeklySettlementWizardPage() {
         const overallTotal = totalSettlement + promoTotal + missionSum;
         const withholding = Math.floor((overallTotal * 0.033) / 10) * 10;
 
-        const resolvedPeakInfo: { score: number; threshold: number | null } | null =
-          peakInfoForDisplay;
-        const peakScoreText =
-          resolvedPeakInfo == null
-            ? "-"
-            : `${resolvedPeakInfo.score.toLocaleString()}점${
-                resolvedPeakInfo.threshold ? ` / 기준 ${resolvedPeakInfo.threshold}점` : ""
-              }`;
+        const peakScoreText = formatPeakScoreText(peakInfoForDisplay);
         const rentCostDisplay =
           rentCostWeekly && rentCostWeekly > 0
             ? `-${formatCurrency(rentCostWeekly)}원`
             : "-";
 
         return {
+          key: r.key,
           licenseId: r.licenseId || "-",
           riderName: r.riderName || summary?.name || "-",
           riderSuffix: riderSuffixResolved || "-",
@@ -1002,7 +1200,35 @@ export default function WeeklySettlementWizardPage() {
           rentCostValue: rentCostWeekly,
         };
       });
-  }, [parsed, branchIdByLabel, promotionByBranch, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider, calcPromoAmount, calcPeakScore]);
+
+    return { rows, childRowsByKey };
+  }, [
+    parsed,
+    branchIdByLabel,
+    promotionByBranch,
+    branches,
+    missionDates,
+    missionTotals,
+    findMatchedRider,
+    rentalFeeByRider,
+    calcPromoAmount,
+    calcPeakScore,
+  ]);
+
+  const step3Rows = step3Data.rows;
+  const childRowsByKey = step3Data.childRowsByKey;
+
+  const displayRows: Step3Row[] = useMemo(() => {
+    const list: Step3Row[] = [];
+    step3Rows.forEach((row) => {
+      list.push(row);
+      const children = childRowsByKey[row.key];
+      if (expandedRows[row.key] && children && children.length > 1) {
+        list.push(...children);
+      }
+    });
+    return list;
+  }, [step3Rows, childRowsByKey, expandedRows]);
 
   const openDetail = (row: Step3Row) => {
     setDetailRow(row);
@@ -1044,7 +1270,7 @@ export default function WeeklySettlementWizardPage() {
 
     const data = step3Rows.map((row) => {
       const missionCols = missionDates.map((d) => {
-        const amt = missionTotals[d]?.[row.licenseId] || 0;
+        const amt = missionTotals[d]?.[row.key] || 0;
         return amt ? `${formatCurrency(amt)}원` : "-";
       });
       return [
@@ -1387,13 +1613,13 @@ export default function WeeklySettlementWizardPage() {
                 </thead>
                 <tbody>
                   {parsed.riders.map((r) => {
-                    const isSelected = selectedRider === r.licenseId;
+                    const isSelected = selectedRider === r.key;
                     return (
                       <tr
-                        key={r.licenseId}
+                        key={r.key}
                         className={`border-b border-border cursor-pointer hover:bg-muted/50 ${isSelected ? "bg-muted/70" : ""}`}
                         onClick={() =>
-                          setSelectedRider((prev) => (prev === r.licenseId ? null : r.licenseId))
+                          setSelectedRider((prev) => (prev === r.key ? null : r.key))
                         }
                       >
                     <td className="px-3 py-2 align-top text-center text-foreground">{r.licenseId}</td>
@@ -1449,7 +1675,7 @@ export default function WeeklySettlementWizardPage() {
             </div>
 
             {parsed.riders.map((r) => {
-              if (selectedRider !== r.licenseId) return null;
+              if (selectedRider !== r.key) return null;
 
               const peakEntries = Object.entries(r.peakByDate).sort((a, b) =>
                 a[0].localeCompare(b[0])
@@ -1614,27 +1840,54 @@ export default function WeeklySettlementWizardPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {step3Rows.map((row, idx) => (
-                    <tr key={`${row.licenseId}-${idx}`} className="bg-background">
+                  {displayRows.map((row, idx) => {
+                    const hasChildren = (childRowsByKey[row.key]?.length || 0) > 1;
+                    const isChild = !!row.isChild;
+                    const expanded = expandedRows[row.key];
+                    return (
+                      <tr key={`${row.key}-${idx}`} className={isChild ? "bg-muted/10" : "bg-background"}>
                       <td
-                        className="sticky z-20 border border-border px-3 py-3 text-center text-foreground whitespace-nowrap bg-card"
+                        className={`sticky z-20 border border-border px-3 py-3 text-center text-foreground whitespace-nowrap ${isChild ? "bg-muted/20" : "bg-card"}`}
                         style={{ left: 0, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
                       >
-                        <div className="font-semibold">
-                          {row.matchedRiderId ? (
-                            <a
-                              href={`/riders/${row.matchedRiderId}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-primary underline underline-offset-2"
+                        <div className={`flex items-center gap-2 ${isChild ? "pl-2" : ""}`}>
+                          {hasChildren ? (
+                            <button
+                              type="button"
+                              className="h-6 w-6 rounded-md border border-border bg-background text-xs font-semibold text-foreground hover:bg-muted"
+                              onClick={() =>
+                                setExpandedRows((prev) => ({
+                                  ...prev,
+                                  [row.key]: !prev[row.key],
+                                }))
+                              }
                             >
-                              {row.riderName}
-                            </a>
+                              {expanded ? "−" : "+"}
+                            </button>
                           ) : (
-                            row.riderName
+                            <span className="inline-block h-6 w-6" />
                           )}
+                          <div className="text-left">
+                            <div className="font-semibold leading-tight">
+                              {row.matchedRiderId ? (
+                                <a
+                                  href={`/riders/${row.matchedRiderId}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-primary underline underline-offset-2"
+                                >
+                                  {row.riderName}
+                                </a>
+                              ) : (
+                                row.riderName
+                              )}
+                            </div>
+                            <div className="text-[11px] text-muted-foreground">뒷번호 {row.riderSuffix}</div>
+                            {row.sourceFile && (
+                              <div className="text-[10px] text-muted-foreground">파일: {row.sourceFile}</div>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-[11px] text-muted-foreground">뒷번호 {row.riderSuffix}</div>
                       </td>
                       <td
                         className="border border-border px-3 py-3 text-center font-semibold text-foreground whitespace-nowrap"
@@ -1681,10 +1934,10 @@ export default function WeeklySettlementWizardPage() {
                         {row.promoAmount ? `${formatCurrency(row.promoAmount)}원` : "-"}
                       </td>
                       {missionDates.map((d) => {
-                        const amt = missionTotals[d]?.[row.licenseId] || 0;
+                        const amt = missionTotals[d]?.[row.key] || 0;
                         return (
                           <td
-                            key={`mission-${row.licenseId}-${d}`}
+                            key={`mission-${row.key}-${d}`}
                             className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}
                           >
                             {amt ? `${formatCurrency(amt)}원` : "-"}
@@ -1722,16 +1975,21 @@ export default function WeeklySettlementWizardPage() {
                         {row.withholding ? `${formatCurrency(row.withholding)}원` : "-"}
                       </td>
                       <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
-                        <button
-                          type="button"
-                          className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-muted"
-                          onClick={() => openDetail(row)}
-                        >
-                          보기
-                        </button>
+                        {row.isChild ? (
+                          <span className="text-[11px] text-muted-foreground">-</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                            onClick={() => openDetail(row)}
+                          >
+                            보기
+                          </button>
+                        )}
                       </td>
-                    </tr>
-                  ))}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
