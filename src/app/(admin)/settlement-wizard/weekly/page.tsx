@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Upload, FileSpreadsheet, ShieldCheck, Trash2 } from "lucide-react";
+import { Upload, FileSpreadsheet, ShieldCheck, Trash2, RefreshCcw } from "lucide-react";
 import { showToast } from "@/components/ui/Toast";
 import SettlementRowDrawer from "@/components/admin-v2/SettlementRowDrawer";
 import { utils, writeFile } from "xlsx";
@@ -312,6 +312,13 @@ const formatPeakScoreText = (peak?: { score: number; threshold: number | null } 
   if (!peak) return "-";
   const thresholdText = peak.threshold ? ` / 기준 ${peak.threshold}점` : "";
   return `${peak.score.toLocaleString()}점${thresholdText}`;
+};
+
+const sanitizeFileName = (name: string) => {
+  return name
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, "-");
 };
 
 export default function WeeklySettlementWizardPage() {
@@ -1243,6 +1250,25 @@ export default function WeeklySettlementWizardPage() {
       return;
     }
 
+    const branchLabelForFile = (() => {
+      const labels = new Set<string>();
+      uploads.forEach((u) => {
+        const label = branches.find((b) => b.id === u.branchId)?.name || u.branchId || "";
+        if (label) labels.add(label);
+      });
+      if (labels.size === 1) return Array.from(labels)[0];
+      if (parsed.branches?.length === 1) return parsed.branches[0];
+      return null;
+    })();
+
+    const fileName = sanitizeFileName(
+      branchLabelForFile ? `${branchLabelForFile}-settlement-step3-weekly.xlsx` : "settlement-step3-weekly.xlsx"
+    );
+
+    const formatAmount = (v: number | string) => formatCurrency(v || 0);
+    const formatNegative = (v: number | undefined | null) =>
+      v && v !== 0 ? `-${formatCurrency(v)}` : "-";
+
     const missionHeaders = missionDates.map((d) => formatMissionLabel(d));
     const headers = [
       "라이더명",
@@ -1271,37 +1297,37 @@ export default function WeeklySettlementWizardPage() {
     const data = step3Rows.map((row) => {
       const missionCols = missionDates.map((d) => {
         const amt = missionTotals[d]?.[row.key] || 0;
-        return amt ? `${formatCurrency(amt)}원` : "-";
+        return amt ? formatAmount(amt) : "-";
       });
       return [
         row.riderName,
         row.licenseId,
         row.orderCount,
-        row.rentCost,
+        row.rentCostValue ? `-${formatAmount(row.rentCostValue)}` : "-",
         "-",
-        row.fee ? `-${formatCurrency(row.fee)}원` : "-",
+        formatNegative(row.fee),
         row.branchName || "-",
         row.peakScore || "-",
         row.promoBasis || "-",
-        row.promoAmount ? `${formatCurrency(row.promoAmount)}원` : "-",
+        row.promoAmount ? formatAmount(row.promoAmount) : "-",
         ...missionCols,
-        row.settlementAmount ? `${formatCurrency(row.settlementAmount)}원` : "-",
-        row.supportTotal ? `${formatCurrency(row.supportTotal)}원` : "-",
-        row.deduction ? `${formatCurrency(row.deduction)}원` : "-",
-        row.totalSettlement ? `${formatCurrency(row.totalSettlement)}원` : "-",
-        row.overallTotal ? `${formatCurrency(row.overallTotal)}원` : "-",
-        row.employment ? `${formatCurrency(row.employment)}원` : "-",
-        row.accident ? `${formatCurrency(row.accident)}원` : "-",
-        row.timeInsurance ? `${formatCurrency(row.timeInsurance)}원` : "-",
-        row.retro ? `${formatCurrency(row.retro)}원` : "-",
-        row.withholding ? `${formatCurrency(row.withholding)}원` : "-",
+        row.settlementAmount ? formatAmount(row.settlementAmount) : "-",
+        row.supportTotal ? formatAmount(row.supportTotal) : "-",
+        row.deduction ? formatAmount(row.deduction) : "-",
+        row.totalSettlement ? formatAmount(row.totalSettlement) : "-",
+        row.overallTotal ? formatAmount(row.overallTotal) : "-",
+        row.employment ? formatAmount(row.employment) : "-",
+        row.accident ? formatAmount(row.accident) : "-",
+        row.timeInsurance ? formatAmount(row.timeInsurance) : "-",
+        row.retro ? formatAmount(row.retro) : "-",
+        row.withholding ? formatAmount(row.withholding) : "-",
       ];
     });
 
     const wb = utils.book_new();
     const ws = utils.aoa_to_sheet([headers, ...data]);
     utils.book_append_sheet(wb, ws, "Step3");
-    writeFile(wb, "settlement-step3-weekly.xlsx");
+    writeFile(wb, fileName || "settlement-step3-weekly.xlsx");
     showToast("Step3 테이블을 XLSX로 저장했습니다.", "success");
   };
 
@@ -1317,13 +1343,6 @@ export default function WeeklySettlementWizardPage() {
           <p className="text-xs text-muted-foreground">엑셀 파일을 업로드하고 지사/프로모션을 매핑한 뒤 비밀번호를 입력합니다.</p>
         </div>
         <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
-          <button
-            type="button"
-            onClick={() => setReloadKey((k) => k + 1)}
-            className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          >
-            데이터 다시 불러오기
-          </button>
           <span>Step 1 / 3</span>
         </div>
       </div>
@@ -1460,7 +1479,7 @@ export default function WeeklySettlementWizardPage() {
                       />
                     </div>
                     <div className="w-full max-w-[260px] space-y-1.5 text-xs">
-                      <label className="text-[11px] text-muted-foreground">소속 지사</label>
+                      <div className="text-[11px] text-muted-foreground">소속 지사</div>
                       <select
                         className="h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
                         value={u.branchId || ""}
@@ -1541,7 +1560,15 @@ export default function WeeklySettlementWizardPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-col items-end gap-2">
+                      <button
+                        type="button"
+                        className="inline-flex h-8 w-10 items-center justify-center rounded-md border border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground"
+                        onClick={() => setReloadKey((k) => k + 1)}
+                        title="데이터 다시 불러오기"
+                      >
+                        <RefreshCcw className="h-4 w-4" />
+                      </button>
                       <button
                         type="button"
                         className="h-8 rounded-md border border-border bg-background px-3 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
