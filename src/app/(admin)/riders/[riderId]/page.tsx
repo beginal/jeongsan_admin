@@ -6,6 +6,7 @@ import { SensitiveDetailRow } from "@/components/admin-v2/SensitiveDetailRow";
 import { RiderDeleteButton } from "@/components/admin-v2/RiderDeleteButton";
 import { RiderStatusActions } from "@/components/admin-v2/RiderStatusActions";
 import { RiderSettlementCard } from "@/components/admin-v2/RiderSettlementCard";
+import { DateField } from "@/components/ui/DateField";
 
 const formatDateOnly = (value?: string | null) => {
   if (!value) return "-";
@@ -16,6 +17,12 @@ const formatDateOnly = (value?: string | null) => {
 
 const formatMoney = (value: number | null | undefined) =>
   typeof value === "number" ? value.toLocaleString("ko-KR") : "-";
+
+const formatCurrency = (value?: number | null) => {
+  if (value === null || value === undefined) return "-";
+  const num = Number(value) || 0;
+  return `${num.toLocaleString("ko-KR")}원`;
+};
 
 interface RiderDetailPageProps {
   params: Promise<{ riderId: string }>;
@@ -158,6 +165,75 @@ export default async function RiderDetailPage({
     { total: 0, remaining: 0, paid: 0 }
   );
 
+  // 정산 히스토리 (일 정산) - rider_id 기준 최근 20건
+  const { data: settlementRows } = await supabase
+    .from("daily_settlement_results")
+    .select(
+      `
+      id,
+      run_id,
+      branch_id,
+      rider_id,
+      license_id,
+      rider_name,
+      rider_suffix,
+      order_count,
+      settlement_amount,
+      support_total,
+      deduction,
+      total_settlement,
+      mission_total,
+      fee,
+      employment,
+      accident,
+      time_insurance,
+      retro,
+      withholding,
+      rent_cost,
+      loan_payment,
+      next_day_settlement,
+      net_payout,
+      run:run_id (
+        id,
+        settlement_date,
+        branch_id,
+        status,
+        confirmed_at
+      )
+    `
+    )
+    .eq("rider_id", rider.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const settlements =
+    settlementRows?.map((row: any) => ({
+      id: row.id,
+      branchId: row.branch_id,
+      licenseId: row.license_id,
+      riderName: row.rider_name,
+      riderSuffix: row.rider_suffix,
+      orderCount: row.order_count,
+      settlementAmount: row.settlement_amount,
+      supportTotal: row.support_total,
+      deduction: row.deduction,
+      totalSettlement: row.total_settlement,
+      missionTotal: row.mission_total,
+      fee: row.fee,
+      employment: row.employment,
+      accident: row.accident,
+      timeInsurance: row.time_insurance,
+      retro: row.retro,
+      withholding: row.withholding,
+      rentCost: row.rent_cost,
+      loanPayment: row.loan_payment,
+      nextDaySettlement: row.next_day_settlement,
+      netPayout: row.net_payout,
+      settlementDate: row.run?.settlement_date || null,
+      runStatus: row.run?.status || "-",
+      confirmedAt: row.run?.confirmed_at || null,
+    })) ?? [];
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center gap-4 border-b border-border pb-4">
@@ -266,6 +342,100 @@ export default async function RiderDetailPage({
       </div>
 
       <RiderSettlementCard riderId={String(riderId)} />
+
+      <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              저장된 일 정산 내역
+            </h2>
+            <p className="text-[11px] text-muted-foreground">
+              DB에 저장된 일 정산 결과를 라이더 기준으로 보여줍니다. (최근 20건)
+            </p>
+          </div>
+          <div className="text-[11px] text-muted-foreground">
+            확정일 기준 최신순
+          </div>
+        </div>
+
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-[1200px] border-separate border-spacing-0 text-xs">
+            <thead className="sticky top-0 z-10 bg-muted/70 text-muted-foreground backdrop-blur">
+              <tr>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">정산일</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">지사</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">오더수</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">대여금 납부</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">렌트비용</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">익일정산</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">실제 입금액</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">수수료</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">정산금액</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">총 지원금</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">차감내역</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">총 정산금액</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">미션 합계</th>
+                <th className="border border-border px-3 py-2 text-center font-semibold whitespace-nowrap">원천세</th>
+              </tr>
+            </thead>
+            <tbody>
+              {settlements.length === 0 && (
+                <tr>
+                  <td className="px-3 py-3 text-center text-muted-foreground" colSpan={14}>
+                    저장된 정산 내역이 없습니다.
+                  </td>
+                </tr>
+              )}
+              {settlements.map((s) => (
+                <tr key={s.id} className="bg-background">
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.settlementDate || "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {branches.find((b) => b.branchId === s.branchId)?.name || s.branchId || "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.orderCount?.toLocaleString?.() || s.orderCount || "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.loanPayment ? formatCurrency(s.loanPayment) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.rentCost ? formatCurrency(s.rentCost) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.nextDaySettlement ? formatCurrency(s.nextDaySettlement) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.netPayout ? formatCurrency(s.netPayout) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.fee ? formatCurrency(s.fee) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.settlementAmount ? formatCurrency(s.settlementAmount) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.supportTotal ? formatCurrency(s.supportTotal) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.deduction ? formatCurrency(s.deduction) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.totalSettlement ? formatCurrency(s.totalSettlement) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.missionTotal ? formatCurrency(s.missionTotal) : "-"}
+                  </td>
+                  <td className="border border-border px-3 py-2 text-center text-foreground whitespace-nowrap">
+                    {s.withholding ? formatCurrency(s.withholding) : "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {loans.length > 0 && (
         <div className="rounded-xl border border-border bg-card px-4 py-4 text-sm shadow-sm">

@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload, FileSpreadsheet, ShieldCheck, Trash2 } from "lucide-react";
+import { Upload, FileSpreadsheet, ShieldCheck, Trash2, CalendarClock } from "lucide-react";
+import { addMonths, eachDayOfInterval, endOfMonth, format, getDay, parseISO, startOfMonth } from "date-fns";
 import { showToast } from "@/components/ui/Toast";
 import SettlementRowDrawer from "@/components/admin-v2/SettlementRowDrawer";
 import { utils, writeFile } from "xlsx";
@@ -75,6 +76,8 @@ type ParsedFileResult = {
     judgementDate: string;
   }[];
   missions: Record<string, any>[];
+  settlementDate?: string | null;
+  fileHash?: string | null;
 };
 
 type AggRider = {
@@ -136,6 +139,107 @@ const blueCellClass =
   "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-100";
 const purpleCellClass =
   "bg-purple-50 text-purple-700 dark:bg-purple-950/40 dark:text-purple-100";
+
+const sumMissionForLicense = (
+  licenseId: string,
+  missionTotals: Record<string, Record<string, number>>,
+  missionDates: string[]
+) => {
+  return missionDates.reduce((acc, d) => acc + (missionTotals[d]?.[licenseId] || 0), 0);
+};
+
+const InlineCalendar = ({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) => {
+  const parsed = value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? parseISO(value) : null;
+  const today = new Date();
+  const [viewDate, setViewDate] = useState(() => parsed || today);
+
+  useEffect(() => {
+    if (parsed) {
+      setViewDate(parsed);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const monthStart = startOfMonth(viewDate);
+  const monthEnd = endOfMonth(viewDate);
+  const startDay = getDay(monthStart);
+  const monthDays = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+  const weeks: Array<Array<{ date: Date | null }>> = [];
+  let current: Array<{ date: Date | null }> = [];
+  for (let i = 0; i < startDay; i++) current.push({ date: null });
+  monthDays.forEach((date) => {
+    current.push({ date });
+    if (current.length === 7) {
+      weeks.push(current);
+      current = [];
+    }
+  });
+  if (current.length) {
+    while (current.length < 7) current.push({ date: null });
+    weeks.push(current);
+  }
+
+  const formatDate = (d: Date) => format(d, "yyyy-MM-dd");
+  const title = format(viewDate, "yyyy년 M월");
+
+  return (
+    <div className="rounded-lg border border-border bg-card p-3 text-xs shadow-sm w-[300px]">
+      <div className="mb-2 flex items-center justify-between">
+        <button
+          type="button"
+          className="h-7 rounded-md border border-border px-2 text-[11px] text-foreground hover:bg-muted"
+          onClick={() => setViewDate((d) => addMonths(d, -1))}
+        >
+          이전
+        </button>
+        <div className="font-semibold text-foreground">{title}</div>
+        <button
+          type="button"
+          className="h-7 rounded-md border border-border px-2 text-[11px] text-foreground hover:bg-muted"
+          onClick={() => setViewDate((d) => addMonths(d, 1))}
+        >
+          다음
+        </button>
+      </div>
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-muted-foreground">
+        {["일", "월", "화", "수", "목", "금", "토"].map((d) => (
+          <div key={d} className="py-1 font-semibold">
+            {d}
+          </div>
+        ))}
+        {weeks.flat().map((cell, idx) => {
+          const d = cell.date;
+          if (!d) {
+            return <div key={`empty-${idx}`} className="py-2" />;
+          }
+          const v = formatDate(d);
+          const isSelected = value === v;
+          return (
+            <button
+              key={v}
+              type="button"
+              onClick={() => onChange(v)}
+              className={`h-9 w-full rounded-md text-[11px] ${
+                isSelected
+                  ? "bg-primary text-primary-foreground font-semibold"
+                  : "bg-background text-foreground hover:bg-muted"
+              }`}
+            >
+              {d.getDate()}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const isNextDayCycle = (cycleRaw?: string | null) => {
   if (!cycleRaw || typeof cycleRaw !== "string") return false;
@@ -214,11 +318,114 @@ export default function WeeklySettlementWizardPage() {
       }
     >;
   } | null>(null);
+  const [parsedMetaByUpload, setParsedMetaByUpload] = useState<Record<string, { settlementDate?: string | null; fileHash?: string | null }>>({});
+  const branchMetaById = useMemo(() => {
+    const map: Record<
+      string,
+      { settlementDate?: string | null; fileHash?: string | null; fileName?: string }
+    > = {};
+    uploads.forEach((u) => {
+      if (!u.branchId) return;
+      const meta = parsedMetaByUpload[u.id] || {};
+      if (!map[u.branchId]) {
+        map[u.branchId] = {
+          settlementDate: meta.settlementDate || null,
+          fileHash: meta.fileHash || null,
+          fileName: u.file.name,
+        };
+      } else {
+        // 최신 파일 메타로 갱신
+        map[u.branchId].settlementDate = map[u.branchId].settlementDate || meta.settlementDate || null;
+        map[u.branchId].fileHash = map[u.branchId].fileHash || meta.fileHash || null;
+        map[u.branchId].fileName = map[u.branchId].fileName || u.file.name;
+      }
+    });
+    return map;
+  }, [uploads, parsedMetaByUpload]);
   const [selectedRider, setSelectedRider] = useState<string | null>(null);
   const [detailRow, setDetailRow] = useState<Step3Row | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [existingFileHashes, setExistingFileHashes] = useState<Record<string, string>>({});
+  const hasExistingUpload = useMemo(
+    () =>
+      uploads.some((u) => {
+        const hash = parsedMetaByUpload[u.id]?.fileHash;
+        return hash && existingFileHashes[hash];
+      }),
+    [uploads, parsedMetaByUpload, existingFileHashes]
+  );
+  const [historyDate, setHistoryDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [historyBranchId, setHistoryBranchId] = useState<string>("");
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyData, setHistoryData] = useState<{ run: any; results: any[]; missions: any[]; orders: any[] } | null>(null);
+  const [showOverwriteModal, setShowOverwriteModal] = useState(false);
+  const [existingRunByBranch, setExistingRunByBranch] = useState<Record<string, boolean>>({});
+  const [conflictItems, setConflictItems] = useState<Array<{ type: "file" | "branch"; label: string; detail?: string }>>([]);
   const licenseColWidth = 140;
   const riderColWidth = 100;
+
+  // 저장된 run 여부를 파일 해시로 확인
+  useEffect(() => {
+    const hashes = Object.values(parsedMetaByUpload)
+      .map((m) => m.fileHash)
+      .filter(Boolean) as string[];
+    if (hashes.length === 0) return;
+    let cancelled = false;
+    async function checkExisting() {
+      try {
+        const results: Record<string, string> = {};
+        for (const h of hashes) {
+          const res = await fetch(`/api/settlement/daily/runs?fileHash=${encodeURIComponent(h)}`);
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data?.run?.id) {
+            results[h] = data.run.id;
+          }
+        }
+        if (!cancelled) setExistingFileHashes(results);
+      } catch {
+        // ignore
+      }
+    }
+    checkExisting();
+    return () => {
+      cancelled = true;
+    };
+  }, [parsedMetaByUpload]);
+
+  // 브랜치/정산일 기준 기존 run 존재 여부 확인
+  useEffect(() => {
+    const entries = Object.entries(branchMetaById).filter(
+      ([, meta]) => meta.settlementDate
+    );
+    if (entries.length === 0) return;
+    let cancelled = false;
+    async function checkExistingRuns() {
+      const next: Record<string, boolean> = {};
+      for (const [branchId, meta] of entries) {
+        try {
+          const res = await fetch(
+            `/api/settlement/daily/runs?date=${encodeURIComponent(
+              meta.settlementDate || ""
+            )}&branchId=${encodeURIComponent(branchId)}`
+          );
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data?.run?.id) {
+            next[branchId] = true;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if (!cancelled) setExistingRunByBranch(next);
+    }
+    checkExistingRuns();
+    return () => {
+      cancelled = true;
+    };
+  }, [branchMetaById]);
 
   useEffect(() => {
     if (lastLoadKeyRef.current === reloadKey) return;
@@ -480,6 +687,10 @@ export default function WeeklySettlementWizardPage() {
           throw new Error(data?.error || "파일을 파싱하지 못했습니다.");
         }
         results.push(data as ParsedFileResult);
+        setParsedMetaByUpload((prev) => ({
+          ...prev,
+          [u.id]: { settlementDate: data.settlementDate || null, fileHash: data.fileHash || null },
+        }));
       }
 
       // 병합 및 집계
@@ -929,13 +1140,253 @@ export default function WeeklySettlementWizardPage() {
     showToast("Step3 테이블을 XLSX로 저장했습니다.", "success");
   };
 
+  const handleSaveToDb = async () => {
+    if (!parsed || step3Rows.length === 0) {
+      showToast("저장할 정산 데이터가 없습니다.", "info");
+      return;
+    }
+
+    if (uploads.some((u) => !u.branchId)) {
+      showToast("모든 파일에 지사를 선택해주세요.", "info");
+      return;
+    }
+
+    const conflicts: Array<{ type: "file" | "branch"; label: string; detail?: string }> = [];
+
+    const duplicateList = uploads
+      .map((u) => {
+        const hash = parsedMetaByUpload[u.id]?.fileHash;
+        if (hash && existingFileHashes[hash]) {
+          return { fileName: u.file.name, fileHash: hash };
+        }
+        return null;
+      })
+      .filter(Boolean) as Array<{ fileName: string; fileHash: string }>;
+
+    duplicateList.forEach((d) =>
+      conflicts.push({
+        type: "file",
+        label: d.fileName,
+        detail: d.fileHash,
+      })
+    );
+
+    Object.entries(branchMetaById).forEach(([bid, meta]) => {
+      if (meta.settlementDate && existingRunByBranch[bid]) {
+        conflicts.push({
+          type: "branch",
+          label: `${meta.settlementDate} · ${branches.find((b) => b.id === bid)?.name || bid}`,
+        });
+      }
+    });
+
+    if (conflicts.length > 0) {
+      setConflictItems(conflicts);
+      setShowOverwriteModal(true);
+      return;
+    }
+
+    await doSave(false);
+  };
+
+  const doSave = async (forceOverwrite: boolean) => {
+    if (!parsed || step3Rows.length === 0) return;
+
+    const groupedResults: Record<string, typeof step3Rows> = {};
+    step3Rows.forEach((row) => {
+      const bid = branchIdByLabel[row.branchName] || null;
+      if (!bid) return;
+      groupedResults[bid] = groupedResults[bid] || [];
+      groupedResults[bid].push(row);
+    });
+
+    const uploadsPayload: any[] = [];
+    for (const [branchId, rows] of Object.entries(groupedResults)) {
+      const meta = branchMetaById[branchId];
+      if (!meta?.settlementDate) {
+        showToast(`정산일(B4) 정보가 없습니다. 지사 ${branchId} 파일을 다시 확인하세요.`, "error");
+        return;
+      }
+      if (!meta?.fileHash) {
+        showToast(`파일 해시 정보가 없습니다. 지사 ${branchId} 파일을 다시 확인하세요.`, "error");
+        return;
+      }
+
+      // missions: missionTotals 기반으로 라이선스/지사 매핑
+      const missionRows: any[] = [];
+      missionDates.forEach((date) => {
+        const licMap = missionTotals[date] || {};
+        Object.entries(licMap).forEach(([lic, amt]) => {
+          const primary = rows.find((r) => r.licenseId === lic);
+          if (!primary) return;
+          missionRows.push({
+            branchId,
+            licenseId: lic,
+            riderId: primary.matchedRiderId || null,
+            missionDate: date,
+            amount: amt,
+          });
+        });
+      });
+
+      // orders: parsed.riders.details 기준
+      const orders: any[] = [];
+      parsed.riders.forEach((r) => {
+        const summary = parsed.summaries.get(r.licenseId);
+        const primaryBranch = summary?.branchName || r.branchCounts && Object.entries(r.branchCounts).sort((a, b) => b[1] - a[1])[0]?.[0];
+        const primaryBranchId = primaryBranch ? branchIdByLabel[primaryBranch] : null;
+        if (primaryBranchId !== branchId) return;
+        r.details.forEach((d, idx) => {
+          orders.push({
+            branchId,
+            licenseId: r.licenseId,
+            riderId: rows.find((x) => x.licenseId === r.licenseId)?.matchedRiderId || null,
+            orderNo: d.orderNo || `${r.licenseId}-${idx}`,
+            acceptedAt: d.acceptedAt,
+            judgementDate: d.judgementDate,
+            peakTime: d.peakTime,
+            branchName: d.branchName,
+            raw: d,
+          });
+        });
+      });
+
+      // results payload
+      const resultsPayload = rows.map((row) => {
+        const missionTotal = sumMissionForLicense(row.licenseId, missionTotals, missionDates);
+        return {
+          branchId,
+          licenseId: row.licenseId,
+          riderId: row.matchedRiderId || null,
+          riderName: row.riderName,
+          riderSuffix: row.riderSuffix,
+          orderCount: row.orderCount,
+          settlementAmount: row.settlementAmount,
+          supportTotal: row.supportTotal,
+          deduction: row.deduction,
+          totalSettlement: row.totalSettlement,
+          missionTotal,
+          fee: row.fee,
+          employment: row.employment,
+          accident: row.accident,
+          timeInsurance: row.timeInsurance,
+          retro: row.retro,
+          withholding: row.withholding,
+          rentCost: row.rentCostValue || 0,
+          loanPayment: row.loanPayment,
+          nextDaySettlement: row.nextDaySettlement,
+          raw: row,
+        };
+      });
+
+      uploadsPayload.push({
+        fileName: meta.fileName || "",
+        fileHash: meta.fileHash,
+        branchId,
+        settlementDate: meta.settlementDate,
+        results: resultsPayload,
+        missions: missionRows,
+        orders,
+      });
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settlement/daily/runs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ uploads: uploadsPayload, forceOverwrite }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.error) {
+        if (res.status === 409) {
+          // 서버에서 중복 감지 → 모달 띄우기
+          const detail = data?.detail || "";
+          const conflicts: Array<{ type: "file" | "branch"; label: string; detail?: string }> = [];
+          if (detail.includes("fileHash")) {
+            conflicts.push({ type: "file", label: "중복 파일", detail });
+          }
+          if (detail.includes("date")) {
+            conflicts.push({ type: "branch", label: detail });
+          }
+          if (conflicts.length > 0) {
+            setConflictItems(conflicts);
+            setShowOverwriteModal(true);
+            setSaving(false);
+            return;
+          }
+        }
+        const detail = data?.detail ? ` (${data.detail})` : "";
+        throw new Error(data?.error ? `${data.error}${detail}` : "정산을 저장하지 못했습니다.");
+      }
+      setSaved(true);
+      showToast("정산을 DB에 저장했습니다.", "success");
+      const resultRuns = (data?.runs as any[]) || [];
+      const nextHashes = { ...existingFileHashes };
+      resultRuns.forEach((r: any) => {
+        const runId = r?.runId;
+        Object.values(parsedMetaByUpload)
+          .map((m) => m.fileHash)
+          .filter(Boolean)
+          .forEach((h) => {
+            if (runId) nextHashes[h as string] = runId;
+          });
+      });
+      setExistingFileHashes(nextHashes);
+    } catch (e: any) {
+      showToast(e?.message || "정산 저장 중 오류가 발생했습니다.", "error");
+    } finally {
+      setSaving(false);
+      setShowOverwriteModal(false);
+    }
+  };
+
+  const handleFetchHistory = async () => {
+    if (!historyDate) {
+      showToast("조회할 날짜를 선택해주세요.", "info");
+      return;
+    }
+    if (!historyBranchId) {
+      showToast("조회할 지사를 선택해주세요.", "info");
+      return;
+    }
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const res = await fetch(
+        `/api/settlement/daily/runs?date=${encodeURIComponent(historyDate)}&branchId=${encodeURIComponent(historyBranchId)}`
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.error) {
+        const detail = data?.detail ? ` (${data.detail})` : "";
+        throw new Error(data?.error ? `${data.error}${detail}` : "정산 이력을 불러오지 못했습니다.");
+      }
+      if (!data.run) {
+        setHistoryData(null);
+        setHistoryError("선택한 날짜/지사에 저장된 정산이 없습니다.");
+        return;
+      }
+      setHistoryData({
+        run: data.run,
+        results: data.results || [],
+        missions: data.missions || [],
+        orders: data.orders || [],
+      });
+    } catch (e: any) {
+      setHistoryError(e?.message || "정산 이력을 불러오지 못했습니다.");
+      setHistoryData(null);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3 border-b border-border pb-4">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Upload className="h-5 w-5" />
-        </div>
-        <div>
+    <div className="space-y-6 pb-52">
+        <div className="flex items-center gap-3 border-b border-border pb-4">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Upload className="h-5 w-5" />
+          </div>
+          <div>
           <div className="text-[11px] text-muted-foreground">정산 마법사 / Step 1</div>
           <h1 className="text-lg font-semibold text-foreground">파일 업로드 및 검증</h1>
           <p className="text-xs text-muted-foreground">엑셀 파일을 업로드하고 지사 매핑 후 비밀번호를 입력합니다. (프로모션 미적용)</p>
@@ -994,7 +1445,7 @@ export default function WeeklySettlementWizardPage() {
           {fileError && (
             <p className="text-[11px] text-red-600">{fileError}</p>
           )}
-          <div className="flex items-center gap-2 text-[11px]">
+          <div className="flex items-center gap-2 text-[11px] flex-wrap">
             <button
               type="button"
               className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-xs font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
@@ -1007,6 +1458,12 @@ export default function WeeklySettlementWizardPage() {
               파일 선택
             </button>
             <span className="text-muted-foreground">최대 5개, 10MB 이하</span>
+            {uploads.length > 0 && Object.keys(existingFileHashes).length > 0 && (
+              <span className="text-amber-600">이미 저장된 파일이 있습니다.</span>
+            )}
+            {hasExistingUpload && (
+              <span className="text-red-600 font-semibold">중복 파일 포함: 저장이 차단됩니다.</span>
+            )}
           </div>
         </div>
       </div>
@@ -1065,6 +1522,12 @@ export default function WeeklySettlementWizardPage() {
                       {u.guessed && (
                         <div className="text-[11px] text-emerald-700">추정 지사: {branches.find((b) => b.id === u.guessed)?.name || u.guessed}</div>
                       )}
+                      {parsedMetaByUpload[u.id]?.settlementDate && (
+                        <div className="text-[11px] text-blue-700">정산일(B4): {parsedMetaByUpload[u.id]?.settlementDate}</div>
+                      )}
+                      {parsedMetaByUpload[u.id]?.fileHash && (
+                        <div className="text-[11px] text-muted-foreground">파일 해시: {parsedMetaByUpload[u.id]?.fileHash?.slice(0, 12)}…</div>
+                      )}
                     </div>
                     <div className="w-full max-w-[220px] space-y-1.5 text-xs">
                       <label className="text-[11px] text-muted-foreground">파일 비밀번호</label>
@@ -1105,6 +1568,10 @@ export default function WeeklySettlementWizardPage() {
                       {u.guessed && !u.branchId && (
                         <div className="text-[11px] text-emerald-700">파일명 기반 추정 지사를 선택해 두었습니다.</div>
                       )}
+                      {parsedMetaByUpload[u.id]?.fileHash &&
+                        existingFileHashes[parsedMetaByUpload[u.id]?.fileHash || ""] && (
+                          <div className="text-[11px] text-amber-700">이미 저장된 파일입니다. 덮어쓰기 주의</div>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button
@@ -1339,6 +1806,14 @@ export default function WeeklySettlementWizardPage() {
             </p>
           </div>
           <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+            <button
+              type="button"
+              className="inline-flex h-8 items-center rounded-md bg-emerald-600 px-3 text-xs font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+              onClick={handleSaveToDb}
+              disabled={saving || saved || !parsed || step3Rows.length === 0}
+            >
+              {saved ? "이미 저장됨" : saving ? "저장 중..." : "정산 확정 및 DB 저장"}
+            </button>
             <span className="hidden sm:inline">20행 가량 표시 후 스크롤</span>
             <button
               type="button"
@@ -1358,9 +1833,9 @@ export default function WeeklySettlementWizardPage() {
         )}
 
         {parsed && (
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <div className="max-h-[1080px] overflow-y-auto">
-              <table className="min-w-[2200px] border-separate border-spacing-0 text-sm">
+            <div className="overflow-x-auto rounded-xl border border-border">
+              <div className="max-h-[1080px] overflow-y-auto">
+                <table className="min-w-[2200px] border-separate border-spacing-0 text-sm">
                 <thead className="sticky top-0 z-30 bg-muted/90 text-muted-foreground backdrop-blur">
                   <tr>
                     <th
@@ -1519,6 +1994,292 @@ export default function WeeklySettlementWizardPage() {
         onClose={closeDetail}
         onClosed={() => setDetailRow(null)}
       />
+
+      {/* 정산 히스토리 조회 */}
+      <div className="space-y-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+        <div className="flex items-center gap-3 border-b border-border pb-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <CalendarClock className="h-5 w-5" />
+          </div>
+          <div>
+            <div className="text-[11px] text-muted-foreground">정산 히스토리</div>
+            <h2 className="text-base font-semibold text-foreground">저장된 일 정산 조회</h2>
+            <p className="text-xs text-muted-foreground">날짜와 지사를 선택해 저장된 정산 결과를 불러옵니다.</p>
+          </div>
+          <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span>저장된 데이터 기준으로 표시됩니다.</span>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground">정산일</label>
+            <InlineCalendar value={historyDate} onChange={setHistoryDate} />
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground">지사</label>
+            <select
+              className="h-9 min-w-[200px] rounded-md border border-border bg-background px-2 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+              value={historyBranchId}
+              onChange={(e) => setHistoryBranchId(e.target.value)}
+            >
+              <option value="">지사 선택</option>
+              {branches.map((b) => (
+                <option key={`hist-${b.id}`} value={b.id}>
+                  {b.name} {b.province || b.district ? `(${[b.province, b.district].filter(Boolean).join(" ")})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleFetchHistory}
+              disabled={historyLoading}
+              className="inline-flex h-9 items-center rounded-md bg-primary px-3 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90 disabled:opacity-60"
+            >
+              {historyLoading ? "불러오는 중..." : "정산 이력 조회"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setHistoryData(null);
+                setHistoryError(null);
+              }}
+              className="inline-flex h-9 items-center rounded-md border border-border bg-background px-3 text-xs font-semibold text-foreground hover:bg-muted"
+            >
+              초기화
+            </button>
+          </div>
+        </div>
+
+        {historyError && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            {historyError}
+          </div>
+        )}
+
+        {historyData ? (() => {
+          const historyMissionTotals: Record<string, Record<string, number>> = {};
+          (historyData.missions || []).forEach((m: any) => {
+            const date = m.mission_date || m.missionDate;
+            const lic = m.license_id || m.licenseId;
+            if (!date || !lic) return;
+            const amt = Number(m.amount || 0) || 0;
+            if (!historyMissionTotals[date]) historyMissionTotals[date] = {};
+            historyMissionTotals[date][lic] = (historyMissionTotals[date][lic] || 0) + amt;
+          });
+          const historyMissionDates = Object.keys(historyMissionTotals).sort(
+            (a, b) => new Date(a).getTime() - new Date(b).getTime()
+          );
+          return (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="font-semibold text-foreground">
+                    {historyData.run.settlement_date} · {branches.find((b) => b.id === historyData.run.branch_id)?.name || historyData.run.branch_id}
+                  </span>
+                  <span className="text-muted-foreground">상태: {historyData.run.status}</span>
+                  {historyData.run.confirmed_at && (
+                    <span className="text-muted-foreground">확정: {historyData.run.confirmed_at}</span>
+                  )}
+                  {historyData.run.stats && (
+                    <span className="text-muted-foreground">
+                      라이더 {historyData.run.stats.riderCount || 0}명 · 총 정산 {historyData.run.stats.totalSettlement || 0} · 오더 {historyData.run.stats.totalOrders || 0}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <div className="max-h-[1080px] overflow-y-auto">
+                  <table className="min-w-[2200px] border-separate border-spacing-0 text-sm">
+                    <thead className="sticky top-0 z-30 bg-muted/90 text-muted-foreground backdrop-blur">
+                      <tr>
+                        <th
+                          className="sticky top-0 z-40 border border-border px-3 py-3 text-center font-semibold whitespace-nowrap bg-card"
+                          style={{ left: 0, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
+                        >
+                          라이더명
+                        </th>
+                        <th
+                          className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap"
+                          style={{ width: `${licenseColWidth}px`, minWidth: `${licenseColWidth}px`, maxWidth: `${licenseColWidth}px` }}
+                        >
+                          라이선스 ID
+                        </th>
+                        <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">오더수</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>대여금 납부</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>렌트비용</th>
+                        <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">익일정산</th>
+                        <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">실제 입금액</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>수수료</th>
+                        <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">지사</th>
+                        {historyMissionDates.map((d) => (
+                          <th
+                            key={`hist-mission-head-${d}`}
+                            className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${purpleCellClass}`}
+                          >
+                            {formatMissionLabel(d)}
+                          </th>
+                        ))}
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${blueCellClass}`}>정산금액</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${blueCellClass}`}>총 지원금</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>차감내역</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${blueCellClass}`}>총 정산금액</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>고용보험</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>산재보험</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>시간제보험</th>
+                        <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>보험료 소급</th>
+                        <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">원천세</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {historyData.results.map((r: any) => {
+                        const missionTotal = historyMissionDates.reduce(
+                          (acc, d) => acc + (historyMissionTotals[d]?.[r.license_id] || 0),
+                          0
+                        );
+                        return (
+                          <tr key={`hist-${r.id}`} className="bg-background">
+                            <td
+                              className="sticky z-20 border border-border px-3 py-3 text-center text-foreground whitespace-nowrap bg-card"
+                              style={{ left: 0, width: `${riderColWidth}px`, minWidth: `${riderColWidth}px`, maxWidth: `${riderColWidth}px` }}
+                            >
+                              <div className="font-semibold">
+                                {r.rider_name || "-"}
+                              </div>
+                              <div className="text-[11px] text-muted-foreground">뒷번호 {r.rider_suffix || "-"}</div>
+                            </td>
+                            <td
+                              className="border border-border px-3 py-3 text-center font-semibold text-foreground whitespace-nowrap"
+                              style={{ width: `${licenseColWidth}px`, minWidth: `${licenseColWidth}px`, maxWidth: `${licenseColWidth}px` }}
+                            >
+                              {r.license_id}
+                            </td>
+                            <td className="border border-border px-3 py-3 text-center font-semibold text-blue-700 dark:text-blue-300 whitespace-nowrap">
+                              {r.order_count?.toLocaleString?.() || r.order_count || "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                              {r.loan_payment ? `${formatCurrency(r.loan_payment)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                              {r.rent_cost ? `${formatCurrency(r.rent_cost)}원` : "-"}
+                            </td>
+                            <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                              {r.next_day_settlement ? `${formatCurrency(r.next_day_settlement)}원` : "-"}
+                            </td>
+                            <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                              {r.net_payout ? `${formatCurrency(r.net_payout)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                              {r.fee ? `${formatCurrency(r.fee)}원` : "-"}
+                            </td>
+                            <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                              <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/5 px-2 py-[3px] text-[11px] font-medium leading-none text-primary">
+                                {branches.find((b) => b.id === r.branch_id)?.name || "-"}
+                              </span>
+                            </td>
+                            {historyMissionDates.map((d) => {
+                              const amt = historyMissionTotals[d]?.[r.license_id] || 0;
+                              return (
+                                <td
+                                  key={`mission-hist-${r.license_id}-${d}`}
+                                  className={`border border-border px-3 py-3 text-center whitespace-nowrap ${purpleCellClass}`}
+                                >
+                                  {amt ? `${formatCurrency(amt)}원` : "-"}
+                                </td>
+                              );
+                            })}
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${blueCellClass}`}>
+                              {r.settlement_amount ? `${formatCurrency(r.settlement_amount)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${blueCellClass}`}>
+                              {r.support_total ? `${formatCurrency(r.support_total)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                              {r.deduction ? `${formatCurrency(r.deduction)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${blueCellClass}`}>
+                              {r.total_settlement ? `${formatCurrency(r.total_settlement)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                              {r.employment ? `${formatCurrency(r.employment)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                              {r.accident ? `${formatCurrency(r.accident)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                              {r.time_insurance ? `${formatCurrency(r.time_insurance)}원` : "-"}
+                            </td>
+                            <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                              {r.retro ? `${formatCurrency(r.retro)}원` : "-"}
+                            </td>
+                            <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                              {r.withholding ? `${formatCurrency(r.withholding)}원` : "-"}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {historyData.results.length === 0 && (
+                        <tr>
+                          <td className="px-3 py-3 text-center text-muted-foreground" colSpan={10}>
+                            저장된 결과가 없습니다.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          );
+        })() : (
+          <div className="rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground">
+            날짜와 지사를 선택해 “정산 이력 조회”를 누르면 저장된 정산 결과가 표시됩니다.
+          </div>
+        )}
+      </div>
+      {showOverwriteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-xl border border-border bg-card p-5 text-sm shadow-lg">
+            <div className="mb-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-800 font-semibold">
+                  !
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">이미 저장된 정산 파일이 있습니다.</div>
+                  <p className="text-[11px] text-muted-foreground">덮어쓰면 기존 데이터가 삭제된 후 새로 저장됩니다.</p>
+                </div>
+              </div>
+            </div>
+            <div className="mb-3 max-h-40 space-y-1 overflow-y-auto rounded-md border border-border bg-muted/30 p-2 text-[11px]">
+              {conflictItems.map((c, idx) => (
+                <div key={`${c.label}-${idx}`}>
+                  {c.type === "file" ? "파일" : "날짜/지사"}: {c.label} {c.detail ? `(${c.detail})` : ""}
+                </div>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 text-xs">
+              <button
+                type="button"
+                className="inline-flex h-8 items-center rounded-md border border-border bg-background px-3 font-medium text-foreground hover:bg-muted"
+                onClick={() => setShowOverwriteModal(false)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="inline-flex h-8 items-center rounded-md bg-emerald-600 px-3 font-semibold text-white shadow-sm hover:bg-emerald-700"
+                onClick={() => doSave(true)}
+              >
+                덮어쓰기 저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

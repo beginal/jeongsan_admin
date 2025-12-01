@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { decrypt } from "officecrypto-tool";
+import { createHash } from "crypto";
 import * as XLSX from "xlsx";
 import { requireAdminAuth } from "@/lib/auth";
 
@@ -192,6 +193,36 @@ const parseSummarySheet = (wb: XLSX.WorkBook, branchName: string): RiderSummary[
   return summaries;
 };
 
+const parseSettlementDate = (wb: XLSX.WorkBook) => {
+  const ws = wb.Sheets["종합"];
+  if (!ws) return null;
+  // 종합 시트 B4 셀 사용 (정산일)
+  const cell = ws["B4"];
+  if (!cell || cell.v == null) return null;
+  const raw = cell.v;
+  if (typeof raw === "number") {
+    const parsed = XLSX.SSF.parse_date_code(raw);
+    if (!parsed) return null;
+    const yyyy = parsed.y;
+    const mm = String(parsed.m).padStart(2, "0");
+    const dd = String(parsed.d).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    const date = new Date(trimmed);
+    if (!Number.isNaN(date.getTime())) {
+      const yyyy = date.getFullYear();
+      const mm = String(date.getMonth() + 1).padStart(2, "0");
+      const dd = String(date.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    // YYYY-MM-DD 같은 포맷 유지
+    return trimmed;
+  }
+  return null;
+};
+
 const parseOrderDetails = (
   wb: XLSX.WorkBook,
   branchName: string,
@@ -338,6 +369,7 @@ export async function POST(req: Request) {
     }
 
     const buf = Buffer.from(await file.arrayBuffer());
+    const fileHash = createHash("sha256").update(buf).digest("hex");
     const decrypted = await decrypt(buf, { password });
     const wb = XLSX.read(decrypted, { type: "buffer" });
 
@@ -345,8 +377,9 @@ export async function POST(req: Request) {
     const licenseByName = new Map(summaries.map((s) => [s.riderName, s.licenseId]));
     const details = parseOrderDetails(wb, branchName, licenseByName);
     const missions = parseMissionSheet(wb);
+    const settlementDate = parseSettlementDate(wb);
 
-    return NextResponse.json({ summaries, details, missions });
+    return NextResponse.json({ summaries, details, missions, settlementDate, fileHash });
   } catch (e: any) {
     console.error("[settlement/parse] error:", e);
     return NextResponse.json(
