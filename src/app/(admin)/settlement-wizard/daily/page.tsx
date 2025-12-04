@@ -114,8 +114,7 @@ type Step3Row = {
   orderCount: number;
   loanPayment: number;
   rentCost: string;
-  nextDaySettlement: number;
-  payout: string;
+  actualDeposit: number;
   fee: number;
   settlementAmount: number;
   supportTotal: number;
@@ -1031,16 +1030,16 @@ export default function WeeklySettlementWizardPage() {
             : riderSuffixResolved && rentalBySuffix[riderSuffixResolved] != null
               ? rentalBySuffix[riderSuffixResolved]
               : 0) || 0;
-        const receivesNextDay =
-          riderHasNextDayCycle ||
-          !!matched?.nextDaySettlement ||
-          (!!matchedRiderId && !!nextDayByRider[matchedRiderId]) ||
-          (!!riderSuffixResolved && !!nextDayByRider[riderSuffixResolved]) ||
-          (!!r.licenseId && !!nextDayByRider[r.licenseId]);
 
         const overallTotal = totalSettlement + missionSum;
         const withholding = Math.floor((overallTotal * 0.033) / 10) * 10;
-        const nextDaySettlement = receivesNextDay ? Math.round(totalSettlement * 0.95 - fee) : 0;
+        const actualDeposit = Math.round(
+          totalSettlement * 0.95 -
+            timeInsurance -
+            loanPayment -
+            rentDaily -
+            fee
+        );
 
         return {
           licenseId: r.licenseId || "-",
@@ -1050,8 +1049,7 @@ export default function WeeklySettlementWizardPage() {
           orderCount,
           loanPayment,
           rentCost: rentDaily ? `${formatCurrency(rentDaily)}원` : "-",
-          nextDaySettlement,
-          payout: "-",
+          actualDeposit,
           fee,
           settlementAmount,
           supportTotal,
@@ -1067,7 +1065,7 @@ export default function WeeklySettlementWizardPage() {
           rentCostValue: rentDaily,
         };
       });
-  }, [parsed, branchIdByLabel, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider, loanScheduleByRider, rentalBySuffix, loanBySuffix, nextDayByRider]);
+  }, [parsed, branchIdByLabel, branches, missionDates, missionTotals, findMatchedRider, rentalFeeByRider, loanScheduleByRider, rentalBySuffix, loanBySuffix]);
 
   const openDetail = (row: Step3Row) => {
     setDetailRow(row);
@@ -1089,7 +1087,6 @@ export default function WeeklySettlementWizardPage() {
       "오더수",
       "대여금 납부",
       "렌트비용",
-      "익일정산",
       "실제 입금액",
       "수수료",
       "지사",
@@ -1116,8 +1113,7 @@ export default function WeeklySettlementWizardPage() {
         row.orderCount,
         row.loanPayment ? `${formatCurrency(row.loanPayment)}원` : "-",
         row.rentCost,
-        row.nextDaySettlement ? `${formatCurrency(row.nextDaySettlement)}원` : "-",
-        "-",
+        row.actualDeposit ? `${formatCurrency(row.actualDeposit)}원` : "-",
         row.fee ? `${formatCurrency(row.fee)}원` : "-",
         row.branchName || "-",
         ...missionCols,
@@ -1274,7 +1270,8 @@ export default function WeeklySettlementWizardPage() {
           withholding: row.withholding,
           rentCost: row.rentCostValue || 0,
           loanPayment: row.loanPayment,
-          nextDaySettlement: row.nextDaySettlement,
+          nextDaySettlement: 0,
+          netPayout: row.actualDeposit,
           raw: row,
         };
       });
@@ -1853,7 +1850,6 @@ export default function WeeklySettlementWizardPage() {
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">오더수</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>대여금 납부</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>렌트비용</th>
-                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">익일정산</th>
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">실제 입금액</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>수수료</th>
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">지사</th>
@@ -1916,10 +1912,7 @@ export default function WeeklySettlementWizardPage() {
                       {row.rentCost}
                     </td>
                     <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
-                      {row.nextDaySettlement ? `${formatCurrency(row.nextDaySettlement)}원` : "-"}
-                    </td>
-                    <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
-                      -
+                      {row.actualDeposit ? `${formatCurrency(row.actualDeposit)}원` : "-"}
                     </td>
                     <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
                       {row.fee ? `${formatCurrency(row.fee)}원` : "-"}
@@ -2111,7 +2104,6 @@ export default function WeeklySettlementWizardPage() {
                         <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">오더수</th>
                         <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>대여금 납부</th>
                         <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>렌트비용</th>
-                        <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">익일정산</th>
                         <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">실제 입금액</th>
                         <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>수수료</th>
                         <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">지사</th>
@@ -2165,9 +2157,6 @@ export default function WeeklySettlementWizardPage() {
                             </td>
                             <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
                               {r.rent_cost ? `${formatCurrency(r.rent_cost)}원` : "-"}
-                            </td>
-                            <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
-                              {r.next_day_settlement ? `${formatCurrency(r.next_day_settlement)}원` : "-"}
                             </td>
                             <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
                               {r.net_payout ? `${formatCurrency(r.net_payout)}원` : "-"}

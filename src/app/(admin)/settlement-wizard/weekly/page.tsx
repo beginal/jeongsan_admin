@@ -146,7 +146,10 @@ type Step3Row = {
   riderSuffix: string;
   branchName: string;
   orderCount: number;
+  loanPayment: number;
   rentCost: string;
+  nextDaySettlement: number;
+  actualDeposit: number;
   payout: string;
   fee: number;
   peakScore: string;
@@ -330,6 +333,7 @@ export default function WeeklySettlementWizardPage() {
   const [promotionDetail, setPromotionDetail] = useState<Record<string, PromotionDetail>>({});
   const [branchRiders, setBranchRiders] = useState<Record<string, BranchRider[]>>({});
   const [rentalFeeByRider, setRentalFeeByRider] = useState<RentalFeeMap>({});
+  const [nextDayPayoutByLicense, setNextDayPayoutByLicense] = useState<Record<string, number>>({});
   const [uploads, setUploads] = useState<UploadEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -721,6 +725,7 @@ export default function WeeklySettlementWizardPage() {
           const summaryForKey = summaryMap.get(riderKey || lic);
           const suffix =
             d.riderSuffix || sp.suffix || summaryForKey?.suffix || "";
+          const branchLabel = r._branchLabel || d.branchName;
           const existing =
             riderMap.get(riderKey) ||
             ({
@@ -737,23 +742,28 @@ export default function WeeklySettlementWizardPage() {
 
           existing.riderName = existing.riderName || name;
           existing.riderSuffix = existing.riderSuffix || suffix;
-          existing.details.push({ ...d, riderName: name, riderSuffix: suffix });
-          existing.branchCounts[d.branchName] =
-            (existing.branchCounts[d.branchName] || 0) + 1;
-          branchSet.add(d.branchName);
+          existing.details.push({
+            ...d,
+            riderName: name,
+            riderSuffix: suffix,
+            branchName: branchLabel,
+          });
+          existing.branchCounts[branchLabel] =
+            (existing.branchCounts[branchLabel] || 0) + 1;
+          branchSet.add(branchLabel);
 
           const peakKey = d.judgementDate;
           existing.peakByDate[peakKey] = existing.peakByDate[peakKey] || createEmptyPeak();
-          existing.peakByBranch[d.branchName] = existing.peakByBranch[d.branchName] || {};
-          existing.peakByBranch[d.branchName][peakKey] =
-            existing.peakByBranch[d.branchName][peakKey] || createEmptyPeak();
+          existing.peakByBranch[branchLabel] = existing.peakByBranch[branchLabel] || {};
+          existing.peakByBranch[branchLabel][peakKey] =
+            existing.peakByBranch[branchLabel][peakKey] || createEmptyPeak();
           const shift = d.peakTime as keyof AggRider["peakByDate"][string];
           if (shift && existing.peakByDate[peakKey][shift] !== undefined) {
             existing.peakByDate[peakKey][shift]! += 1;
-            existing.peakByBranch[d.branchName][peakKey][shift]! += 1;
+            existing.peakByBranch[branchLabel][peakKey][shift]! += 1;
           }
           existing.peakByDate[peakKey].total += 1;
-          existing.peakByBranch[d.branchName][peakKey].total += 1;
+          existing.peakByBranch[branchLabel][peakKey].total += 1;
 
           riderMap.set(riderKey, existing);
         });
@@ -1063,6 +1073,21 @@ export default function WeeklySettlementWizardPage() {
           }
         }
 
+        const loanPayment = 0;
+        const nextDaySettlement = 0;
+        const rentCostValue = raw.fin ? Number((raw.fin as any).rentCost || 0) : 0;
+        const actualDeposit = Math.round(
+          (raw.fin.totalSettlement || 0) -
+            (raw.fin.employment || 0) -
+            (raw.fin.accident || 0) -
+            withholding -
+            (raw.fin.timeInsurance || 0) -
+            loanPayment -
+            (rentCostValue || 0) -
+            fee -
+            nextDaySettlement
+        );
+
         return {
           key: `${key}-child-${idx}`,
           parentKey: key,
@@ -1072,7 +1097,10 @@ export default function WeeklySettlementWizardPage() {
           riderSuffix: raw.riderSuffix || "-",
           branchName: raw.branchName,
           orderCount,
+          loanPayment,
           rentCost: "-",
+          nextDaySettlement,
+          actualDeposit,
           payout: "-",
           fee,
           peakScore: peakScoreText,
@@ -1090,7 +1118,7 @@ export default function WeeklySettlementWizardPage() {
           withholding,
           matchedRiderId: undefined,
           matchedRiderName: undefined,
-          rentCostValue: 0,
+          rentCostValue,
           sourceFile: raw.sourceFile,
         };
       });
@@ -1118,9 +1146,11 @@ export default function WeeklySettlementWizardPage() {
         let promoTotal = 0;
         let peakInfoForDisplay: { score: number; threshold: number | null } | null = null;
         const branchPeak: AggRider["peakByDate"] = r.peakByBranch?.[primaryBranch] || {};
+        const aggregatedPeak: AggRider["peakByDate"] = r.peakByDate || {};
         promos.forEach((p) => {
           const { amount, typeLabel } = calcPromoAmount(p, orderCount, branchId);
-          const peakInfo = calcPeakScore(p, branchPeak);
+          // 피크 점수는 업로드된 모든 파일의 합산 데이터를 기준으로 계산
+          const peakInfo = calcPeakScore(p, aggregatedPeak);
           if (peakInfo && !peakInfoForDisplay) {
             peakInfoForDisplay = { score: peakInfo.score, threshold: peakInfo.threshold };
           }
@@ -1179,6 +1209,20 @@ export default function WeeklySettlementWizardPage() {
             ? `-${formatCurrency(rentCostWeekly)}원`
             : "-";
 
+        const loanPayment = 0;
+        const nextDaySettlement = nextDayPayoutByLicense[r.licenseId] || 0;
+        const actualDeposit = Math.round(
+          totalSettlement -
+            employment -
+            accident -
+            withholding -
+            timeInsurance -
+            (rentCostWeekly || 0) -
+            loanPayment -
+            fee -
+            nextDaySettlement
+        );
+
         return {
           key: r.key,
           licenseId: r.licenseId || "-",
@@ -1186,7 +1230,10 @@ export default function WeeklySettlementWizardPage() {
           riderSuffix: riderSuffixResolved || "-",
           branchName: primaryBranch,
           orderCount,
+          loanPayment,
           rentCost: rentCostDisplay,
+          nextDaySettlement,
+          actualDeposit,
           payout: "-",
           fee,
           peakScore: peakScoreText,
@@ -1220,10 +1267,71 @@ export default function WeeklySettlementWizardPage() {
     rentalFeeByRider,
     calcPromoAmount,
     calcPeakScore,
+    nextDayPayoutByLicense,
   ]);
 
   const step3Rows = step3Data.rows;
   const childRowsByKey = step3Data.childRowsByKey;
+
+  useEffect(() => {
+    if (!parsed) {
+      setNextDayPayoutByLicense({});
+      return;
+    }
+    const licenses = Array.from(
+      new Set(
+        parsed.riders
+          .map((r) => (r.licenseId || r.key || "").trim())
+          .filter(Boolean)
+      )
+    );
+    if (licenses.length === 0) {
+      setNextDayPayoutByLicense({});
+      return;
+    }
+
+    // 판정일자 범위 계산 (익일정산 합산 시 기간 제한)
+    const dates: string[] = [];
+    parsed.riders.forEach((r) => {
+      r.details.forEach((d) => {
+        if (d.judgementDate) dates.push(d.judgementDate);
+      });
+    });
+    dates.sort();
+    const startDate = dates[0] || null;
+    const endDate = dates[dates.length - 1] || null;
+
+    let cancelled = false;
+    async function fetchNextDay() {
+      try {
+        const res = await fetch("/api/settlement/daily/net-payout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            licenseIds: licenses,
+            startDate,
+            endDate,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data?.error) {
+          console.warn("[weekly] next-day payout fetch failed:", data?.error || res.statusText);
+          if (!cancelled) setNextDayPayoutByLicense({});
+          return;
+        }
+        if (!cancelled) {
+          setNextDayPayoutByLicense(data.totals || {});
+        }
+      } catch (e) {
+        console.warn("[weekly] next-day payout fetch error:", e);
+        if (!cancelled) setNextDayPayoutByLicense({});
+      }
+    }
+    fetchNextDay();
+    return () => {
+      cancelled = true;
+    };
+  }, [parsed]);
 
   const displayRows: Step3Row[] = useMemo(() => {
     const list: Step3Row[] = [];
@@ -1274,7 +1382,9 @@ export default function WeeklySettlementWizardPage() {
       "라이더명",
       "라이선스 ID",
       "오더수",
+      "대여금",
       "렌트비용",
+      "익일정산 합계",
       "실제 입금액",
       "수수료",
       "지사",
@@ -1303,8 +1413,10 @@ export default function WeeklySettlementWizardPage() {
         row.riderName,
         row.licenseId,
         row.orderCount,
-        row.rentCostValue ? `-${formatAmount(row.rentCostValue)}` : "-",
-        "-",
+        row.loanPayment ? formatNegative(row.loanPayment) : "-",
+        row.rentCostValue ? formatNegative(row.rentCostValue) : "-",
+        row.nextDaySettlement ? formatNegative(row.nextDaySettlement) : "-",
+        row.actualDeposit ? formatAmount(row.actualDeposit) : "-",
         formatNegative(row.fee),
         row.branchName || "-",
         row.peakScore || "-",
@@ -1838,7 +1950,9 @@ export default function WeeklySettlementWizardPage() {
                       라이선스 ID
                     </th>
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">오더수</th>
+                    <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>대여금</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>렌트비용</th>
+                    <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">익일정산</th>
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">실제 입금액</th>
                     <th className={`border border-border px-3 py-3 text-center font-semibold whitespace-nowrap ${redCellClass}`}>수수료</th>
                     <th className="border border-border px-3 py-3 text-center font-semibold whitespace-nowrap">지사</th>
@@ -1926,10 +2040,16 @@ export default function WeeklySettlementWizardPage() {
                         {row.orderCount.toLocaleString()}
                       </td>
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
+                        {row.loanPayment ? `-${formatCurrency(row.loanPayment)}원` : "-"}
+                      </td>
+                      <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
                         {row.rentCost}
                       </td>
                       <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
-                        -
+                        {row.nextDaySettlement ? `-${formatCurrency(row.nextDaySettlement)}원` : "-"}
+                      </td>
+                      <td className="border border-border px-3 py-3 text-center whitespace-nowrap">
+                        {row.actualDeposit ? `${formatCurrency(row.actualDeposit)}원` : "-"}
                       </td>
                       <td className={`border border-border px-3 py-3 text-center whitespace-nowrap ${redCellClass}`}>
                         {row.fee ? `-${formatCurrency(row.fee)}원` : "-"}
