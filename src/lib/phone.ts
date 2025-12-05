@@ -5,6 +5,15 @@ export function parsePhoneDigits(raw?: string | null, maxLen = 11): string {
   return (raw || "").replace(/\D/g, "").slice(0, maxLen);
 }
 
+/**
+ * 인증/조회용 표준화 숫자 (비어 있으면 null 반환, 뒤에서 11자리까지만 사용)
+ * - 기존 parsePhoneDigits는 빈 문자열을 반환했으나, 라이더 식별에서는 null 여부가 중요해 별도 함수로 분리
+ */
+export function normalizePhoneDigits(raw?: string | null): string | null {
+  const digits = parsePhoneDigits(raw);
+  return digits ? digits.slice(-11) : null;
+}
+
 /** 표시용 포맷(02/휴대폰 모두 지원) */
 export function formatPhone(raw?: string | null): string {
   const digits = parsePhoneDigits(raw);

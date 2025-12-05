@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireRiderAuth } from "@/lib/auth";
+import { resolveRiderIdFromUser } from "@/lib/rider";
 
 type SettlementMode = "daily" | "weekly";
 
@@ -25,31 +26,7 @@ async function resolveRiderId(
   user: any,
   token: string
 ) {
-  const meta = (user?.user_metadata as any) || {};
-  let riderId = meta?.rider_id || null;
-  let phoneDigits: string | null =
-    meta?.phone || meta?.phone_number || user?.phone || null;
-  if (!phoneDigits && user.email && user.email.startsWith("rider-")) {
-    const m = user.email.match(/^rider-(\d{8,11})@/);
-    if (m) phoneDigits = m[1];
-  }
-  if ((!riderId || riderId === user?.id) && phoneDigits) {
-    const { data: riderByPhone } = await supabase
-      .from("riders")
-      .select("id")
-      .eq("phone", phoneDigits)
-      .maybeSingle();
-
-    riderId = (riderByPhone as any)?.id || riderId;
-  }
-  if (!riderId && user?.id) {
-    const { data: riderByUserId } = await supabase
-      .from("riders")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
-    riderId = (riderByUserId as any)?.id || riderId;
-  }
+  const { riderId, phoneDigits } = await resolveRiderIdFromUser(supabase, user);
   return { riderId, phone: phoneDigits };
 }
 

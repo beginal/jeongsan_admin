@@ -1,62 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAuth, requireRiderAuth } from "@/lib/auth";
+import { resolveRiderIdFromUser } from "@/lib/rider";
 
 async function resolveRiderId(
   supabase: any,
   user: any,
   token: string
 ) {
-  const meta = (user?.user_metadata as any) || {};
-  let riderId = meta?.rider_id || null;
-  let phoneDigits: string | null =
-    meta?.phone || meta?.phone_number || user?.phone || null;
-  if (!phoneDigits && user?.email && user.email.startsWith("rider-")) {
-    const m = user.email.match(/^rider-(\d{8,11})@/);
-    if (m) phoneDigits = m[1];
-  }
-
-  if ((!riderId || riderId === user?.id) && phoneDigits) {
-    const { data: riderByPhone } = await supabase
-      .from("riders")
-      .select("id")
-      .eq("phone", phoneDigits)
-      .maybeSingle();
-
-    riderId = (riderByPhone as any)?.id || riderId;
-
-    if (!riderId && phoneDigits.length >= 6) {
-      const fuzzyPattern = `%${phoneDigits.split("").join("%")}%`;
-      const { data: riderByFuzzy } = await supabase
-        .from("riders")
-        .select("id")
-        .ilike("phone", fuzzyPattern)
-        .limit(1)
-        .maybeSingle();
-      riderId = (riderByFuzzy as any)?.id || riderId;
-    }
-
-    if (!riderId && phoneDigits.length >= 4) {
-      const suffix = phoneDigits.slice(-4);
-      const likePattern = `%${suffix}`;
-      const { data: riderByLike } = await supabase
-        .from("riders")
-        .select("id, phone")
-        .ilike("phone", likePattern)
-        .limit(1)
-        .maybeSingle();
-      riderId = (riderByLike as any)?.id || riderId;
-    }
-  }
-
-  if (!riderId && user?.id) {
-    const { data: riderByUserId } = await supabase
-      .from("riders")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
-    riderId = (riderByUserId as any)?.id || riderId;
-  }
-
+  const { riderId, phoneDigits } = await resolveRiderIdFromUser(supabase, user);
   return { riderId, phone: phoneDigits };
 }
 
@@ -74,10 +25,17 @@ export async function GET(request: NextRequest) {
     if (riderOnly) {
       const riderAuth = await requireRiderAuth();
       if ("response" in riderAuth) return riderAuth.response;
-      supabase = riderAuth.supabase;
-      const { riderId } = await resolveRiderId(supabase, riderAuth.user, riderAuth.token);
+      supabase = riderAuth.serviceSupabase ?? riderAuth.supabase; // 서비스 롤 우선 사용
+      const { riderId, phone } = await resolveRiderId(supabase, riderAuth.user, riderAuth.token);
       if (!riderId) {
-        return NextResponse.json({ error: "라이더 정보를 찾을 수 없습니다." }, { status: 404 });
+        return NextResponse.json(
+          {
+            error: "라이더 정보를 찾을 수 없습니다.",
+            code: "rider_not_resolved",
+            phone,
+          },
+          { status: 404 }
+        );
       }
       limitedRiderId = riderId;
 
